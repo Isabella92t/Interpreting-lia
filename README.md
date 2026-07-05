@@ -1,218 +1,219 @@
-# Kravspecifikation: Tolkappen (Svenska ↔ Spanska)
+# Requirements Specification: Interpreter App (Swedish ↔ Spanish)
 
-> **Dokumenttyp:** Kravspecifikation och användarfall (Use Cases)
+> **Document Type:** Requirements Specification and Use Cases
 
-## Teknisk översikt
+## Technical Overview
 
-| Område | Specifikation |
-|---------|---------------|
-| **Utvecklingsplattform** | React Native (iOS & Android) |
-| **Backend/Databas** | PostgreSQL |
-| **Roll** | Mobilutvecklare (Examensarbete / Ersättning för praktikplats) |
-
----
-
-# 1. Introduktion och syfte
-
-Syftet med denna mobilapplikation är att fungera som ett professionellt digitalt hjälpmedel och en fickordbok för verksamma eller studerande tolkar i deras dagliga arbete, samt som ett stöd för andra personer i behov av språklig assistans mellan svenska och spanska.
-
-Appen ska erbjuda:
-
-- En snabb och överskådlig struktur
-- Specifika fackkategorier (exempelvis juridik och sjukvård)
-- En kraftfull global sökfunktion
-- Snabb åtkomst till termer under tidspressade tolksituationer
+| Area                     | Specification                                                 |
+| ------------------------ | ------------------------------------------------------------- |
+| **Development Platform** | React Native (iOS & Android)                                  |
+| **Backend/Database**     | PostgreSQL                                                    |
+| **Role**                 | Mobile Developer (Bachelor's Thesis / Internship Replacement) |
 
 ---
 
-# 2. Målgrupp & Teknisk plattform
+# 1. Introduction and Purpose
 
-## Primär målgrupp
+The purpose of this mobile application is to serve as a professional digital reference tool and pocket dictionary for professional and student interpreters in their daily work, as well as a language support tool for other users who need assistance between Swedish and Spanish.
 
-- Yrkesverksamma tolkar
-- Tolkstudenter
+The application will provide:
 
-Målet är att erbjuda ett snabbt och pålitligt referensverktyg under tolkuppdrag.
+* A fast and intuitive interface
+* Specialized domain categories (e.g., Legal and Healthcare)
+* A powerful global search function
+* Quick access to terminology during time-critical interpreting sessions
 
-## Sekundär målgrupp
+---
 
-- Handläggare inom myndigheter
-- Studenter
-- Privatpersoner som behöver språkligt stöd inom specifika fackområden
+# 2. Target Audience & Technical Platform
 
-## Teknisk plattform
+## Primary Target Audience
+
+* Professional interpreters
+* Interpreter students
+
+The goal is to provide a fast and reliable reference tool during interpreting assignments.
+
+## Secondary Target Audience
+
+* Government officials and case workers
+* Students
+* Individuals who need language support within specialized subject areas
+
+## Technical Platform
 
 ### Frontend
 
-- **React Native**
-- Gemensam kodbas för både iOS och Android (Cross-platform)
+* **React Native**
+* Shared codebase for both iOS and Android (Cross-platform)
 
-### Backend & Databas
+### Backend & Database
 
-- **PostgreSQL**
-- Relationell databas för lagring av:
-  - Ord
-  - Översättningar
-  - Definitioner
-  - Kategorier
+* **PostgreSQL**
+* Relational database for storing:
 
-### Teknisk kommentar
+  * Words
+  * Translations
+  * Definitions
+  * Categories
 
-Eftersom PostgreSQL är en serverbaserad databas kommer mobilappen att kommunicera med databasen via ett API (exempelvis Node.js + Express) över HTTPS.
+### Technical Notes
 
-För bättre prestanda kan data mellanlagras lokalt (cache) med exempelvis:
+Since PostgreSQL is a server-based database, the mobile application will communicate with the database through an API (for example, Node.js + Express) over HTTPS.
 
-- SQLite
-- AsyncStorage
+To improve performance, data may be cached locally using technologies such as:
 
-Det möjliggör även framtida offline-stöd.
+* SQLite
+* AsyncStorage
 
----
-
-# 3. Funktionella krav
-
-| Krav-ID | Funktion | Beskrivning |
-|----------|----------|-------------|
-| **F-01** | Kategorisering | Appen ska hämta och strukturera ord utifrån minst fyra fasta huvudkategorier från PostgreSQL: **Juridik**, **Sjukvård**, **Migration** och **Samhälle**. |
-| **F-02** | Ordlistor (A–Ö) | Varje kategori ska innehålla en alfabetiskt sorterad lista över ord och begrepp. Sorteringen ska anpassas dynamiskt efter valt källspråk. |
-| **F-03** | Global sökfunktion | Ett sökfält ska finnas tillgängligt på samtliga skärmar. Sökningen ska söka samtidigt i alla kategorier. |
-| **F-04** | Ändring av språkriktning | Användaren ska kunna växla mellan **Svenska → Spanska** och **Spanska → Svenska** via en knapp eller switch i toppmenyn. |
-| **F-05** | Databasintegration | Appen hämtar data via API kopplat till PostgreSQL. För bästa användarupplevelse bör data cachelagras lokalt för omedelbara sökningar. |
+This also enables future offline support.
 
 ---
 
-# 4. Användarfall (Use Cases)
+# 3. Functional Requirements
+
+| Requirement ID | Function                     | Description                                                                                                                                                                 |
+| -------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **F-01**       | Categorization               | The application shall retrieve and organize terms into at least four predefined main categories from PostgreSQL: **Legal**, **Healthcare**, **Migration**, and **Society**. |
+| **F-02**       | Alphabetical Word Lists      | Each category shall contain an alphabetically sorted list of words and terms. The sorting shall adapt dynamically according to the selected source language.                |
+| **F-03**       | Global Search                | A search field shall be available on every screen. The search function shall search across all categories simultaneously.                                                   |
+| **F-04**       | Language Direction Switching | The user shall be able to switch between **Swedish → Spanish** and **Spanish → Swedish** using a button or switch in the top navigation bar.                                |
+| **F-05**       | Database Integration         | The application shall retrieve data through an API connected to PostgreSQL. To improve user experience, data should be cached locally for instant searches.                 |
 
 ---
 
-## Use Case 1 – Global sökning under tolkuppdrag
-
-### Aktör
-
-Primär användare (Tolken)
-
-### Mål
-
-Att snabbt hitta översättning eller förklaring av ett ord, oavsett kategori.
-
-### Huvudflöde
-
-1. Användaren öppnar appen eller befinner sig på valfri skärm.
-2. Användaren klickar på det globala sökfältet (`TextInput`).
-3. Användaren skriver in ett ord.
-4. Appen söker i databasen (eller filtrerar cachelagrad data).
-5. Resultat visas direkt i realtid från samtliga kategorier.
-6. Användaren väljer ett ord.
-7. Appen öppnar ordets detaljvy.
+# 4. Use Cases
 
 ---
 
-## Use Case 2 – Bläddra i en kategori
+## Use Case 1 – Global Search During an Interpreting Session
 
-### Aktör
+### Actor
 
-- Tolk
-- Person i behov av språkligt stöd
+Primary User (Interpreter)
 
-### Mål
+### Goal
 
-Att studera eller leta efter relevanta termer inom ett specifikt ämnesområde.
+To quickly find the translation or definition of a word regardless of its category.
 
-### Huvudflöde
+### Main Flow
 
-1. Användaren öppnar **HomeScreen**.
-2. Användaren väljer en kategori (exempelvis **Sjukvård**).
-3. Appen hämtar relevanta ord.
-4. **CategoryScreen** öppnas.
-5. Orden visas i en alfabetiskt sorterad `FlatList`.
-6. Användaren bläddrar genom listan.
-
----
-
-## Use Case 3 – Byta språkriktning under ett tolksamtal
-
-### Aktör
-
-Primär användare (Tolken)
-
-### Mål
-
-Att snabbt växla mellan svenska och spanska när samtalet ändrar riktning.
-
-### Huvudflöde
-
-1. Användaren befinner sig på startsidan eller i en kategori.
-2. Språkindikatorn visas i toppmenyn.
-3. Användaren trycker på språkknappen.
-4. Appens interna state uppdateras (t.ex. `isSpanishToSwedish`).
-5. Gränssnittet uppdateras.
-6. Ordlistor och sökfunktion använder det nya källspråket direkt.
+1. The user opens the application or is already on any screen.
+2. The user selects the global search field (`TextInput`).
+3. The user enters a search term.
+4. The application searches the database (or filters cached data).
+5. Matching results are displayed instantly from all categories.
+6. The user selects a word.
+7. The application opens the word's detail view.
 
 ---
 
-# 5. Förslag på gränssnitt och navigering
+## Use Case 2 – Browse a Category
 
-## Navigering
+### Actor
 
-Använd:
+* Interpreter
+* User requiring language support
 
-- `@react-navigation/native`
-- `StackNavigator`
+### Goal
 
-för att hantera navigation mellan appens olika skärmar.
+To browse or study terminology within a specific subject area.
+
+### Main Flow
+
+1. The user opens the **HomeScreen**.
+2. The user selects a category (for example, **Healthcare**).
+3. The application retrieves the relevant terminology.
+4. The **CategoryScreen** is displayed.
+5. The terms are presented in an alphabetically sorted `FlatList`.
+6. The user browses the list.
+
+---
+
+## Use Case 3 – Switch Language Direction During an Interpreting Session
+
+### Actor
+
+Primary User (Interpreter)
+
+### Goal
+
+To quickly switch between Swedish and Spanish when the direction of the conversation changes.
+
+### Main Flow
+
+1. The user is on the HomeScreen or a CategoryScreen.
+2. The language indicator is displayed in the top navigation bar.
+3. The user presses the language switch button.
+4. The application's internal state is updated (e.g., `isSpanishToSwedish`).
+5. The user interface is refreshed.
+6. Word lists and the search function immediately use the newly selected source language.
+
+---
+
+# 5. Proposed User Interface and Navigation
+
+## Navigation
+
+Use:
+
+* `@react-navigation/native`
+* `StackNavigator`
+
+to manage navigation between the application's screens.
 
 ---
 
 ## HomeScreen
 
-Startsidan innehåller:
+The HomeScreen contains:
 
-- Globalt sökfält
-- Språkväxlare (Switch/Button)
-- Fyra huvudkategorier (`TouchableOpacity`)
+* Global search field
+* Language switch (Switch/Button)
+* Four main categories (`TouchableOpacity`)
 
-### Kategorier
+### Categories
 
-- ⚖️ Juridik
-- 🏥 Sjukvård
-- 🌍 Migration
-- 🏛️ Samhälle
+* ⚖️ Legal
+* 🏥 Healthcare
+* 🌍 Migration
+* 🏛️ Society
 
 ---
 
 ## CategoryScreen
 
-Visar:
+Displays:
 
-- Gemensam Header
-  - Global sökning
-  - Språkbyte
-- `FlatList`
-- Ord hämtade från PostgreSQL
-- Alfabetisk sortering
+* Shared Header
+
+  * Global search
+  * Language switch
+* `FlatList`
+* Terms retrieved from PostgreSQL
+* Alphabetical sorting
 
 ---
 
 ## DetailScreen
 
-Visar detaljer om valt ord:
+Displays detailed information about the selected term:
 
-- Ord på källspråket
-- Översättning till målspråket
-- Förklaring/definition
-- Tillhörande kategori
+* Source language term
+* Translation into the target language
+* Definition / explanation
+* Associated category
 
 ---
 
-# Sammanfattning
+# Summary
 
-## Kärnfunktioner
+## Core Features
 
-- ✅ Svenska ↔ Spanska
-- ✅ Fyra fackkategorier
-- ✅ Global sökning
-- ✅ Dynamiskt språkbyte
-- ✅ PostgreSQL via API
-- ✅ Lokal cache för snabb sökning
-- ✅ React Native (iOS & Android)
-```
+* ✅ Swedish ↔ Spanish
+* ✅ Four specialized categories
+* ✅ Global search
+* ✅ Dynamic language switching
+* ✅ PostgreSQL integration via API
+* ✅ Local caching for fast searches
+* ✅ React Native (iOS & Android)
