@@ -18,10 +18,10 @@ The purpose of this mobile application is to serve as a professional digital ref
 
 The application will provide:
 
-* A fast and intuitive interface
-* Specialized domain categories (e.g., Legal and Healthcare)
-* A powerful global search function
-* Quick access to terminology during time-critical interpreting sessions
+- A fast and intuitive interface
+- Specialized domain categories (e.g., Legal and Healthcare)
+- A powerful global search function
+- Quick access to terminology during time-critical interpreting sessions
 
 ---
 
@@ -29,33 +29,32 @@ The application will provide:
 
 ## Primary Target Audience
 
-* Professional interpreters
-* Interpreter students
+- Professional interpreters
+- Interpreter students
 
 The goal is to provide a fast and reliable reference tool during interpreting assignments.
 
 ## Secondary Target Audience
 
-* Government officials and case workers
-* Students
-* Individuals who need language support within specialized subject areas
+- Government officials and case workers
+- Students
+- Individuals who need language support within specialized subject areas
 
 ## Technical Platform
 
 ### Frontend
 
-* **React Native**
-* Shared codebase for both iOS and Android (Cross-platform)
+- **React Native**
+- Shared codebase for both iOS and Android (Cross-platform)
 
 ### Backend & Database
 
-* **PostgreSQL**
-* Relational database for storing:
-
-  * Words
-  * Translations
-  * Definitions
-  * Categories
+- **PostgreSQL**
+- Relational database for storing:
+  - Words
+  - Translations
+  - Definitions
+  - Categories
 
 ### Technical Notes
 
@@ -63,8 +62,8 @@ Since PostgreSQL is a server-based database, the mobile application will communi
 
 To improve performance, data may be cached locally using technologies such as:
 
-* SQLite
-* AsyncStorage
+- SQLite
+- AsyncStorage
 
 This also enables future offline support.
 
@@ -72,13 +71,14 @@ This also enables future offline support.
 
 # 3. Functional Requirements
 
-| Requirement ID | Function                     | Description                                                                                                                                                                 |
-| -------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **F-01**       | Categorization               | The application shall retrieve and organize terms into at least four predefined main categories from PostgreSQL: **Legal**, **Healthcare**, **Migration**, and **Society**. |
-| **F-02**       | Alphabetical Word Lists      | Each category shall contain an alphabetically sorted list of words and terms. The sorting shall adapt dynamically according to the selected source language.                |
-| **F-03**       | Global Search                | A search field shall be available on every screen. The search function shall search across all categories simultaneously.                                                   |
-| **F-04**       | Language Direction Switching | The user shall be able to switch between **Swedish → Spanish** and **Spanish → Swedish** using a button or switch in the top navigation bar.                                |
-| **F-05**       | Database Integration         | The application shall retrieve data through an API connected to PostgreSQL. To improve user experience, data should be cached locally for instant searches.                 |
+| Requirement ID | Function                     | Description                                                                                                                                                                                              |
+| -------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **F-01**       | Categorization               | The application shall retrieve and organize terms into at least four predefined main categories from PostgreSQL: **Legal**, **Healthcare**, **Migration**, and **Society**.                              |
+| **F-02**       | Alphabetical Word Lists      | Each category shall contain an alphabetically sorted list of words and terms. The sorting shall adapt dynamically according to the selected source language.                                             |
+| **F-03**       | Global Search                | A search field shall be available on every screen. The search function shall search across all categories simultaneously.                                                                                |
+| **F-04**       | Language Direction Switching | The user shall be able to switch between **Swedish → Spanish** and **Spanish → Swedish** using a button or switch in the top navigation bar.                                                             |
+| **F-05**       | Database Integration         | The application shall retrieve data through an API connected to PostgreSQL. To improve user experience, data should be cached locally for instant searches.                                              |
+| **F-06**       | Authentication               | The user shall register or log in as the first view of the application. Authentication is handled by **Auth0** (hosted Universal Login), so no own user database or user management backend is required. |
 
 ---
 
@@ -86,7 +86,37 @@ This also enables future offline support.
 
 ---
 
-## Use Case 1 – Global Search During an Interpreting Session
+## Use Case 1 – Register or Log In
+
+### Actor
+
+Any user (Interpreter, student, or other user)
+
+### Goal
+
+To authenticate before using the application. Registration and login are the first view shown when the app starts.
+
+### Preconditions
+
+The user has opened the application and is not authenticated.
+
+### Main Flow
+
+1. The user opens the application.
+2. The application shows the **LoginScreen** as the first view.
+3. The user presses **"Log in or create account"**.
+4. The application redirects to **Auth0 Universal Login** (hosted by Auth0 — no own user database or user management backend is needed).
+5. The user logs in with an existing account, or switches to the **Sign up** tab to register a new one.
+6. Auth0 redirects back to the application with an authorization code, which the application exchanges for tokens (Authorization Code + PKCE).
+7. The application loads the user's profile and navigates to the **HomeScreen**.
+
+### Alternative Flow
+
+- **A1 – Log out:** The user presses "Log out" on the HomeScreen; the session is cleared and the LoginScreen is shown again.
+
+---
+
+## Use Case 2 – Global Search During an Interpreting Session
 
 ### Actor
 
@@ -108,12 +138,12 @@ To quickly find the translation or definition of a word regardless of its catego
 
 ---
 
-## Use Case 2 – Browse a Category
+## Use Case 3 – Browse a Category
 
 ### Actor
 
-* Interpreter
-* User requiring language support
+- Interpreter
+- User requiring language support
 
 ### Goal
 
@@ -130,7 +160,7 @@ To browse or study terminology within a specific subject area.
 
 ---
 
-## Use Case 3 – Switch Language Direction During an Interpreting Session
+## Use Case 4 – Switch Language Direction During an Interpreting Session
 
 ### Actor
 
@@ -157,8 +187,8 @@ To quickly switch between Swedish and Spanish when the direction of the conversa
 
 Use:
 
-* `@react-navigation/native`
-* `StackNavigator`
+- `@react-navigation/native`
+- `StackNavigator`
 
 to manage navigation between the application's screens.
 
@@ -168,16 +198,16 @@ to manage navigation between the application's screens.
 
 The HomeScreen contains:
 
-* Global search field
-* Language switch (Switch/Button)
-* Four main categories (`TouchableOpacity`)
+- Global search field
+- Language switch (Switch/Button)
+- Four main categories (`TouchableOpacity`)
 
 ### Categories
 
-* ⚖️ Legal
-* 🏥 Healthcare
-* 🌍 Migration
-* 🏛️ Society
+- ⚖️ Legal
+- 🏥 Healthcare
+- 🌍 Migration
+- 🏛️ Society
 
 ---
 
@@ -185,13 +215,13 @@ The HomeScreen contains:
 
 Displays:
 
-* Shared Header
+- Shared Header
+  - Global search
+  - Language switch
 
-  * Global search
-  * Language switch
-* `FlatList`
-* Terms retrieved from PostgreSQL
-* Alphabetical sorting
+- `FlatList`
+- Terms retrieved from PostgreSQL
+- Alphabetical sorting
 
 ---
 
@@ -199,10 +229,10 @@ Displays:
 
 Displays detailed information about the selected term:
 
-* Source language term
-* Translation into the target language
-* Definition / explanation
-* Associated category
+- Source language term
+- Translation into the target language
+- Definition / explanation
+- Associated category
 
 ---
 
@@ -210,10 +240,11 @@ Displays detailed information about the selected term:
 
 ## Core Features
 
-* ✅ Swedish ↔ Spanish
-* ✅ Four specialized categories
-* ✅ Global search
-* ✅ Dynamic language switching
-* ✅ PostgreSQL integration via API
-* ✅ Local caching for fast searches
-* ✅ React Native (iOS & Android)
+- ✅ Register / Log in via Auth0 (first view)
+- ✅ Swedish ↔ Spanish
+- ✅ Four specialized categories
+- ✅ Global search
+- ✅ Dynamic language switching
+- ✅ PostgreSQL integration via API
+- ✅ Local caching for fast searches
+- ✅ React Native (iOS & Android)
