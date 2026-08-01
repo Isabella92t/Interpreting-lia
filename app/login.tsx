@@ -1,8 +1,10 @@
 import { ActivityIndicator, Button, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/context/auth-context';
 
 export default function LoginScreen() {
+  const router = useRouter();
   const { signIn, isLoading, isConfigured, error } = useAuth();
 
   return (
@@ -22,6 +24,8 @@ export default function LoginScreen() {
           .env and restart the dev server.
         </Text>
       )}
+
+      <Button title="Skip" onPress={() => router.push('/firstPage')} />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
