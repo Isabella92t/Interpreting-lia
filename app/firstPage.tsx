@@ -25,6 +25,12 @@ export default function FirstPage() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.title}>Choose languages</Text>
 
       <TouchableOpacity
@@ -118,6 +124,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 24,
     justifyContent: "center",
+  },
+  header: {
+    position: "absolute",
+    top: 52,
+    left: 20,
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f3f4f6",
+  },
+  backButtonText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#111827",
   },
   title: {
     fontSize: 26,

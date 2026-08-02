@@ -1,5 +1,5 @@
-import { useLocalSearchParams } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const words = [
   {
@@ -101,6 +101,7 @@ const words = [
 ];
 
 export default function DictionaryPage() {
+  const router = useRouter();
   const { from, to, category } = useLocalSearchParams<{
     from?: string;
     to?: string;
@@ -124,6 +125,12 @@ export default function DictionaryPage() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.title}>{title}</Text>
 
       {filteredWords.map((word) => (
@@ -141,6 +148,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     padding: 24,
+  },
+  header: {
+    position: "absolute",
+    top: 52,
+    left: 20,
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f3f4f6",
+  },
+  backButtonText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#111827",
   },
   title: {
     fontSize: 20,

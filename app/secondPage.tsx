@@ -1,3 +1,4 @@
+import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -9,7 +10,15 @@ export default function SecondPage() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.searchText}>search word..</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchText}>
+        <FontAwesome name="search" size={32} color="#111827" />
+      </View>
 
       <Text style={styles.title}>Categories</Text>
 
@@ -37,7 +46,7 @@ export default function SecondPage() {
           })
         }
       >
-        <Text style={styles.buttonText}>DICTIONARY</Text>
+        <FontAwesome name="book" size={32} color="#111827" />
       </TouchableOpacity>
     </View>
   );
@@ -50,20 +59,38 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 40,
   },
+  header: {
+    position: "absolute",
+    top: 52,
+    left: 20,
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f3f4f6",
+  },
+  backButtonText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#111827",
+  },
   searchText: {
     color: "#9ca3af",
     fontSize: 16,
     borderWidth: 1,
     borderColor: "#d1d5db",
     padding: 12,
-    marginBottom: 20,
+    marginBottom: 32,
     width: "60%",
     alignSelf: "center",
   },
   title: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 8,
+    marginBottom: 18,
     marginLeft: "18%",
     alignSelf: "flex-start",
     textAlign: "left",
@@ -71,8 +98,8 @@ const styles = StyleSheet.create({
   box: {
     borderWidth: 1,
     borderColor: "#d1d5db",
-    padding: 12,
-    marginBottom: 16,
+    padding: 14,
+    marginBottom: 18,
     alignSelf: "center",
     width: "42%",
     alignItems: "center",
@@ -80,8 +107,8 @@ const styles = StyleSheet.create({
   button: {
     borderWidth: 1,
     borderColor: "#d1d5db",
-    padding: 12,
-    marginTop: 30,
+    padding: 14,
+    marginTop: 42,
     alignSelf: "center",
     width: "50%",
     alignItems: "center",
