@@ -1,19 +1,23 @@
-import { useEffect } from "react";
-import { createTables } from "../database/database";
-
 import { Stack } from "expo-router";
+import { SQLiteProvider } from "expo-sqlite";
 
 import { AuthProvider } from "@/context/auth-context";
 
+import { createTables } from "../database/database";
+import { seedDatabase } from "../database/seedDatabase";
+
 export default function RootLayout() {
-
-  // useEffect(() => {
-  //   createTables();
-  // }, []);
-
   return (
-    <AuthProvider>
-      <Stack />
-    </AuthProvider>
+    <SQLiteProvider
+      databaseName="words.db"
+      onInit={async (db) => {
+        await createTables(db);
+        await seedDatabase(db);
+      }}
+    >
+      <AuthProvider>
+        <Stack />
+      </AuthProvider>
+    </SQLiteProvider>
   );
 }

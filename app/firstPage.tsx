@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 
+
 const languages = [
   { label: "Svenska", value: "sv" },
   { label: "Español", value: "es" },
@@ -15,6 +16,7 @@ const languages = [
 ];
 
 export default function FirstPage() {
+    
   const router = useRouter();
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
