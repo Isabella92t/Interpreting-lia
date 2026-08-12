@@ -9,9 +9,17 @@ export async function createTables(db: SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS words (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      svenska TEXT NOT NULL UNIQUE,
-      engelska TEXT NOT NULL,
-      spanska TEXT NOT NULL
+      name TEXT NOT NULL UNIQUE
+    );
+
+    CREATE TABLE IF NOT EXISTS translations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      word_id INTEGER NOT NULL,
+      language_id INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      UNIQUE (word_id, language_id),
+      FOREIGN KEY (word_id) REFERENCES words(id),
+      FOREIGN KEY (language_id) REFERENCES languages(id)
     );
 
     CREATE TABLE IF NOT EXISTS tags (

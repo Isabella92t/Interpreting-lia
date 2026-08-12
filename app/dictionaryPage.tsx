@@ -3,11 +3,10 @@ import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-type Word = {
-  id: number;
-  svenska: string;
-  engelska: string;
-  spanska: string;
+type Translation = {
+  word_id: number;
+  text_from: string;
+  text_to: string;
 };
 
 export default function DictionaryPage() {
@@ -20,88 +19,82 @@ export default function DictionaryPage() {
     category?: string;
   }>();
 
-  const [words, setWords] = useState<Word[]>([]);
+  const [translations, setTranslations] = useState<Translation[]>([]);
 
   useEffect(() => {
-    loadWords();
+    loadTranslations();
   }, [from, to, category]);
 
-  async function loadWords() {
-    let result: Word[];
-
-    if (category) {
-      result = await db.getAllAsync<Word>(
-        `
-        SELECT words.*
-        FROM words
-        INNER JOIN word_tags
-          ON words.id = word_tags.word_id
-        INNER JOIN tags
-          ON word_tags.tag_id = tags.id
-        WHERE tags.name = ?
-        ORDER BY words.svenska ASC
-        `,
-        category,
-      );
-    } else {
-      result = await db.getAllAsync<Word>(
-        "SELECT * FROM words ORDER BY svenska ASC",
-      );
-    }
-
-    setWords(result);
-  }
-
-  function getTranslation(word: Word) {
+  async function loadTranslations() {
     const selectedFrom = String(from ?? "").toLowerCase();
     const selectedTo = String(to ?? "").toLowerCase();
 
-    if (selectedFrom === "sv" && selectedTo === "en") {
-      return {
-        textFrom: word.svenska,
-        textTo: word.engelska,
-      };
-    }
-
-    if (selectedFrom === "sv" && selectedTo === "es") {
-      return {
-        textFrom: word.svenska,
-        textTo: word.spanska,
-      };
-    }
-
-    if (selectedFrom === "en" && selectedTo === "sv") {
-      return {
-        textFrom: word.engelska,
-        textTo: word.svenska,
-      };
-    }
-
-    if (selectedFrom === "en" && selectedTo === "es") {
-      return {
-        textFrom: word.engelska,
-        textTo: word.spanska,
-      };
-    }
-
-    if (selectedFrom === "es" && selectedTo === "sv") {
-      return {
-        textFrom: word.spanska,
-        textTo: word.svenska,
-      };
-    }
-
-    if (selectedFrom === "es" && selectedTo === "en") {
-      return {
-        textFrom: word.spanska,
-        textTo: word.engelska,
-      };
-    }
-
-    return {
-      textFrom: word.svenska,
-      textTo: word.engelska,
+    const languageNames: Record<string, string> = {
+      sv: "Svenska",
+      en: "English",
+      es: "Español",
     };
+
+    const fromLanguage = languageNames[selectedFrom];
+    const toLanguage = languageNames[selectedTo];
+
+    if (!fromLanguage || !toLanguage) {
+      return;
+    }
+
+    let result: Translation[];
+
+    if (category) {
+      result = await db.getAllAsync<Translation>(
+        `
+        SELECT
+          from_translation.text AS text_from,
+          to_translation.text AS text_to,
+          from_translation.word_id
+        FROM translations AS from_translation
+        INNER JOIN translations AS to_translation
+          ON from_translation.word_id = to_translation.word_id
+        INNER JOIN languages AS from_language
+          ON from_translation.language_id = from_language.id
+        INNER JOIN languages AS to_language
+          ON to_translation.language_id = to_language.id
+        INNER JOIN word_tags
+          ON from_translation.word_id = word_tags.word_id
+        INNER JOIN tags
+          ON word_tags.tag_id = tags.id
+        WHERE from_language.name = ?
+          AND to_language.name = ?
+          AND tags.name = ?
+        ORDER BY text_from ASC
+        `,
+        fromLanguage,
+        toLanguage,
+        category,
+      );
+    } else {
+      result = await db.getAllAsync<Translation>(
+        `
+        SELECT
+          from_translation.text AS text_from,
+          to_translation.text AS text_to,
+          from_translation.word_id
+        FROM translations AS from_translation
+        INNER JOIN translations AS to_translation
+          ON from_translation.word_id = to_translation.word_id
+        INNER JOIN languages AS from_language
+          ON from_translation.language_id = from_language.id
+        INNER JOIN languages AS to_language
+          ON to_translation.language_id = to_language.id
+        WHERE from_language.name = ?
+          AND to_language.name = ?
+        ORDER BY text_from ASC
+        `,
+        fromLanguage,
+        toLanguage,
+      );
+    }
+
+    setTranslations(result);
   }
 
   return (
@@ -112,17 +105,13 @@ export default function DictionaryPage() {
 
       <Text style={styles.title}>{category ? category : "Dictionary"}</Text>
 
-      {words.map((word) => {
-        const translation = getTranslation(word);
+      {translations.map((translation) => (
+        <View key={translation.word_id} style={styles.row}>
+          <Text style={styles.text}>{translation.text_from}</Text>
 
-        return (
-          <View key={word.id} style={styles.row}>
-            <Text style={styles.text}>{translation.textFrom}</Text>
-
-            <Text style={styles.text}>{translation.textTo}</Text>
-          </View>
-        );
-      })}
+          <Text style={styles.text}>{translation.text_to}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -133,6 +122,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 24,
   },
+
   backButton: {
     width: 32,
     height: 32,
@@ -141,17 +131,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#f3f4f6",
   },
+
   backButtonText: {
     fontSize: 20,
     fontWeight: "600",
     color: "#111827",
   },
+
   title: {
     fontSize: 20,
     fontWeight: "600",
     marginBottom: 20,
     textAlign: "center",
   },
+
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -160,6 +153,7 @@ const styles = StyleSheet.create({
     width: "75%",
     alignSelf: "center",
   },
+
   text: {
     fontSize: 16,
     color: "#111827",

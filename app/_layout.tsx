@@ -9,7 +9,7 @@ import { seedDatabase } from "../database/seedDatabase";
 export default function RootLayout() {
   return (
     <SQLiteProvider
-      databaseName="words.db"
+      databaseName="words-v3.db"
       onInit={async (db) => {
         await createTables(db);
         await seedDatabase(db);
