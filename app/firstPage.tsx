@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 
+import { useAuth } from "@/context/auth-context";
 
 const languages = [
   { label: "Svenska", value: "sv" },
@@ -16,8 +17,8 @@ const languages = [
 ];
 
 export default function FirstPage() {
-    
   const router = useRouter();
+  const { signOut } = useAuth();
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
   const [fromLanguage, setFromLanguage] = useState<string | null>(null);
@@ -28,7 +29,13 @@ export default function FirstPage() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => {
+            signOut();
+            router.replace("/login");
+          }}
+          style={styles.backButton}
+        >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
       </View>

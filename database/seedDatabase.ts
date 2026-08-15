@@ -18,54 +18,76 @@ export async function seedDatabase(db: SQLiteDatabase) {
   );
 
   // Kategorier
-  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Juridik");
+  await db.runAsync(
+    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
+    "Juridik",
+  );
 
-  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Samhälle");
+  await db.runAsync(
+    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
+    "Samhälle",
+  );
+
+  await db.runAsync(
+    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
+    "Migration",
+  );
+
+  await db.runAsync(
+    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
+    "Sjukvård",
+  );
 
   // Ord
-  await db.runAsync("INSERT OR IGNORE INTO words (name) VALUES (?)", "avtal");
-
-  await db.runAsync("INSERT OR IGNORE INTO words (name) VALUES (?)", "domstol");
-
-  await db.runAsync("INSERT OR IGNORE INTO words (name) VALUES (?)", "lag");
-
-  await db.runAsync(
-    "INSERT OR IGNORE INTO words (name) VALUES (?)",
-    "medborgarskap",
-  );
-
-  await db.runAsync(
-    "INSERT OR IGNORE INTO words (name) VALUES (?)",
-    "uppehållstillstånd",
-  );
-
-  // Hämta ID för ord
-  const avtal = await db.getFirstAsync<{ id: number }>(
-    "SELECT id FROM words WHERE name = ?",
+  const words = [
+    // Befintliga ord
     "avtal",
-  );
-
-  const domstol = await db.getFirstAsync<{ id: number }>(
-    "SELECT id FROM words WHERE name = ?",
     "domstol",
-  );
-
-  const lag = await db.getFirstAsync<{ id: number }>(
-    "SELECT id FROM words WHERE name = ?",
     "lag",
-  );
-
-  const medborgarskap = await db.getFirstAsync<{ id: number }>(
-    "SELECT id FROM words WHERE name = ?",
     "medborgarskap",
-  );
-
-  const uppehallstillstand = await db.getFirstAsync<{ id: number }>(
-    "SELECT id FROM words WHERE name = ?",
     "uppehållstillstånd",
-  );
+    "asyl",
+    "migrationsrätt",
+    "navelsträng",
+    "moderkaka",
 
-  // Hämta ID för språk
+    // Nya juridikord
+    "advokat",
+    "dom",
+    "vittne",
+    "bevis",
+    "rättegång",
+
+    // Nya samhällsord
+    "kommun",
+    "myndighet",
+    "skatt",
+    "arbete",
+    "personnummer",
+
+    // Nya migrationsord
+    "flykting",
+    "visum",
+    "gräns",
+    "integration",
+    "utvisning",
+
+    // Nya sjukvårdsord
+    "läkare",
+    "sjuksköterska",
+    "patient",
+    "medicin",
+    "behandling",
+  ];
+
+  for (const word of words) {
+    await db.runAsync(
+      "INSERT OR IGNORE INTO words (name) VALUES (?)",
+      word,
+    );
+  }
+
+  // Hämta språk-ID
   const svenska = await db.getFirstAsync<{ id: number }>(
     "SELECT id FROM languages WHERE name = ?",
     "Svenska",
@@ -81,144 +103,102 @@ export async function seedDatabase(db: SQLiteDatabase) {
     "Español",
   );
 
-  // Översättningar för avtal
-  if (avtal && svenska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      avtal.id,
-      svenska.id,
-      "avtal",
-    );
-  }
-
-  if (avtal && engelska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      avtal.id,
-      engelska.id,
-      "agreement",
-    );
-  }
-
-  if (avtal && spanska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      avtal.id,
-      spanska.id,
-      "contrato",
-    );
-  }
-
-  // Översättningar för domstol
-  if (domstol && svenska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      domstol.id,
-      svenska.id,
-      "domstol",
-    );
-  }
-
-  if (domstol && engelska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      domstol.id,
-      engelska.id,
-      "court",
-    );
-  }
-
-  if (domstol && spanska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      domstol.id,
-      spanska.id,
-      "tribunal",
-    );
-  }
-
-  // Översättningar för lag
-  if (lag && svenska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      lag.id,
-      svenska.id,
-      "lag",
-    );
-  }
-
-  if (lag && engelska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      lag.id,
-      engelska.id,
-      "law",
-    );
-  }
-
-  if (lag && spanska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      lag.id,
-      spanska.id,
-      "ley",
-    );
-  }
-
-  // Översättningar för medborgarskap
-  if (medborgarskap && svenska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      medborgarskap.id,
-      svenska.id,
-      "medborgarskap",
-    );
-  }
-
-  if (medborgarskap && engelska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      medborgarskap.id,
-      engelska.id,
-      "citizenship",
-    );
-  }
-
-  if (medborgarskap && spanska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      medborgarskap.id,
-      spanska.id,
-      "ciudadanía",
-    );
-  }
-
-  // Översättningar för uppehållstillstånd
-  if (uppehallstillstand && svenska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      uppehallstillstand.id,
-      svenska.id,
+  // Översättningar
+  const translations = [
+    // Befintliga
+    ["avtal", "avtal", "agreement", "contrato"],
+    ["domstol", "domstol", "court", "tribunal"],
+    ["lag", "lag", "law", "ley"],
+    ["medborgarskap", "medborgarskap", "citizenship", "ciudadanía"],
+    [
       "uppehållstillstånd",
-    );
-  }
-
-  if (uppehallstillstand && engelska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      uppehallstillstand.id,
-      engelska.id,
+      "uppehållstillstånd",
       "residence permit",
-    );
-  }
-
-  if (uppehallstillstand && spanska) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-      uppehallstillstand.id,
-      spanska.id,
       "permiso de residencia",
+    ],
+    ["asyl", "asyl", "asylum", "asilo"],
+    [
+      "migrationsrätt",
+      "migrationsrätt",
+      "migration law",
+      "derecho de migración",
+    ],
+    [
+      "navelsträng",
+      "navelsträng",
+      "umbilical cord",
+      "cordón umbilical",
+    ],
+    ["moderkaka", "moderkaka", "placenta", "placenta"],
+
+    // Juridik
+    ["advokat", "advokat", "lawyer", "abogado"],
+    ["dom", "dom", "judgment", "sentencia"],
+    ["vittne", "vittne", "witness", "testigo"],
+    ["bevis", "bevis", "evidence", "evidencia"],
+    ["rättegång", "rättegång", "trial", "juicio"],
+
+    // Samhälle
+    ["kommun", "kommun", "municipality", "municipio"],
+    ["myndighet", "myndighet", "authority", "autoridad"],
+    ["skatt", "skatt", "tax", "impuesto"],
+    ["arbete", "arbete", "work", "trabajo"],
+    [
+      "personnummer",
+      "personnummer",
+      "personal identity number",
+      "número de identificación personal",
+    ],
+
+    // Migration
+    ["flykting", "flykting", "refugee", "refugiado"],
+    ["visum", "visum", "visa", "visado"],
+    ["gräns", "gräns", "border", "frontera"],
+    ["integration", "integration", "integration", "integración"],
+    ["utvisning", "utvisning", "deportation", "expulsión"],
+
+    // Sjukvård
+    ["läkare", "läkare", "doctor", "médico"],
+    ["sjuksköterska", "sjuksköterska", "nurse", "enfermero"],
+    ["patient", "patient", "patient", "paciente"],
+    ["medicin", "medicin", "medicine", "medicamento"],
+    ["behandling", "behandling", "treatment", "tratamiento"],
+  ];
+
+  for (const [wordName, sv, en, es] of translations) {
+    const word = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM words WHERE name = ?",
+      wordName,
     );
+
+    if (!word) continue;
+
+    if (svenska) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+        word.id,
+        svenska.id,
+        sv,
+      );
+    }
+
+    if (engelska) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+        word.id,
+        engelska.id,
+        en,
+      );
+    }
+
+    if (spanska) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+        word.id,
+        spanska.id,
+        es,
+      );
+    }
   }
 
   // Hämta kategori-ID
@@ -232,52 +212,70 @@ export async function seedDatabase(db: SQLiteDatabase) {
     "Samhälle",
   );
 
-  // Koppla ord till kategorier
-  if (avtal && juridik) {
+  const migration = await db.getFirstAsync<{ id: number }>(
+    "SELECT id FROM tags WHERE name = ?",
+    "Migration",
+  );
+
+  const sjukvård = await db.getFirstAsync<{ id: number }>(
+    "SELECT id FROM tags WHERE name = ?",
+    "Sjukvård",
+  );
+
+  // Hjälpfunktion för att koppla ord till kategori
+  async function addTag(wordName: string, tagId: number | undefined) {
+    if (!tagId) return;
+
+    const word = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM words WHERE name = ?",
+      wordName,
+    );
+
+    if (!word) return;
+
     await db.runAsync(
       "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
-      avtal.id,
-      juridik.id,
+      word.id,
+      tagId,
     );
   }
 
-  if (avtal && samhälle) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
-      avtal.id,
-      samhälle.id,
-    );
-  }
+  // Juridik
+  await addTag("avtal", juridik?.id);
+  await addTag("domstol", juridik?.id);
+  await addTag("lag", juridik?.id);
+  await addTag("advokat", juridik?.id);
+  await addTag("dom", juridik?.id);
+  await addTag("vittne", juridik?.id);
+  await addTag("bevis", juridik?.id);
+  await addTag("rättegång", juridik?.id);
 
-  if (domstol && juridik) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
-      domstol.id,
-      juridik.id,
-    );
-  }
+  // Samhälle
+  await addTag("avtal", samhälle?.id);
+  await addTag("medborgarskap", samhälle?.id);
+  await addTag("uppehållstillstånd", samhälle?.id);
+  await addTag("kommun", samhälle?.id);
+  await addTag("myndighet", samhälle?.id);
+  await addTag("skatt", samhälle?.id);
+  await addTag("arbete", samhälle?.id);
+  await addTag("personnummer", samhälle?.id);
 
-  if (lag && juridik) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
-      lag.id,
-      juridik.id,
-    );
-  }
+  // Migration
+  await addTag("asyl", migration?.id);
+  await addTag("migrationsrätt", migration?.id);
+  await addTag("uppehållstillstånd", migration?.id);
+  await addTag("flykting", migration?.id);
+  await addTag("visum", migration?.id);
+  await addTag("gräns", migration?.id);
+  await addTag("integration", migration?.id);
+  await addTag("utvisning", migration?.id);
 
-  if (medborgarskap && samhälle) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
-      medborgarskap.id,
-      samhälle.id,
-    );
-  }
-
-  if (uppehallstillstand && samhälle) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
-      uppehallstillstand.id,
-      samhälle.id,
-    );
-  }
+  // Sjukvård
+  await addTag("navelsträng", sjukvård?.id);
+  await addTag("moderkaka", sjukvård?.id);
+  await addTag("läkare", sjukvård?.id);
+  await addTag("sjuksköterska", sjukvård?.id);
+  await addTag("patient", sjukvård?.id);
+  await addTag("medicin", sjukvård?.id);
+  await addTag("behandling", sjukvård?.id);
 }

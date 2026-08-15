@@ -1,11 +1,19 @@
-import { ActivityIndicator, Button, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from "expo-router";
+import {
+  ActivityIndicator,
+  Button,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from "@/context/auth-context";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, isLoading, isConfigured, error } = useAuth();
+  const { user, signIn, isLoading, isConfigured, error } = useAuth();
+
+  if (user) return <Redirect href="/firstPage" />;
 
   return (
     <View style={styles.container}>
@@ -20,12 +28,12 @@ export default function LoginScreen() {
         )
       ) : (
         <Text>
-          Auth0 is not configured. Set EXPO_PUBLIC_AUTH0_DOMAIN and EXPO_PUBLIC_AUTH0_CLIENT_ID in
-          .env and restart the dev server.
+          Auth0 is not configured. Set EXPO_PUBLIC_AUTH0_DOMAIN and
+          EXPO_PUBLIC_AUTH0_CLIENT_ID in .env and restart the dev server.
         </Text>
       )}
 
-      <Button title="Skip" onPress={() => router.push('/firstPage')} />
+      <Button title="Skip" onPress={() => router.replace("/firstPage")} />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
@@ -35,17 +43,17 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 24,
     gap: 16,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   error: {
-    color: 'red',
-    textAlign: 'center',
+    color: "red",
+    textAlign: "center",
   },
 });
