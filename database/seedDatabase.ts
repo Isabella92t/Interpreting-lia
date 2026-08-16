@@ -1,7 +1,10 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 
 export async function seedDatabase(db: SQLiteDatabase) {
+  // =========================
   // Språk
+  // =========================
+
   await db.runAsync(
     "INSERT OR IGNORE INTO languages (name) VALUES (?)",
     "Svenska",
@@ -17,7 +20,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
     "Español",
   );
 
+  // =========================
   // Kategorier
+  // =========================
+
   await db.runAsync(
     "INSERT OR IGNORE INTO tags (name) VALUES (?)",
     "Juridik",
@@ -38,7 +44,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
     "Sjukvård",
   );
 
+  // =========================
   // Ord
+  // =========================
+
   const words = [
     // Befintliga ord
     "avtal",
@@ -51,33 +60,45 @@ export async function seedDatabase(db: SQLiteDatabase) {
     "navelsträng",
     "moderkaka",
 
-    // Nya juridikord
+    // Juridik
     "advokat",
     "dom",
     "vittne",
     "bevis",
     "rättegång",
+    "domare",
+    "åtal",
+    "kontrakt",
 
-    // Nya samhällsord
+    // Samhälle
     "kommun",
     "myndighet",
     "skatt",
     "arbete",
     "personnummer",
+    "regering",
+    "arbetsgivare",
+    "arbetslöshet",
 
-    // Nya migrationsord
+    // Migration
     "flykting",
     "visum",
     "gräns",
     "integration",
     "utvisning",
+    "ansökan",
+    "medborgare",
+    "permanent uppehållstillstånd",
 
-    // Nya sjukvårdsord
+    // Sjukvård
     "läkare",
     "sjuksköterska",
     "patient",
     "medicin",
     "behandling",
+    "diagnos",
+    "symptom",
+    "vårdcentral",
   ];
 
   for (const word of words) {
@@ -87,7 +108,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
     );
   }
 
+  // =========================
   // Hämta språk-ID
+  // =========================
+
   const svenska = await db.getFirstAsync<{ id: number }>(
     "SELECT id FROM languages WHERE name = ?",
     "Svenska",
@@ -103,7 +127,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
     "Español",
   );
 
+  // =========================
   // Översättningar
+  // =========================
+
   const translations = [
     // Befintliga
     ["avtal", "avtal", "agreement", "contrato"],
@@ -137,6 +164,9 @@ export async function seedDatabase(db: SQLiteDatabase) {
     ["vittne", "vittne", "witness", "testigo"],
     ["bevis", "bevis", "evidence", "evidencia"],
     ["rättegång", "rättegång", "trial", "juicio"],
+    ["domare", "domare", "judge", "juez"],
+    ["åtal", "åtal", "prosecution", "acusación"],
+    ["kontrakt", "kontrakt", "contract", "contrato"],
 
     // Samhälle
     ["kommun", "kommun", "municipality", "municipio"],
@@ -149,6 +179,9 @@ export async function seedDatabase(db: SQLiteDatabase) {
       "personal identity number",
       "número de identificación personal",
     ],
+    ["regering", "regering", "government", "gobierno"],
+    ["arbetsgivare", "arbetsgivare", "employer", "empleador"],
+    ["arbetslöshet", "arbetslöshet", "unemployment", "desempleo"],
 
     // Migration
     ["flykting", "flykting", "refugee", "refugiado"],
@@ -156,6 +189,14 @@ export async function seedDatabase(db: SQLiteDatabase) {
     ["gräns", "gräns", "border", "frontera"],
     ["integration", "integration", "integration", "integración"],
     ["utvisning", "utvisning", "deportation", "expulsión"],
+    ["ansökan", "ansökan", "application", "solicitud"],
+    ["medborgare", "medborgare", "citizen", "ciudadano"],
+    [
+      "permanent uppehållstillstånd",
+      "permanent uppehållstillstånd",
+      "permanent residence permit",
+      "permiso de residencia permanente",
+    ],
 
     // Sjukvård
     ["läkare", "läkare", "doctor", "médico"],
@@ -163,6 +204,9 @@ export async function seedDatabase(db: SQLiteDatabase) {
     ["patient", "patient", "patient", "paciente"],
     ["medicin", "medicin", "medicine", "medicamento"],
     ["behandling", "behandling", "treatment", "tratamiento"],
+    ["diagnos", "diagnos", "diagnosis", "diagnóstico"],
+    ["symptom", "symptom", "symptom", "síntoma"],
+    ["vårdcentral", "vårdcentral", "health centre", "centro de salud"],
   ];
 
   for (const [wordName, sv, en, es] of translations) {
@@ -201,7 +245,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
     }
   }
 
+  // =========================
   // Hämta kategori-ID
+  // =========================
+
   const juridik = await db.getFirstAsync<{ id: number }>(
     "SELECT id FROM tags WHERE name = ?",
     "Juridik",
@@ -222,8 +269,14 @@ export async function seedDatabase(db: SQLiteDatabase) {
     "Sjukvård",
   );
 
-  // Hjälpfunktion för att koppla ord till kategori
-  async function addTag(wordName: string, tagId: number | undefined) {
+  // =========================
+  // Hjälpfunktion för tags
+  // =========================
+
+  async function addTag(
+    wordName: string,
+    tagId: number | undefined,
+  ) {
     if (!tagId) return;
 
     const word = await db.getFirstAsync<{ id: number }>(
@@ -240,7 +293,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
     );
   }
 
+  // =========================
   // Juridik
+  // =========================
+
   await addTag("avtal", juridik?.id);
   await addTag("domstol", juridik?.id);
   await addTag("lag", juridik?.id);
@@ -249,8 +305,14 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("vittne", juridik?.id);
   await addTag("bevis", juridik?.id);
   await addTag("rättegång", juridik?.id);
+  await addTag("domare", juridik?.id);
+  await addTag("åtal", juridik?.id);
+  await addTag("kontrakt", juridik?.id);
 
+  // =========================
   // Samhälle
+  // =========================
+
   await addTag("avtal", samhälle?.id);
   await addTag("medborgarskap", samhälle?.id);
   await addTag("uppehållstillstånd", samhälle?.id);
@@ -259,8 +321,14 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("skatt", samhälle?.id);
   await addTag("arbete", samhälle?.id);
   await addTag("personnummer", samhälle?.id);
+  await addTag("regering", samhälle?.id);
+  await addTag("arbetsgivare", samhälle?.id);
+  await addTag("arbetslöshet", samhälle?.id);
 
+  // =========================
   // Migration
+  // =========================
+
   await addTag("asyl", migration?.id);
   await addTag("migrationsrätt", migration?.id);
   await addTag("uppehållstillstånd", migration?.id);
@@ -269,8 +337,17 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("gräns", migration?.id);
   await addTag("integration", migration?.id);
   await addTag("utvisning", migration?.id);
+  await addTag("ansökan", migration?.id);
+  await addTag("medborgare", migration?.id);
+  await addTag(
+    "permanent uppehållstillstånd",
+    migration?.id,
+  );
 
+  // =========================
   // Sjukvård
+  // =========================
+
   await addTag("navelsträng", sjukvård?.id);
   await addTag("moderkaka", sjukvård?.id);
   await addTag("läkare", sjukvård?.id);
@@ -278,4 +355,7 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("patient", sjukvård?.id);
   await addTag("medicin", sjukvård?.id);
   await addTag("behandling", sjukvård?.id);
+  await addTag("diagnos", sjukvård?.id);
+  await addTag("symptom", sjukvård?.id);
+  await addTag("vårdcentral", sjukvård?.id);
 }

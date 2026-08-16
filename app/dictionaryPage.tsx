@@ -1,7 +1,13 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type Translation = {
   word_id: number;
@@ -99,19 +105,30 @@ export default function DictionaryPage() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <TouchableOpacity
+        onPress={() => router.back()}
+        style={styles.backButton}
+      >
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>{category ? category : "Dictionary"}</Text>
+      <Text style={styles.title}>
+        {category ? category : "Dictionary"}
+      </Text>
 
-      {translations.map((translation) => (
-        <View key={translation.word_id} style={styles.row}>
-          <Text style={styles.text}>{translation.text_from}</Text>
+      <FlatList
+        data={translations}
+        keyExtractor={(item) => String(item.word_id)}
+        renderItem={({ item }) => (
+          <View style={styles.row}>
+            <Text style={styles.text}>{item.text_from}</Text>
 
-          <Text style={styles.text}>{translation.text_to}</Text>
-        </View>
-      ))}
+            <Text style={styles.text}>{item.text_to}</Text>
+          </View>
+        )}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={true}
+      />
     </View>
   );
 }
@@ -143,6 +160,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 20,
     textAlign: "center",
+  },
+
+  listContent: {
+    paddingBottom: 24,
   },
 
   row: {
