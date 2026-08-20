@@ -358,4 +358,69 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("diagnos", sjukvård?.id);
   await addTag("symptom", sjukvård?.id);
   await addTag("vårdcentral", sjukvård?.id);
+
+  // =========================
+  // Idiomer
+  // =========================
+
+  const idioms = [
+    ["Break the ice", "Bryta isen", "Romper el hielo"],
+    ["Piece of cake", "Enkelt som en plätt", "Pan comido"],
+    [
+      "Hit the nail on the head",
+      "Slå huvudet på spiken",
+      "Dar en el clavo",
+    ],
+    [
+      "It's raining cats and dogs",
+      "Det regnar väldigt mycket",
+      "Llueve a cántaros",
+    ],
+    [
+      "Under the weather",
+      "Känna sig hängig",
+      "Sentirse indispuesto",
+    ],
+  ];
+
+  for (const [en, sv, es] of idioms) {
+    await db.runAsync(
+      "INSERT OR IGNORE INTO idioms (name) VALUES (?)",
+      en,
+    );
+
+    const idiom = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM idioms WHERE name = ?",
+      en,
+    );
+
+    if (!idiom) continue;
+
+    if (engelska) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
+        idiom.id,
+        engelska.id,
+        en,
+      );
+    }
+
+    if (svenska) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
+        idiom.id,
+        svenska.id,
+        sv,
+      );
+    }
+
+    if (spanska) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
+        idiom.id,
+        spanska.id,
+        es,
+      );
+    }
+  }
 }

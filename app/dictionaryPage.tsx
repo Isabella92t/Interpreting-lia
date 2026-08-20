@@ -71,7 +71,7 @@ export default function DictionaryPage() {
         WHERE from_language.name = ?
           AND to_language.name = ?
           AND tags.name = ?
-        ORDER BY text_from ASC
+        ORDER BY LOWER(text_from) ASC
         `,
         fromLanguage,
         toLanguage,
@@ -93,7 +93,7 @@ export default function DictionaryPage() {
           ON to_translation.language_id = to_language.id
         WHERE from_language.name = ?
           AND to_language.name = ?
-        ORDER BY text_from ASC
+        ORDER BY LOWER(text_from) ASC
         `,
         fromLanguage,
         toLanguage,
@@ -105,16 +105,11 @@ export default function DictionaryPage() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={styles.backButton}
-      >
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>
-        {category ? category : "Dictionary"}
-      </Text>
+      <Text style={styles.title}>{category ? category : "Dictionary"}</Text>
 
       <FlatList
         data={translations}

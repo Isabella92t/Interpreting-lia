@@ -34,5 +34,20 @@ export async function createTables(db: SQLiteDatabase) {
       FOREIGN KEY (word_id) REFERENCES words(id),
       FOREIGN KEY (tag_id) REFERENCES tags(id)
     );
+
+    CREATE TABLE IF NOT EXISTS idioms (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE
+    );
+
+    CREATE TABLE IF NOT EXISTS idiom_translations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      idiom_id INTEGER NOT NULL,
+      language_id INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      UNIQUE (idiom_id, language_id),
+      FOREIGN KEY (idiom_id) REFERENCES idioms(id),
+      FOREIGN KEY (language_id) REFERENCES languages(id)
+    );
   `);
 }

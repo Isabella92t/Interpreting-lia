@@ -34,7 +34,10 @@ export default function SecondPage() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <TouchableOpacity
+        onPress={() => router.back()}
+        style={styles.backButton}
+      >
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
 
@@ -73,6 +76,22 @@ export default function SecondPage() {
         }
       >
         <FontAwesome name="book" size={32} color="#111827" />
+        <Text>Dictionary</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() =>
+          router.push({
+            pathname: "/IdiomsPage",
+            params: {
+              from,
+              to,
+            },
+          })
+        }
+      >
+        <Text>Idiomer</Text>
       </TouchableOpacity>
     </View>
   );
@@ -85,6 +104,7 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 40,
   },
+
   backButton: {
     width: 32,
     height: 32,
@@ -93,11 +113,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#f3f4f6",
   },
+
   backButtonText: {
     fontSize: 20,
     fontWeight: "600",
     color: "#111827",
   },
+
   searchText: {
     color: "#9ca3af",
     fontSize: 16,
@@ -108,6 +130,7 @@ const styles = StyleSheet.create({
     width: "60%",
     alignSelf: "center",
   },
+
   title: {
     fontSize: 18,
     fontWeight: "600",
@@ -116,6 +139,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     textAlign: "left",
   },
+
   box: {
     borderWidth: 1,
     borderColor: "#d1d5db",
@@ -125,11 +149,12 @@ const styles = StyleSheet.create({
     width: "42%",
     alignItems: "center",
   },
+
   button: {
     borderWidth: 1,
     borderColor: "#d1d5db",
     padding: 14,
-    marginTop: 42,
+    marginTop: 20,
     alignSelf: "center",
     width: "50%",
     alignItems: "center",
