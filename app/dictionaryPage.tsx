@@ -53,7 +53,7 @@ export default function DictionaryPage() {
     if (category) {
       result = await db.getAllAsync<Translation>(
         `
-        SELECT
+        SELECT DISTINCT
           from_translation.text AS text_from,
           to_translation.text AS text_to,
           from_translation.word_id
@@ -80,7 +80,7 @@ export default function DictionaryPage() {
     } else {
       result = await db.getAllAsync<Translation>(
         `
-        SELECT
+        SELECT DISTINCT
           from_translation.text AS text_from,
           to_translation.text AS text_to,
           from_translation.word_id

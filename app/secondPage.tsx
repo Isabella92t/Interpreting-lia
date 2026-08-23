@@ -32,7 +32,9 @@ export default function SecondPage() {
 
   const [word, setWord] = useState("");
   const [translation, setTranslation] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+
+  // Nu kan flera kategorier väljas
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   useEffect(() => {
     loadCategories();
@@ -47,7 +49,9 @@ export default function SecondPage() {
   }
 
   async function addWord() {
-    if (!word.trim() || !translation.trim() || !selectedCategory) {
+    // Ord och översättning måste fyllas i.
+    // Kategori är valfri.
+    if (!word.trim() || !translation.trim()) {
       Alert.alert("Fyll i alla fält");
       return;
     }
@@ -113,34 +117,69 @@ export default function SecondPage() {
       );
     }
 
-    // Hämta kategori-ID
-    const categoryResult = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM tags WHERE name = ?",
-      selectedCategory,
-    );
-
-    // Koppla ordet till kategorin
-    if (categoryResult) {
-      await db.runAsync(
-        "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
-        wordResult.id,
-        categoryResult.id,
+    // Om användaren inte väljer någon kategori
+    // läggs ordet i Övrigt.
+    if (selectedCategories.length === 0) {
+      const otherCategory = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM tags WHERE name = ?",
+        "Övrigt",
       );
+
+      if (otherCategory) {
+        await db.runAsync(
+          "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
+          wordResult.id,
+          otherCategory.id,
+        );
+      }
+    } else {
+      // Lägg till ordet i alla valda kategorier
+      for (const categoryName of selectedCategories) {
+        const categoryResult = await db.getFirstAsync<{ id: number }>(
+          "SELECT id FROM tags WHERE name = ?",
+          categoryName,
+        );
+
+        if (categoryResult) {
+          await db.runAsync(
+            "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
+            wordResult.id,
+            categoryResult.id,
+          );
+        }
+      }
     }
 
     // Töm fälten
     setWord("");
     setTranslation("");
-    setSelectedCategory("");
+    setSelectedCategories([]);
 
     setShowAddWord(false);
 
     Alert.alert("Ordet har lagts till!");
   }
 
+  // Välj eller avmarkera en kategori
+  function toggleCategory(categoryName: string) {
+    if (selectedCategories.includes(categoryName)) {
+      setSelectedCategories(
+        selectedCategories.filter((name) => name !== categoryName),
+      );
+    } else {
+      setSelectedCategories([
+        ...selectedCategories,
+        categoryName,
+      ]);
+    }
+  }
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <TouchableOpacity
+        onPress={() => router.back()}
+        style={styles.backButton}
+      >
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
 
@@ -235,27 +274,48 @@ export default function SecondPage() {
 
             <Text style={styles.categoryTitle}>Kategori</Text>
 
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={
-                  selectedCategory === category.name
-                    ? styles.selectedCategory
-                    : styles.category
-                }
-                onPress={() => setSelectedCategory(category.name)}
-              >
-                <Text>{category.name}</Text>
-              </TouchableOpacity>
-            ))}
+            <Text style={styles.optionalText}>
+              Valfritt – välj ingen kategori för att lägga ordet i Övrigt.
+            </Text>
 
-            <TouchableOpacity style={styles.addButton} onPress={addWord}>
+            {categories
+              .filter((category) => category.name !== "Övrigt")
+              .map((category) => {
+                const isSelected = selectedCategories.includes(
+                  category.name,
+                );
+
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={
+                      isSelected
+                        ? styles.selectedCategory
+                        : styles.category
+                    }
+                    onPress={() => toggleCategory(category.name)}
+                  >
+                    <Text>
+                      {isSelected ? "✓ " : ""}
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={addWord}
+            >
               <Text>Lägg till</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.cancelButton}
-              onPress={() => setShowAddWord(false)}
+              onPress={() => {
+                setSelectedCategories([]);
+                setShowAddWord(false);
+              }}
             >
               <Text>Avbryt</Text>
             </TouchableOpacity>
@@ -357,8 +417,14 @@ const styles = StyleSheet.create({
 
   categoryTitle: {
     marginTop: 18,
-    marginBottom: 8,
+    marginBottom: 4,
     fontWeight: "600",
+  },
+
+  optionalText: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginBottom: 8,
   },
 
   category: {

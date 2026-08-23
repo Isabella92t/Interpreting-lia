@@ -24,25 +24,18 @@ export async function seedDatabase(db: SQLiteDatabase) {
   // Kategorier
   // =========================
 
-  await db.runAsync(
-    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
-    "Juridik",
-  );
+  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Juridik");
 
-  await db.runAsync(
-    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
-    "Samhälle",
-  );
+  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Samhälle");
 
   await db.runAsync(
     "INSERT OR IGNORE INTO tags (name) VALUES (?)",
     "Migration",
   );
 
-  await db.runAsync(
-    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
-    "Sjukvård",
-  );
+  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Sjukvård");
+
+  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Övrigt");
 
   // =========================
   // Ord
@@ -102,10 +95,7 @@ export async function seedDatabase(db: SQLiteDatabase) {
   ];
 
   for (const word of words) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO words (name) VALUES (?)",
-      word,
-    );
+    await db.runAsync("INSERT OR IGNORE INTO words (name) VALUES (?)", word);
   }
 
   // =========================
@@ -150,12 +140,7 @@ export async function seedDatabase(db: SQLiteDatabase) {
       "migration law",
       "derecho de migración",
     ],
-    [
-      "navelsträng",
-      "navelsträng",
-      "umbilical cord",
-      "cordón umbilical",
-    ],
+    ["navelsträng", "navelsträng", "umbilical cord", "cordón umbilical"],
     ["moderkaka", "moderkaka", "placenta", "placenta"],
 
     // Juridik
@@ -273,10 +258,7 @@ export async function seedDatabase(db: SQLiteDatabase) {
   // Hjälpfunktion för tags
   // =========================
 
-  async function addTag(
-    wordName: string,
-    tagId: number | undefined,
-  ) {
+  async function addTag(wordName: string, tagId: number | undefined) {
     if (!tagId) return;
 
     const word = await db.getFirstAsync<{ id: number }>(
@@ -339,10 +321,7 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("utvisning", migration?.id);
   await addTag("ansökan", migration?.id);
   await addTag("medborgare", migration?.id);
-  await addTag(
-    "permanent uppehållstillstånd",
-    migration?.id,
-  );
+  await addTag("permanent uppehållstillstånd", migration?.id);
 
   // =========================
   // Sjukvård
@@ -366,28 +345,17 @@ export async function seedDatabase(db: SQLiteDatabase) {
   const idioms = [
     ["Break the ice", "Bryta isen", "Romper el hielo"],
     ["Piece of cake", "Enkelt som en plätt", "Pan comido"],
-    [
-      "Hit the nail on the head",
-      "Slå huvudet på spiken",
-      "Dar en el clavo",
-    ],
+    ["Hit the nail on the head", "Slå huvudet på spiken", "Dar en el clavo"],
     [
       "It's raining cats and dogs",
       "Det regnar väldigt mycket",
       "Llueve a cántaros",
     ],
-    [
-      "Under the weather",
-      "Känna sig hängig",
-      "Sentirse indispuesto",
-    ],
+    ["Under the weather", "Känna sig hängig", "Sentirse indispuesto"],
   ];
 
   for (const [en, sv, es] of idioms) {
-    await db.runAsync(
-      "INSERT OR IGNORE INTO idioms (name) VALUES (?)",
-      en,
-    );
+    await db.runAsync("INSERT OR IGNORE INTO idioms (name) VALUES (?)", en);
 
     const idiom = await db.getFirstAsync<{ id: number }>(
       "SELECT id FROM idioms WHERE name = ?",
