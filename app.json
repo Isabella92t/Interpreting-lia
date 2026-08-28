@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Interpreting-lia",
-    "slug": "Interpreting-lia",
+    "slug": "tolkenisabella",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+"package": "com.tolkenisabella.interpretinglia",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -44,6 +45,19 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "191dcd4e-ec06-44e9-bfe6-3bee804a082c"
+      }
+    },
+    "owner": "tolkenisabellas-team",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/191dcd4e-ec06-44e9-bfe6-3bee804a082c"
     }
   }
 }
