@@ -1,10 +1,12 @@
 import { FontAwesome } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useState } from "react";
 import {
   Alert,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -33,7 +35,6 @@ export default function SecondPage() {
   const [word, setWord] = useState("");
   const [translation, setTranslation] = useState("");
 
-  // Nu kan flera kategorier väljas
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   useEffect(() => {
@@ -48,9 +49,20 @@ export default function SecondPage() {
     setCategories(result);
   }
 
+  async function changeLanguages() {
+    try {
+      // Ta bort de sparade språken
+      await AsyncStorage.removeItem("fromLanguage");
+      await AsyncStorage.removeItem("toLanguage");
+
+      // Gå tillbaka till språkvalet
+      router.replace("/firstPage");
+    } catch (error) {
+      console.log("Kunde inte ta bort sparade språk:", error);
+    }
+  }
+
   async function addWord() {
-    // Ord och översättning måste fyllas i.
-    // Kategori är valfri.
     if (!word.trim() || !translation.trim()) {
       Alert.alert("Fyll i alla fält");
       return;
@@ -70,13 +82,11 @@ export default function SecondPage() {
       return;
     }
 
-    // Lägg till ordet
     await db.runAsync(
       "INSERT OR IGNORE INTO words (name) VALUES (?)",
       word.trim(),
     );
 
-    // Hämta ordets ID
     const wordResult = await db.getFirstAsync<{ id: number }>(
       "SELECT id FROM words WHERE name = ?",
       word.trim(),
@@ -86,7 +96,6 @@ export default function SecondPage() {
       return;
     }
 
-    // Hämta språk-ID
     const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
       "SELECT id FROM languages WHERE name = ?",
       fromLanguage,
@@ -97,7 +106,6 @@ export default function SecondPage() {
       toLanguage,
     );
 
-    // Lägg till översättning för första språket
     if (fromLanguageResult) {
       await db.runAsync(
         "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
@@ -107,7 +115,6 @@ export default function SecondPage() {
       );
     }
 
-    // Lägg till översättning för andra språket
     if (toLanguageResult) {
       await db.runAsync(
         "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
@@ -117,8 +124,6 @@ export default function SecondPage() {
       );
     }
 
-    // Om användaren inte väljer någon kategori
-    // läggs ordet i Övrigt.
     if (selectedCategories.length === 0) {
       const otherCategory = await db.getFirstAsync<{ id: number }>(
         "SELECT id FROM tags WHERE name = ?",
@@ -133,7 +138,6 @@ export default function SecondPage() {
         );
       }
     } else {
-      // Lägg till ordet i alla valda kategorier
       for (const categoryName of selectedCategories) {
         const categoryResult = await db.getFirstAsync<{ id: number }>(
           "SELECT id FROM tags WHERE name = ?",
@@ -150,7 +154,6 @@ export default function SecondPage() {
       }
     }
 
-    // Töm fälten
     setWord("");
     setTranslation("");
     setSelectedCategories([]);
@@ -160,88 +163,89 @@ export default function SecondPage() {
     Alert.alert("Ordet har lagts till!");
   }
 
-  // Välj eller avmarkera en kategori
   function toggleCategory(categoryName: string) {
     if (selectedCategories.includes(categoryName)) {
       setSelectedCategories(
         selectedCategories.filter((name) => name !== categoryName),
       );
     } else {
-      setSelectedCategories([
-        ...selectedCategories,
-        categoryName,
-      ]);
+      setSelectedCategories([...selectedCategories, categoryName]);
     }
   }
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={styles.backButton}
+      {/* Hela sidan går att scrolla */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
       >
-        <Text style={styles.backButtonText}>←</Text>
-      </TouchableOpacity>
+        {/* Byt språk */}
+        <TouchableOpacity onPress={changeLanguages} style={styles.backButton}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
 
-      <View style={styles.searchText}>
-        <FontAwesome name="search" size={32} color="#111827" />
-      </View>
+        <View style={styles.searchText}>
+          <FontAwesome name="search" size={32} color="#111827" />
+        </View>
 
-      <Text style={styles.title}>Categories</Text>
+        <Text style={styles.title}>Categories</Text>
 
-      {categories.map((category) => (
+        {categories.map((category) => (
+          <TouchableOpacity
+            key={category.id}
+            style={styles.box}
+            onPress={() =>
+              router.push({
+                pathname: "/dictionaryPage",
+                params: {
+                  from,
+                  to,
+                  category: category.name,
+                },
+              })
+            }
+          >
+            <Text>{category.name}</Text>
+          </TouchableOpacity>
+        ))}
+
         <TouchableOpacity
-          key={category.id}
-          style={styles.box}
+          style={styles.button}
           onPress={() =>
             router.push({
               pathname: "/dictionaryPage",
+              params: { from, to },
+            })
+          }
+        >
+          <FontAwesome name="book" size={24} color="#111827" />
+          <Text>Dictionary</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() =>
+            router.push({
+              pathname: "/idiomsPage",
               params: {
                 from,
                 to,
-                category: category.name,
               },
             })
           }
         >
-          <Text>{category.name}</Text>
+          <Text>Idiomer</Text>
         </TouchableOpacity>
-      ))}
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() =>
-          router.push({
-            pathname: "/dictionaryPage",
-            params: { from, to },
-          })
-        }
-      >
-        <FontAwesome name="book" size={24} color="#111827" />
-        <Text>Dictionary</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() =>
-          router.push({
-            pathname: "/idiomsPage",
-            params: {
-              from,
-              to,
-            },
-          })
-        }
-      >
-        <Text>Idiomer</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => setShowAddWord(true)}
-      >
-        <Text>Lägg till ord</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => setShowAddWord(true)}
+        >
+          <Text>Lägg till ord</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       {/* Popup för att lägga till ord */}
       <Modal
@@ -251,75 +255,73 @@ export default function SecondPage() {
         onRequestClose={() => setShowAddWord(false)}
       >
         <View style={styles.modalBackground}>
-          <View style={styles.modal}>
-            <Text style={styles.modalTitle}>Lägg till ord</Text>
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.modal}>
+              <Text style={styles.modalTitle}>Lägg till ord</Text>
 
-            <Text>
-              {from} → {to}
-            </Text>
+              <Text>
+                {from} → {to}
+              </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Ord"
-              value={word}
-              onChangeText={setWord}
-            />
+              <TextInput
+                style={styles.input}
+                placeholder="Ord"
+                value={word}
+                onChangeText={setWord}
+              />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Översättning"
-              value={translation}
-              onChangeText={setTranslation}
-            />
+              <TextInput
+                style={styles.input}
+                placeholder="Översättning"
+                value={translation}
+                onChangeText={setTranslation}
+              />
 
-            <Text style={styles.categoryTitle}>Kategori</Text>
+              <Text style={styles.categoryTitle}>Kategori</Text>
 
-            <Text style={styles.optionalText}>
-              Valfritt – välj ingen kategori för att lägga ordet i Övrigt.
-            </Text>
+              <Text style={styles.optionalText}>
+                Valfritt – välj ingen kategori för att lägga ordet i Övrigt.
+              </Text>
 
-            {categories
-              .filter((category) => category.name !== "Övrigt")
-              .map((category) => {
-                const isSelected = selectedCategories.includes(
-                  category.name,
-                );
+              {categories
+                .filter((category) => category.name !== "Övrigt")
+                .map((category) => {
+                  const isSelected = selectedCategories.includes(category.name);
 
-                return (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={
-                      isSelected
-                        ? styles.selectedCategory
-                        : styles.category
-                    }
-                    onPress={() => toggleCategory(category.name)}
-                  >
-                    <Text>
-                      {isSelected ? "✓ " : ""}
-                      {category.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                  return (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={
+                        isSelected ? styles.selectedCategory : styles.category
+                      }
+                      onPress={() => toggleCategory(category.name)}
+                    >
+                      <Text>
+                        {isSelected ? "✓ " : ""}
+                        {category.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
 
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={addWord}
-            >
-              <Text>Lägg till</Text>
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.addButton} onPress={addWord}>
+                <Text>Lägg till</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => {
-                setSelectedCategories([]);
-                setShowAddWord(false);
-              }}
-            >
-              <Text>Avbryt</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setSelectedCategories([]);
+                  setShowAddWord(false);
+                }}
+              >
+                <Text>Avbryt</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>
@@ -330,8 +332,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
     padding: 24,
     paddingTop: 40,
+    paddingBottom: 40,
   },
 
   backButton: {
@@ -350,8 +360,6 @@ const styles = StyleSheet.create({
   },
 
   searchText: {
-    color: "#9ca3af",
-    fontSize: 16,
     borderWidth: 1,
     borderColor: "#d1d5db",
     padding: 12,
@@ -392,6 +400,10 @@ const styles = StyleSheet.create({
   modalBackground: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.3)",
+  },
+
+  modalScrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     padding: 24,
   },

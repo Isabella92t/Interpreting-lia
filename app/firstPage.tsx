@@ -1,7 +1,8 @@
-
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,12 +21,71 @@ const languages = [
 export default function FirstPage() {
   const router = useRouter();
   const { signOut } = useAuth();
+
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
+
   const [fromLanguage, setFromLanguage] = useState<string | null>(null);
   const [toLanguage, setToLanguage] = useState<string | null>(null);
 
+  const [loading, setLoading] = useState(true);
+
+  // Läs sparade språk varje gång FirstPage visas
+  useFocusEffect(
+    useCallback(() => {
+      async function loadSavedLanguages() {
+        try {
+          const savedFrom = await AsyncStorage.getItem("fromLanguage");
+          const savedTo = await AsyncStorage.getItem("toLanguage");
+
+          if (savedFrom) {
+            setFromLanguage(savedFrom);
+          }
+
+          if (savedTo) {
+            setToLanguage(savedTo);
+          }
+        } catch (error) {
+          console.log("Kunde inte läsa sparade språk:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      loadSavedLanguages();
+    }, []),
+  );
+
   const canContinue = Boolean(fromLanguage && toLanguage);
+
+  async function continueToApp() {
+    if (!fromLanguage || !toLanguage) {
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem("fromLanguage", fromLanguage);
+      await AsyncStorage.setItem("toLanguage", toLanguage);
+
+      router.push({
+        pathname: "/secondPage",
+        params: {
+          from: fromLanguage,
+          to: toLanguage,
+        },
+      });
+    } catch (error) {
+      console.log("Kunde inte spara språk:", error);
+    }
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -43,6 +103,7 @@ export default function FirstPage() {
 
       <Text style={styles.title}>Choose languages</Text>
 
+      {/* FROM */}
       <TouchableOpacity
         onPress={() => {
           setFromOpen(!fromOpen);
@@ -76,6 +137,7 @@ export default function FirstPage() {
         </ScrollView>
       )}
 
+      {/* TO */}
       <TouchableOpacity
         onPress={() => {
           setToOpen(!toOpen);
@@ -109,19 +171,10 @@ export default function FirstPage() {
         </ScrollView>
       )}
 
+      {/* CONTINUE */}
       <TouchableOpacity
         disabled={!canContinue}
-        onPress={() => {
-          if (!canContinue) return;
-
-          router.push({
-            pathname: "/secondPage",
-            params: {
-              from: fromLanguage,
-              to: toLanguage,
-            },
-          });
-        }}
+        onPress={continueToApp}
         style={[
           styles.continueButton,
           canContinue
@@ -140,6 +193,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     padding: 24,
+    justifyContent: "center",
+  },
+
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+    alignItems: "center",
     justifyContent: "center",
   },
 
@@ -219,4 +279,3 @@ const styles = StyleSheet.create({
     backgroundColor: "#22c55e",
   },
 });
-
