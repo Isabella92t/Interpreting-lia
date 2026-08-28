@@ -1,3 +1,4 @@
+
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -58,18 +59,20 @@ export default function FirstPage() {
 
       {fromOpen && (
         <ScrollView style={styles.list}>
-          {languages.map((language) => (
-            <TouchableOpacity
-              key={language.value}
-              onPress={() => {
-                setFromLanguage(language.value);
-                setFromOpen(false);
-              }}
-              style={styles.item}
-            >
-              <Text>{language.label}</Text>
-            </TouchableOpacity>
-          ))}
+          {languages
+            .filter((language) => language.value !== toLanguage)
+            .map((language) => (
+              <TouchableOpacity
+                key={language.value}
+                onPress={() => {
+                  setFromLanguage(language.value);
+                  setFromOpen(false);
+                }}
+                style={styles.item}
+              >
+                <Text>{language.label}</Text>
+              </TouchableOpacity>
+            ))}
         </ScrollView>
       )}
 
@@ -89,18 +92,20 @@ export default function FirstPage() {
 
       {toOpen && (
         <ScrollView style={styles.list}>
-          {languages.map((language) => (
-            <TouchableOpacity
-              key={language.value}
-              onPress={() => {
-                setToLanguage(language.value);
-                setToOpen(false);
-              }}
-              style={styles.item}
-            >
-              <Text>{language.label}</Text>
-            </TouchableOpacity>
-          ))}
+          {languages
+            .filter((language) => language.value !== fromLanguage)
+            .map((language) => (
+              <TouchableOpacity
+                key={language.value}
+                onPress={() => {
+                  setToLanguage(language.value);
+                  setToOpen(false);
+                }}
+                style={styles.item}
+              >
+                <Text>{language.label}</Text>
+              </TouchableOpacity>
+            ))}
         </ScrollView>
       )}
 
@@ -108,6 +113,7 @@ export default function FirstPage() {
         disabled={!canContinue}
         onPress={() => {
           if (!canContinue) return;
+
           router.push({
             pathname: "/secondPage",
             params: {
@@ -122,7 +128,9 @@ export default function FirstPage() {
             ? styles.continueButtonActive
             : styles.continueButtonDisabled,
         ]}
-      />
+      >
+        <Text>Continue</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -134,11 +142,13 @@ const styles = StyleSheet.create({
     padding: 24,
     justifyContent: "center",
   },
+
   header: {
     position: "absolute",
     top: 52,
     left: 20,
   },
+
   backButton: {
     width: 32,
     height: 32,
@@ -147,17 +157,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#f3f4f6",
   },
+
   backButtonText: {
     fontSize: 20,
     fontWeight: "600",
     color: "#111827",
   },
+
   title: {
     fontSize: 26,
     fontWeight: "600",
     marginBottom: 20,
     textAlign: "center",
   },
+
   box: {
     padding: 18,
     borderWidth: 1,
@@ -166,10 +179,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     marginBottom: 16,
   },
+
   boxText: {
     fontSize: 16,
     textAlign: "center",
   },
+
   list: {
     maxHeight: 180,
     borderWidth: 1,
@@ -178,11 +193,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: "#fff",
   },
+
   item: {
     padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
+
   continueButton: {
     borderRadius: 12,
     paddingVertical: 14,
@@ -193,10 +210,13 @@ const styles = StyleSheet.create({
     width: "72%",
     minHeight: 48,
   },
+
   continueButtonDisabled: {
     backgroundColor: "#d1d5db",
   },
+
   continueButtonActive: {
     backgroundColor: "#22c55e",
   },
 });
+
