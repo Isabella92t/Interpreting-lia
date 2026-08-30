@@ -1,4 +1,5 @@
 import type { SQLiteDatabase } from "expo-sqlite";
+import { juridikData } from "./data/juridik";
 
 export async function seedDatabase(db: SQLiteDatabase) {
   // =========================
@@ -38,11 +39,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Övrigt");
 
   // =========================
-  // Ord
+  // Grundord
   // =========================
 
   const words = [
-    // Befintliga ord
     "avtal",
     "domstol",
     "lag",
@@ -118,11 +118,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
   );
 
   // =========================
-  // Översättningar
+  // Grundöversättningar
   // =========================
 
   const translations = [
-    // Befintliga
     ["avtal", "avtal", "agreement", "contrato"],
     ["domstol", "domstol", "court", "tribunal"],
     ["lag", "lag", "law", "ley"],
@@ -231,6 +230,45 @@ export async function seedDatabase(db: SQLiteDatabase) {
   }
 
   // =========================
+  // JURIDIK
+  // Svenska <-> Spanska
+  // =========================
+
+  if (svenska && spanska) {
+    for (const item of juridikData) {
+      // Lägg in svenska ordet
+      await db.runAsync(
+        "INSERT OR IGNORE INTO words (name) VALUES (?)",
+        item.sv,
+      );
+
+      // Hämta word-ID
+      const word = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM words WHERE name = ?",
+        item.sv,
+      );
+
+      if (!word) continue;
+
+      // Svenska
+      await db.runAsync(
+        "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+        word.id,
+        svenska.id,
+        item.sv,
+      );
+
+      // Spanska
+      await db.runAsync(
+        "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+        word.id,
+        spanska.id,
+        item.es,
+      );
+    }
+  }
+
+  // =========================
   // Hämta kategori-ID
   // =========================
 
@@ -276,7 +314,7 @@ export async function seedDatabase(db: SQLiteDatabase) {
   }
 
   // =========================
-  // Juridik
+  // Tagga grundläggande juridikord
   // =========================
 
   await addTag("avtal", juridik?.id);
@@ -290,6 +328,16 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("domare", juridik?.id);
   await addTag("åtal", juridik?.id);
   await addTag("kontrakt", juridik?.id);
+
+  // =========================
+  // Tagga ALLA juridiktermer
+  // =========================
+
+  if (juridik?.id) {
+    for (const item of juridikData) {
+      await addTag(item.sv, juridik.id);
+    }
+  }
 
   // =========================
   // Samhälle
@@ -339,56 +387,32 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("vårdcentral", sjukvård?.id);
 
   // =========================
-  // Idiomer
+  // KONTROLL
   // =========================
 
-  const idioms = [
-    ["Break the ice", "Bryta isen", "Romper el hielo"],
-    ["Piece of cake", "Enkelt som en plätt", "Pan comido"],
-    ["Hit the nail on the head", "Slå huvudet på spiken", "Dar en el clavo"],
-    [
-      "It's raining cats and dogs",
-      "Det regnar väldigt mycket",
-      "Llueve a cántaros",
-    ],
-    ["Under the weather", "Känna sig hängig", "Sentirse indispuesto"],
-  ];
+  const totalWords = await db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) as count FROM words",
+  );
 
-  for (const [en, sv, es] of idioms) {
-    await db.runAsync("INSERT OR IGNORE INTO idioms (name) VALUES (?)", en);
+  const totalTranslations = await db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) as count FROM translations",
+  );
 
-    const idiom = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM idioms WHERE name = ?",
-      en,
-    );
+  const totalJuridik = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count
+       FROM word_tags wt
+       JOIN tags t ON t.id = wt.tag_id
+       WHERE t.name = ?`,
+    "Juridik",
+  );
 
-    if (!idiom) continue;
+  console.log("📚 ANTAL ORD I DATABASEN:", totalWords?.count);
 
-    if (engelska) {
-      await db.runAsync(
-        "INSERT OR IGNORE INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
-        idiom.id,
-        engelska.id,
-        en,
-      );
-    }
+  console.log("🌍 ANTAL ÖVERSÄTTNINGAR:", totalTranslations?.count);
 
-    if (svenska) {
-      await db.runAsync(
-        "INSERT OR IGNORE INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
-        idiom.id,
-        svenska.id,
-        sv,
-      );
-    }
+  console.log("⚖️ ANTAL JURIDIKORD:", totalJuridik?.count);
 
-    if (spanska) {
-      await db.runAsync(
-        "INSERT OR IGNORE INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
-        idiom.id,
-        spanska.id,
-        es,
-      );
-    }
-  }
+  console.log("📦 ANTAL POSTER I juridikData:", juridikData.length);
+
+  console.log("🌱 SEED KLAR");
 }
