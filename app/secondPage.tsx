@@ -1,3 +1,4 @@
+
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -51,11 +52,9 @@ export default function SecondPage() {
 
   async function changeLanguages() {
     try {
-      // Ta bort de sparade språken
       await AsyncStorage.removeItem("fromLanguage");
       await AsyncStorage.removeItem("toLanguage");
 
-      // Gå tillbaka till språkvalet
       router.replace("/firstPage");
     } catch (error) {
       console.log("Kunde inte ta bort sparade språk:", error);
@@ -157,7 +156,6 @@ export default function SecondPage() {
     setWord("");
     setTranslation("");
     setSelectedCategories([]);
-
     setShowAddWord(false);
 
     Alert.alert("Ordet har lagts till!");
@@ -175,7 +173,6 @@ export default function SecondPage() {
 
   return (
     <View style={styles.container}>
-      {/* Hela sidan går att scrolla */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -186,31 +183,31 @@ export default function SecondPage() {
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
 
-        <View style={styles.searchText}>
-          <FontAwesome name="search" size={32} color="#111827" />
-        </View>
-
+        {/* KATEGORIER */}
         <Text style={styles.title}>Categories</Text>
 
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category.id}
-            style={styles.box}
-            onPress={() =>
-              router.push({
-                pathname: "/dictionaryPage",
-                params: {
-                  from,
-                  to,
-                  category: category.name,
-                },
-              })
-            }
-          >
-            <Text>{category.name}</Text>
-          </TouchableOpacity>
-        ))}
+        <View style={styles.categoryGrid}>
+          {categories.map((category) => (
+            <TouchableOpacity
+              key={category.id}
+              style={styles.box}
+              onPress={() =>
+                router.push({
+                  pathname: "/dictionaryPage",
+                  params: {
+                    from,
+                    to,
+                    category: category.name,
+                  },
+                })
+              }
+            >
+              <Text style={styles.categoryText}>{category.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
+        {/* Dictionary */}
         <TouchableOpacity
           style={styles.button}
           onPress={() =>
@@ -224,6 +221,7 @@ export default function SecondPage() {
           <Text>Dictionary</Text>
         </TouchableOpacity>
 
+        {/* Idiomer */}
         <TouchableOpacity
           style={styles.button}
           onPress={() =>
@@ -239,6 +237,7 @@ export default function SecondPage() {
           <Text>Idiomer</Text>
         </TouchableOpacity>
 
+        {/* Lägg till ord */}
         <TouchableOpacity
           style={styles.button}
           onPress={() => setShowAddWord(true)}
@@ -351,6 +350,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#f3f4f6",
+    marginBottom: 20,
   },
 
   backButtonText: {
@@ -359,33 +359,38 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
 
-  searchText: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    padding: 12,
-    marginBottom: 32,
-    width: "60%",
-    alignSelf: "center",
-  },
+  /* KATEGORIER */
 
   title: {
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 18,
-    marginLeft: "18%",
-    alignSelf: "flex-start",
-    textAlign: "left",
+    textAlign: "center",
+  },
+
+  categoryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
+    gap: 10,
   },
 
   box: {
+    width: "31%",
+    minHeight: 55,
     borderWidth: 1,
     borderColor: "#d1d5db",
-    padding: 14,
-    marginBottom: 18,
-    alignSelf: "center",
-    width: "42%",
     alignItems: "center",
+    justifyContent: "center",
+    padding: 8,
   },
+
+  categoryText: {
+    textAlign: "center",
+    fontSize: 14,
+  },
+
+  /* KNAPPAR */
 
   button: {
     borderWidth: 1,
@@ -395,7 +400,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "50%",
     alignItems: "center",
+    gap: 6,
   },
+
+  /* MODAL */
 
   modalBackground: {
     flex: 1,
