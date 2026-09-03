@@ -10,7 +10,9 @@ import {
   View,
 } from "react-native";
 
+import { LanguagePicker } from "@/components/language-picker";
 import { useAuth } from "@/context/auth-context";
+import { useUiLanguage } from "@/context/ui-language-context";
 
 const languages = [
   { label: "Svenska", value: "sv" },
@@ -21,6 +23,7 @@ const languages = [
 export default function FirstPage() {
   const router = useRouter();
   const { signOut } = useAuth();
+  const { t } = useUiLanguage();
 
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
@@ -99,9 +102,11 @@ export default function FirstPage() {
         >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
+
+        <LanguagePicker />
       </View>
 
-      <Text style={styles.title}>Choose languages</Text>
+      <Text style={styles.title}>{t("chooseLanguages")}</Text>
 
       {/* FROM */}
       <TouchableOpacity
@@ -114,7 +119,7 @@ export default function FirstPage() {
         <Text style={styles.boxText}>
           {fromLanguage
             ? languages.find((l) => l.value === fromLanguage)?.label
-            : "FROM"}
+            : t("from")}
         </Text>
       </TouchableOpacity>
 
@@ -148,7 +153,7 @@ export default function FirstPage() {
         <Text style={styles.boxText}>
           {toLanguage
             ? languages.find((l) => l.value === toLanguage)?.label
-            : "TO"}
+            : t("to")}
         </Text>
       </TouchableOpacity>
 
@@ -182,7 +187,7 @@ export default function FirstPage() {
             : styles.continueButtonDisabled,
         ]}
       >
-        <Text>Continue</Text>
+        <Text>{t("continue")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -207,6 +212,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 52,
     left: 20,
+    right: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 
   backButton: {

@@ -1,5 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
+
+import { useUiLanguage } from "@/context/ui-language-context";
 import { useEffect, useState } from "react";
 import {
   FlatList,
@@ -18,6 +20,8 @@ type Idiom = {
 export default function IdiomsPage() {
   const router = useRouter();
   const db = useSQLiteContext();
+
+  const { t } = useUiLanguage();
 
   const { from, to } = useLocalSearchParams<{
     from?: string;
@@ -74,13 +78,15 @@ export default function IdiomsPage() {
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        onPress={() => router.back()}
+        onPress={() =>
+          router.dismissTo({ pathname: "/secondPage", params: { from, to } })
+        }
         style={styles.backButton}
       >
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>Idiomer</Text>
+      <Text style={styles.title}>{t("idioms")}</Text>
 
       <FlatList
         data={idioms}

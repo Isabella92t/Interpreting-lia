@@ -1,8 +1,11 @@
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { LanguagePicker } from "@/components/language-picker";
+import { useUiLanguage } from "@/context/ui-language-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -11,6 +14,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -24,6 +28,43 @@ type Translation = {
   text_from: string;
   text_to: string;
 };
+
+// Vi visar tre kategorier i taget. Resten ser man genom att svepa.
+const CATEGORIES_PER_PAGE = 3;
+
+// Avstandet mellan kategori-rutorna.
+const CATEGORY_GAP = 10;
+
+// Har sparar vi vilka kategorier man anvant senast.
+const RECENT_CATEGORIES_KEY = "recentCategories";
+
+// Lagger de senast anvanda kategorierna forst, resten efter.
+function sortByRecentlyUsed(categories: Category[], recentNames: string[]) {
+  const recent: Category[] = [];
+
+  for (const name of recentNames) {
+    const category = categories.find((item) => item.name === name);
+
+    if (category) {
+      recent.push(category);
+    }
+  }
+
+  const rest = categories.filter((item) => !recentNames.includes(item.name));
+
+  return [...recent, ...rest];
+}
+
+// Delar upp kategorierna i sidor med tre i varje.
+function splitIntoPages(categories: Category[]) {
+  const pages: Category[][] = [];
+
+  for (let i = 0; i < categories.length; i += CATEGORIES_PER_PAGE) {
+    pages.push(categories.slice(i, i + CATEGORIES_PER_PAGE));
+  }
+
+  return pages;
+}
 
 // Man måste skriva minst tre bokstäver innan förslagen visas.
 const MIN_SEARCH_LENGTH = 3;
@@ -49,6 +90,8 @@ export default function SecondPage() {
   const router = useRouter();
   const db = useSQLiteContext();
 
+  const { t } = useUiLanguage();
+
   const { from, to } = useLocalSearchParams<{
     from?: string;
     to?: string;
@@ -61,6 +104,12 @@ export default function SecondPage() {
   const [allTranslations, setAllTranslations] = useState<Translation[]>([]);
   const [search, setSearch] = useState("");
 
+  // Kategori-karusellen
+  const [recentCategories, setRecentCategories] = useState<string[]>([]);
+  const [page, setPage] = useState(0);
+  const [carouselWidth, setCarouselWidth] = useState(0);
+  const carouselRef = useRef<ScrollView>(null);
+
   const [showAddWord, setShowAddWord] = useState(false);
 
   const [word, setWord] = useState("");
@@ -70,6 +119,7 @@ export default function SecondPage() {
 
   useEffect(() => {
     loadCategories();
+    loadRecentCategories();
   }, []);
 
   useEffect(() => {
@@ -82,6 +132,31 @@ export default function SecondPage() {
     );
 
     setCategories(result);
+  }
+
+  async function loadRecentCategories() {
+    const saved = await AsyncStorage.getItem(RECENT_CATEGORIES_KEY);
+
+    if (saved) {
+      setRecentCategories(JSON.parse(saved));
+    }
+  }
+
+  // Nar man oppnar en kategori laggs den forst i listan,
+  // sa att den syns direkt nasta gang man kommer hit.
+  async function openCategory(categoryName: string) {
+    const updated = [
+      categoryName,
+      ...recentCategories.filter((name) => name !== categoryName),
+    ];
+
+    setRecentCategories(updated);
+    await AsyncStorage.setItem(RECENT_CATEGORIES_KEY, JSON.stringify(updated));
+
+    router.push({
+      pathname: "/dictionaryPage",
+      params: { from, to, category: categoryName },
+    });
   }
 
   async function loadAllTranslations() {
@@ -116,20 +191,16 @@ export default function SecondPage() {
     setAllTranslations(result);
   }
 
-  async function changeLanguages() {
-    try {
-      await AsyncStorage.removeItem("fromLanguage");
-      await AsyncStorage.removeItem("toLanguage");
-
-      router.replace("/firstPage");
-    } catch (error) {
-      console.log("Kunde inte ta bort sparade språk:", error);
-    }
+  // Tillbaka till sprakvalet. Vi raderar INTE de sparade spraken,
+  // sa att de star kvar valda nar man kommer dit. Vill man byta
+  // sprak valjer man bara nya i listorna.
+  function changeLanguages() {
+    router.dismissTo("/firstPage");
   }
 
   async function addWord() {
     if (!word.trim() || !translation.trim()) {
-      Alert.alert("Fyll i alla fält");
+      Alert.alert(t("fillAllFields"));
       return;
     }
 
@@ -137,7 +208,7 @@ export default function SecondPage() {
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
-      Alert.alert("Språken kunde inte hittas");
+      Alert.alert(t("languagesNotFound"));
       return;
     }
 
@@ -220,7 +291,7 @@ export default function SecondPage() {
     setSelectedCategories([]);
     setShowAddWord(false);
 
-    Alert.alert("Ordet har lagts till!");
+    Alert.alert(t("wordAdded"));
   }
 
   function toggleCategory(categoryName: string) {
@@ -249,6 +320,29 @@ export default function SecondPage() {
 
   const visibleResults = searchResults.slice(0, MAX_RESULTS);
 
+  // Kategorierna, senast anvanda forst, uppdelade i sidor med tre i varje.
+  const categoryPages = splitIntoPages(
+    sortByRecentlyUsed(categories, recentCategories),
+  );
+
+  // Tre rutor plus tva mellanrum ska rymmas pa bredden.
+  const boxWidth = (carouselWidth - CATEGORY_GAP * 2) / CATEGORIES_PER_PAGE;
+
+  const canGoLeft = page > 0;
+  const canGoRight = page < categoryPages.length - 1;
+
+  function goToPage(nextPage: number) {
+    if (nextPage < 0 || nextPage > categoryPages.length - 1) {
+      return;
+    }
+
+    setPage(nextPage);
+    carouselRef.current?.scrollTo({
+      x: nextPage * carouselWidth,
+      animated: true,
+    });
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -256,27 +350,31 @@ export default function SecondPage() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
       >
-        {/* Byt språk */}
-        <TouchableOpacity onPress={changeLanguages} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
+        {/* Byt ordbokssprak till vanster, appens sprak till hoger */}
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={changeLanguages} style={styles.backButton}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+
+          <LanguagePicker />
+        </View>
 
         {/* SÖK */}
         <TextInput
           style={styles.searchInput}
-          placeholder="Sök ord på valfritt språk"
+          placeholder={t("searchPlaceholder")}
           value={search}
           onChangeText={setSearch}
         />
 
         {searchText.length > 0 && !hasEnoughLetters && (
-          <Text style={styles.noResults}>Skriv minst tre bokstäver</Text>
+          <Text style={styles.noResults}>{t("minThreeLetters")}</Text>
         )}
 
         {hasEnoughLetters && (
           <View style={styles.searchResults}>
             {searchResults.length === 0 ? (
-              <Text style={styles.noResults}>Inga träffar</Text>
+              <Text style={styles.noResults}>{t("noMatches")}</Text>
             ) : (
               visibleResults.map((item) => (
                 <View key={item.word_id} style={styles.searchRow}>
@@ -289,27 +387,69 @@ export default function SecondPage() {
         )}
 
         {/* KATEGORIER */}
-        <Text style={styles.title}>Categories</Text>
+        <Text style={styles.title}>{t("categories")}</Text>
 
-        <View style={styles.categoryGrid}>
-          {categories.map((category) => (
-            <TouchableOpacity
-              key={category.id}
-              style={styles.box}
-              onPress={() =>
-                router.push({
-                  pathname: "/dictionaryPage",
-                  params: {
-                    from,
-                    to,
-                    category: category.name,
-                  },
-                })
-              }
+        <View style={styles.carouselRow}>
+          {/* Pil vanster */}
+          <TouchableOpacity
+            style={styles.arrow}
+            onPress={() => goToPage(page - 1)}
+            disabled={!canGoLeft}
+          >
+            <Text style={canGoLeft ? styles.arrowText : styles.arrowTextFaded}>
+              ‹
+            </Text>
+          </TouchableOpacity>
+
+          {/* Tre kategorier i taget - svep for att se fler */}
+          <View
+            style={styles.carousel}
+            onLayout={(event) => setCarouselWidth(event.nativeEvent.layout.width)}
+          >
+            <ScrollView
+              ref={carouselRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={(event) => {
+                if (carouselWidth > 0) {
+                  setPage(
+                    Math.round(event.nativeEvent.contentOffset.x / carouselWidth),
+                  );
+                }
+              }}
             >
-              <Text style={styles.categoryText}>{category.name}</Text>
-            </TouchableOpacity>
-          ))}
+              {carouselWidth > 0 &&
+                categoryPages.map((categoriesOnPage, pageIndex) => (
+                  <View
+                    key={pageIndex}
+                    style={[styles.carouselPage, { width: carouselWidth }]}
+                  >
+                    {categoriesOnPage.map((category) => (
+                      <TouchableOpacity
+                        key={category.id}
+                        style={[styles.box, { width: boxWidth }]}
+                        onPress={() => openCategory(category.name)}
+                      >
+                        <Text style={styles.categoryText}>{category.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ))}
+            </ScrollView>
+          </View>
+
+          {/* Pil hoger */}
+          <TouchableOpacity
+            style={styles.arrow}
+            onPress={() => goToPage(page + 1)}
+            disabled={!canGoRight}
+          >
+            <Text style={canGoRight ? styles.arrowText : styles.arrowTextFaded}>
+              ›
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Dictionary */}
@@ -323,7 +463,7 @@ export default function SecondPage() {
           }
         >
           <FontAwesome name="book" size={24} color="#111827" />
-          <Text>Dictionary</Text>
+          <Text>{t("dictionary")}</Text>
         </TouchableOpacity>
 
         {/* Idiomer */}
@@ -339,7 +479,18 @@ export default function SecondPage() {
             })
           }
         >
-          <Text>Idiomer</Text>
+          <Text>{t("idioms")}</Text>
+        </TouchableOpacity>
+
+        {/* Notes */}
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() =>
+            router.push({ pathname: "/notesPage", params: { from, to } })
+          }
+        >
+          <FontAwesome name="file-text-o" size={24} color="#111827" />
+          <Text>{t("notes")}</Text>
         </TouchableOpacity>
 
         {/* Lägg till ord */}
@@ -347,7 +498,7 @@ export default function SecondPage() {
           style={styles.button}
           onPress={() => setShowAddWord(true)}
         >
-          <Text>Lägg till ord</Text>
+          <Text>{t("addWord")}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -364,7 +515,7 @@ export default function SecondPage() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.modal}>
-              <Text style={styles.modalTitle}>Lägg till ord</Text>
+              <Text style={styles.modalTitle}>{t("addWord")}</Text>
 
               <Text>
                 {from} → {to}
@@ -372,22 +523,22 @@ export default function SecondPage() {
 
               <TextInput
                 style={styles.input}
-                placeholder="Ord"
+                placeholder={t("word")}
                 value={word}
                 onChangeText={setWord}
               />
 
               <TextInput
                 style={styles.input}
-                placeholder="Översättning"
+                placeholder={t("translation")}
                 value={translation}
                 onChangeText={setTranslation}
               />
 
-              <Text style={styles.categoryTitle}>Kategori</Text>
+              <Text style={styles.categoryTitle}>{t("category")}</Text>
 
               <Text style={styles.optionalText}>
-                Valfritt – välj ingen kategori för att lägga ordet i Övrigt.
+                {t("categoryOptional")}
               </Text>
 
               {categories
@@ -412,7 +563,7 @@ export default function SecondPage() {
                 })}
 
               <TouchableOpacity style={styles.addButton} onPress={addWord}>
-                <Text>Lägg till</Text>
+                <Text>{t("add")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -422,7 +573,7 @@ export default function SecondPage() {
                   setShowAddWord(false);
                 }}
               >
-                <Text>Avbryt</Text>
+                <Text>{t("cancel")}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -448,6 +599,13 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+
   backButton: {
     width: 32,
     height: 32,
@@ -455,7 +613,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#f3f4f6",
-    marginBottom: 20,
   },
 
   backButtonText: {
@@ -510,15 +667,37 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  categoryGrid: {
+  carouselRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-start",
-    gap: 10,
+    alignItems: "center",
+  },
+
+  carousel: {
+    flex: 1,
+  },
+
+  carouselPage: {
+    flexDirection: "row",
+    gap: CATEGORY_GAP,
+  },
+
+  arrow: {
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  arrowText: {
+    fontSize: 30,
+    color: "#111827",
+  },
+
+  arrowTextFaded: {
+    fontSize: 30,
+    color: "#d1d5db",
   },
 
   box: {
-    width: "31%",
     minHeight: 55,
     borderWidth: 1,
     borderColor: "#d1d5db",

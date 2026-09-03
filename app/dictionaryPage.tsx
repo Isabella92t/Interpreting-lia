@@ -1,6 +1,8 @@
 
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
+
+import { useUiLanguage } from "@/context/ui-language-context";
 import { useEffect, useState } from "react";
 import {
   FlatList,
@@ -9,6 +11,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+const languageNames: Record<string, string> = {
+  sv: "Svenska",
+  en: "English",
+  es: "Español",
+};
 
 type Translation = {
   word_id: number;
@@ -19,6 +27,8 @@ type Translation = {
 export default function DictionaryPage() {
   const router = useRouter();
   const db = useSQLiteContext();
+
+  const { t } = useUiLanguage();
 
   const { from, to, category } = useLocalSearchParams<{
     from?: string;
@@ -35,12 +45,6 @@ export default function DictionaryPage() {
   async function loadTranslations() {
     const selectedFrom = String(from ?? "").toLowerCase();
     const selectedTo = String(to ?? "").toLowerCase();
-
-    const languageNames: Record<string, string> = {
-      sv: "Svenska",
-      en: "English",
-      es: "Español",
-    };
 
     const fromLanguage = languageNames[selectedFrom];
     const toLanguage = languageNames[selectedTo];
@@ -106,24 +110,38 @@ export default function DictionaryPage() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <TouchableOpacity
+        onPress={() =>
+          router.dismissTo({ pathname: "/secondPage", params: { from, to } })
+        }
+        style={styles.backButton}
+      >
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>{category ? category : "Dictionary"}</Text>
+      <Text style={styles.title}>{category ? category : t("dictionary")}</Text>
+
+      <Text style={styles.subtitle}>
+        {languageNames[String(from ?? "").toLowerCase()]} →{" "}
+        {languageNames[String(to ?? "").toLowerCase()]} · {translations.length}{" "}
+        {t("words")}
+      </Text>
 
       <FlatList
         data={translations}
         keyExtractor={(item) => String(item.word_id)}
         renderItem={({ item }) => (
           <View style={styles.row}>
-            <Text style={styles.text}>{item.text_from}</Text>
+            <Text style={styles.word}>{item.text_from}</Text>
 
-            <Text style={styles.text}>{item.text_to}</Text>
+            <Text style={styles.translation}>{item.text_to}</Text>
           </View>
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={true}
+        ListEmptyComponent={
+          <Text style={styles.empty}>{t("noWordsYet")}</Text>
+        }
       />
     </View>
   );
@@ -154,25 +172,46 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: "600",
-    marginBottom: 20,
+    marginBottom: 4,
     textAlign: "center",
+  },
+
+  subtitle: {
+    fontSize: 12,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 20,
   },
 
   listContent: {
     paddingBottom: 24,
   },
 
+  // Varje ord ar en rad med en tunn linje under,
+  // sa att man ser var ett ord slutar och nasta borjar.
   row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    marginBottom: 8,
-    width: "75%",
-    alignSelf: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
   },
 
-  text: {
-    fontSize: 16,
+  word: {
+    fontSize: 15,
+    fontWeight: "600",
     color: "#111827",
+  },
+
+  // Oversattningen star under ordet i gratt, lite mindre.
+  translation: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginTop: 3,
+  },
+
+  empty: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+    paddingVertical: 24,
   },
 });

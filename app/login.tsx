@@ -8,23 +8,25 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/context/auth-context";
+import { useUiLanguage } from "@/context/ui-language-context";
 
 export default function LoginScreen() {
   const router = useRouter();
   const { user, signIn, isLoading, isConfigured, error } = useAuth();
+  const { t } = useUiLanguage();
 
   if (user) return <Redirect href="/firstPage" />;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Interpreter App</Text>
-      <Text>Log in or create an account to continue.</Text>
+      <Text style={styles.title}>{t("appName")}</Text>
+      <Text>{t("loginIntro")}</Text>
 
       {isConfigured ? (
         isLoading ? (
           <ActivityIndicator />
         ) : (
-          <Button title="Log in or create account" onPress={signIn} />
+          <Button title={t("loginButton")} onPress={signIn} />
         )
       ) : (
         <Text>
@@ -33,7 +35,7 @@ export default function LoginScreen() {
         </Text>
       )}
 
-      <Button title="Skip" onPress={() => router.replace("/firstPage")} />
+      <Button title={t("skip")} onPress={() => router.replace("/firstPage")} />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
