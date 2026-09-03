@@ -1,5 +1,4 @@
 import type { SQLiteDatabase } from "expo-sqlite";
-import { juridikData } from "./data/juridik";
 
 export async function seedDatabase(db: SQLiteDatabase) {
   // =========================
@@ -25,24 +24,32 @@ export async function seedDatabase(db: SQLiteDatabase) {
   // Kategorier
   // =========================
 
-  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Juridik");
+  await db.runAsync(
+    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
+    "Juridik",
+  );
 
-  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Samhälle");
+  await db.runAsync(
+    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
+    "Samhälle",
+  );
 
   await db.runAsync(
     "INSERT OR IGNORE INTO tags (name) VALUES (?)",
     "Migration",
   );
 
-  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Sjukvård");
-
-  await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", "Övrigt");
+  await db.runAsync(
+    "INSERT OR IGNORE INTO tags (name) VALUES (?)",
+    "Sjukvård",
+  );
 
   // =========================
-  // Grundord
+  // Ord
   // =========================
 
   const words = [
+    // Befintliga ord
     "avtal",
     "domstol",
     "lag",
@@ -95,7 +102,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
   ];
 
   for (const word of words) {
-    await db.runAsync("INSERT OR IGNORE INTO words (name) VALUES (?)", word);
+    await db.runAsync(
+      "INSERT OR IGNORE INTO words (name) VALUES (?)",
+      word,
+    );
   }
 
   // =========================
@@ -118,10 +128,11 @@ export async function seedDatabase(db: SQLiteDatabase) {
   );
 
   // =========================
-  // Grundöversättningar
+  // Översättningar
   // =========================
 
   const translations = [
+    // Befintliga
     ["avtal", "avtal", "agreement", "contrato"],
     ["domstol", "domstol", "court", "tribunal"],
     ["lag", "lag", "law", "ley"],
@@ -139,7 +150,12 @@ export async function seedDatabase(db: SQLiteDatabase) {
       "migration law",
       "derecho de migración",
     ],
-    ["navelsträng", "navelsträng", "umbilical cord", "cordón umbilical"],
+    [
+      "navelsträng",
+      "navelsträng",
+      "umbilical cord",
+      "cordón umbilical",
+    ],
     ["moderkaka", "moderkaka", "placenta", "placenta"],
 
     // Juridik
@@ -230,45 +246,6 @@ export async function seedDatabase(db: SQLiteDatabase) {
   }
 
   // =========================
-  // JURIDIK
-  // Svenska <-> Spanska
-  // =========================
-
-  if (svenska && spanska) {
-    for (const item of juridikData) {
-      // Lägg in svenska ordet
-      await db.runAsync(
-        "INSERT OR IGNORE INTO words (name) VALUES (?)",
-        item.sv,
-      );
-
-      // Hämta word-ID
-      const word = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM words WHERE name = ?",
-        item.sv,
-      );
-
-      if (!word) continue;
-
-      // Svenska
-      await db.runAsync(
-        "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-        word.id,
-        svenska.id,
-        item.sv,
-      );
-
-      // Spanska
-      await db.runAsync(
-        "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-        word.id,
-        spanska.id,
-        item.es,
-      );
-    }
-  }
-
-  // =========================
   // Hämta kategori-ID
   // =========================
 
@@ -296,7 +273,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
   // Hjälpfunktion för tags
   // =========================
 
-  async function addTag(wordName: string, tagId: number | undefined) {
+  async function addTag(
+    wordName: string,
+    tagId: number | undefined,
+  ) {
     if (!tagId) return;
 
     const word = await db.getFirstAsync<{ id: number }>(
@@ -314,7 +294,7 @@ export async function seedDatabase(db: SQLiteDatabase) {
   }
 
   // =========================
-  // Tagga grundläggande juridikord
+  // Juridik
   // =========================
 
   await addTag("avtal", juridik?.id);
@@ -328,16 +308,6 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("domare", juridik?.id);
   await addTag("åtal", juridik?.id);
   await addTag("kontrakt", juridik?.id);
-
-  // =========================
-  // Tagga ALLA juridiktermer
-  // =========================
-
-  if (juridik?.id) {
-    for (const item of juridikData) {
-      await addTag(item.sv, juridik.id);
-    }
-  }
 
   // =========================
   // Samhälle
@@ -369,7 +339,10 @@ export async function seedDatabase(db: SQLiteDatabase) {
   await addTag("utvisning", migration?.id);
   await addTag("ansökan", migration?.id);
   await addTag("medborgare", migration?.id);
-  await addTag("permanent uppehållstillstånd", migration?.id);
+  await addTag(
+    "permanent uppehållstillstånd",
+    migration?.id,
+  );
 
   // =========================
   // Sjukvård
@@ -393,17 +366,28 @@ export async function seedDatabase(db: SQLiteDatabase) {
   const idioms = [
     ["Break the ice", "Bryta isen", "Romper el hielo"],
     ["Piece of cake", "Enkelt som en plätt", "Pan comido"],
-    ["Hit the nail on the head", "Slå huvudet på spiken", "Dar en el clavo"],
+    [
+      "Hit the nail on the head",
+      "Slå huvudet på spiken",
+      "Dar en el clavo",
+    ],
     [
       "It's raining cats and dogs",
       "Det regnar väldigt mycket",
       "Llueve a cántaros",
     ],
-    ["Under the weather", "Känna sig hängig", "Sentirse indispuesto"],
+    [
+      "Under the weather",
+      "Känna sig hängig",
+      "Sentirse indispuesto",
+    ],
   ];
 
   for (const [en, sv, es] of idioms) {
-    await db.runAsync("INSERT OR IGNORE INTO idioms (name) VALUES (?)", en);
+    await db.runAsync(
+      "INSERT OR IGNORE INTO idioms (name) VALUES (?)",
+      en,
+    );
 
     const idiom = await db.getFirstAsync<{ id: number }>(
       "SELECT id FROM idioms WHERE name = ?",
@@ -439,34 +423,4 @@ export async function seedDatabase(db: SQLiteDatabase) {
       );
     }
   }
-
-  // =========================
-  // KONTROLL
-  // =========================
-
-  const totalWords = await db.getFirstAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM words",
-  );
-
-  const totalTranslations = await db.getFirstAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM translations",
-  );
-
-  const totalJuridik = await db.getFirstAsync<{ count: number }>(
-    `SELECT COUNT(*) as count
-       FROM word_tags wt
-       JOIN tags t ON t.id = wt.tag_id
-       WHERE t.name = ?`,
-    "Juridik",
-  );
-
-  console.log("📚 ANTAL ORD I DATABASEN:", totalWords?.count);
-
-  console.log("🌍 ANTAL ÖVERSÄTTNINGAR:", totalTranslations?.count);
-
-  console.log("⚖️ ANTAL JURIDIKORD:", totalJuridik?.count);
-
-  console.log("📦 ANTAL POSTER I juridikData:", juridikData.length);
-
-  console.log("🌱 SEED KLAR");
 }

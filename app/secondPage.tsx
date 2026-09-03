@@ -1,4 +1,3 @@
-
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -20,6 +19,32 @@ type Category = {
   name: string;
 };
 
+type Translation = {
+  word_id: number;
+  text_from: string;
+  text_to: string;
+};
+
+// Man måste skriva minst tre bokstäver innan förslagen visas.
+const MIN_SEARCH_LENGTH = 3;
+
+// Vi visar högst tre förslag.
+const MAX_RESULTS = 3;
+
+// Delar upp texten i ord och kollar om NÅGOT ord börjar med det man skrev.
+// "falsk" hittar alltså "Olovlig befattning med falska pengar".
+function startsWithSearch(text: string, searchText: string) {
+  const words = text.toLowerCase().split(/[\s/,()]+/);
+
+  return words.some((word) => word.startsWith(searchText));
+}
+
+const languageNames: Record<string, string> = {
+  sv: "Svenska",
+  en: "English",
+  es: "Español",
+};
+
 export default function SecondPage() {
   const router = useRouter();
   const db = useSQLiteContext();
@@ -30,6 +55,11 @@ export default function SecondPage() {
   }>();
 
   const [categories, setCategories] = useState<Category[]>([]);
+
+  // Alla ord i de valda språken. Vi hämtar dem en gång och söker sedan
+  // i listan, så att sökningen känns direkt när man skriver.
+  const [allTranslations, setAllTranslations] = useState<Translation[]>([]);
+  const [search, setSearch] = useState("");
 
   const [showAddWord, setShowAddWord] = useState(false);
 
@@ -42,12 +72,48 @@ export default function SecondPage() {
     loadCategories();
   }, []);
 
+  useEffect(() => {
+    loadAllTranslations();
+  }, [from, to]);
+
   async function loadCategories() {
     const result = await db.getAllAsync<Category>(
       "SELECT id, name FROM tags ORDER BY name ASC",
     );
 
     setCategories(result);
+  }
+
+  async function loadAllTranslations() {
+    const fromLanguage = languageNames[String(from).toLowerCase()];
+    const toLanguage = languageNames[String(to).toLowerCase()];
+
+    if (!fromLanguage || !toLanguage) {
+      return;
+    }
+
+    const result = await db.getAllAsync<Translation>(
+      `
+      SELECT DISTINCT
+        from_translation.text AS text_from,
+        to_translation.text AS text_to,
+        from_translation.word_id
+      FROM translations AS from_translation
+      INNER JOIN translations AS to_translation
+        ON from_translation.word_id = to_translation.word_id
+      INNER JOIN languages AS from_language
+        ON from_translation.language_id = from_language.id
+      INNER JOIN languages AS to_language
+        ON to_translation.language_id = to_language.id
+      WHERE from_language.name = ?
+        AND to_language.name = ?
+      ORDER BY LOWER(text_from) ASC
+      `,
+      fromLanguage,
+      toLanguage,
+    );
+
+    setAllTranslations(result);
   }
 
   async function changeLanguages() {
@@ -66,12 +132,6 @@ export default function SecondPage() {
       Alert.alert("Fyll i alla fält");
       return;
     }
-
-    const languageNames: Record<string, string> = {
-      sv: "Svenska",
-      en: "English",
-      es: "Español",
-    };
 
     const fromLanguage = languageNames[String(from).toLowerCase()];
     const toLanguage = languageNames[String(to).toLowerCase()];
@@ -153,6 +213,8 @@ export default function SecondPage() {
       }
     }
 
+    await loadAllTranslations();
+
     setWord("");
     setTranslation("");
     setSelectedCategories([]);
@@ -171,6 +233,22 @@ export default function SecondPage() {
     }
   }
 
+  // Vi söker i BÅDA språken samtidigt, så det spelar ingen roll
+  // vilket språk man skriver på.
+  const searchText = search.trim().toLowerCase();
+
+  const hasEnoughLetters = searchText.length >= MIN_SEARCH_LENGTH;
+
+  const searchResults = hasEnoughLetters
+    ? allTranslations.filter(
+        (item) =>
+          startsWithSearch(item.text_from, searchText) ||
+          startsWithSearch(item.text_to, searchText),
+      )
+    : [];
+
+  const visibleResults = searchResults.slice(0, MAX_RESULTS);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -182,6 +260,33 @@ export default function SecondPage() {
         <TouchableOpacity onPress={changeLanguages} style={styles.backButton}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
+
+        {/* SÖK */}
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Sök ord på valfritt språk"
+          value={search}
+          onChangeText={setSearch}
+        />
+
+        {searchText.length > 0 && !hasEnoughLetters && (
+          <Text style={styles.noResults}>Skriv minst tre bokstäver</Text>
+        )}
+
+        {hasEnoughLetters && (
+          <View style={styles.searchResults}>
+            {searchResults.length === 0 ? (
+              <Text style={styles.noResults}>Inga träffar</Text>
+            ) : (
+              visibleResults.map((item) => (
+                <View key={item.word_id} style={styles.searchRow}>
+                  <Text style={styles.searchWord}>{item.text_from}</Text>
+                  <Text style={styles.searchTranslation}>{item.text_to}</Text>
+                </View>
+              ))
+            )}
+          </View>
+        )}
 
         {/* KATEGORIER */}
         <Text style={styles.title}>Categories</Text>
@@ -357,6 +462,43 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: "#111827",
+  },
+
+  /* SÖK */
+
+  searchInput: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    padding: 12,
+    marginBottom: 20,
+  },
+
+  searchResults: {
+    marginBottom: 20,
+  },
+
+  searchRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+    paddingVertical: 10,
+  },
+
+  searchWord: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+  },
+
+  searchTranslation: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginTop: 2,
+  },
+
+  noResults: {
+    fontSize: 14,
+    color: "#6b7280",
+    paddingVertical: 10,
   },
 
   /* KATEGORIER */
