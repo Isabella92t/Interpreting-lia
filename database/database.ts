@@ -1,3 +1,4 @@
+
 import type { SQLiteDatabase } from "expo-sqlite";
 
 export async function createTables(db: SQLiteDatabase) {
@@ -56,5 +57,19 @@ export async function createTables(db: SQLiteDatabase) {
       FOREIGN KEY (idiom_id) REFERENCES idioms(id),
       FOREIGN KEY (language_id) REFERENCES languages(id)
     );
+  `);
+
+  // Ta bort den gamla kategorin "Samhälle"
+  // och alla kopplingar till den.
+  await db.runAsync(`
+    DELETE FROM word_tags
+    WHERE tag_id IN (
+      SELECT id FROM tags WHERE name = 'Samhälle'
+    );
+  `);
+
+  await db.runAsync(`
+    DELETE FROM tags
+    WHERE name = 'Samhälle';
   `);
 }
