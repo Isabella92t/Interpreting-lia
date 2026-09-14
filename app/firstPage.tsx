@@ -1,3 +1,4 @@
+import { colors } from "@/constants/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
@@ -15,9 +16,9 @@ import { useAuth } from "@/context/auth-context";
 import { useUiLanguage } from "@/context/ui-language-context";
 
 const languages = [
-  { label: "Svenska", value: "sv" },
-  { label: "Español", value: "es" },
-  { label: "English", value: "en" },
+  { label: "Svenska", value: "sv", flag: "🇸🇪" },
+  { label: "Español", value: "es", flag: "🇪🇸" },
+  { label: "English", value: "en", flag: "" },
 ];
 
 export default function FirstPage() {
@@ -82,6 +83,22 @@ export default function FirstPage() {
     }
   }
 
+  function getLanguageDisplay(value: string | null, fallback: string) {
+    if (!value) {
+      return fallback;
+    }
+
+    const language = languages.find((language) => language.value === value);
+
+    if (!language) {
+      return fallback;
+    }
+
+    return language.flag
+      ? `${language.label} ${language.flag}`
+      : language.label;
+  }
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -92,6 +109,7 @@ export default function FirstPage() {
 
   return (
     <View style={styles.container}>
+      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
@@ -106,6 +124,7 @@ export default function FirstPage() {
         <LanguagePicker />
       </View>
 
+      {/* TITLE */}
       <Text style={styles.title}>{t("chooseLanguages")}</Text>
 
       {/* FROM */}
@@ -117,12 +136,11 @@ export default function FirstPage() {
         style={styles.box}
       >
         <Text style={styles.boxText}>
-          {fromLanguage
-            ? languages.find((l) => l.value === fromLanguage)?.label
-            : t("from")}
+          {getLanguageDisplay(fromLanguage, t("from"))}
         </Text>
       </TouchableOpacity>
 
+      {/* FROM LIST */}
       {fromOpen && (
         <ScrollView style={styles.list}>
           {languages
@@ -151,12 +169,11 @@ export default function FirstPage() {
         style={styles.box}
       >
         <Text style={styles.boxText}>
-          {toLanguage
-            ? languages.find((l) => l.value === toLanguage)?.label
-            : t("to")}
+          {getLanguageDisplay(toLanguage, t("to"))}
         </Text>
       </TouchableOpacity>
 
+      {/* TO LIST */}
       {toOpen && (
         <ScrollView style={styles.list}>
           {languages
@@ -196,14 +213,14 @@ export default function FirstPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
     padding: 24,
     justifyContent: "center",
   },
 
   loadingContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
   },

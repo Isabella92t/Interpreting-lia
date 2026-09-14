@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 
+import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useEffect, useState } from "react";
 import {
@@ -108,7 +109,7 @@ export default function IdiomsPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
     padding: 24,
   },
 

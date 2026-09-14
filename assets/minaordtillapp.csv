@@ -1,0 +1,567 @@
+﻿Svenska;Spanska;Kategori
+1§ Mord;Asesinato;Juridik
+2§ Dråp;Homicidio;Juridik
+3§ Barnadråp;Infanticidio;Juridik
+5§ Misshandel;Maltrato, delito de lesiones;Juridik
+6§ Grov misshandel;Maltrato grave (con agravante), delito agravado de lesiones;Juridik
+7§ Vållande till annans död;Homicidio culposo/ por negligencia/ imprudente/ involuntario;Juridik
+8§ Vållande till kroppsskada eller sjukdom;Delito de lesiones por imprudencia;Juridik
+9§ Framkallande av fara för annan;Delito de peligro, provocar peligro para terceros;Juridik
+10§ Arbetsmiljöbrott;Delito contra la seguridad laboral;Juridik
+1§ Människorov;Secuestro;Juridik
+1a§ Människohandel;Trata de personas (seres humanos);Juridik
+1b§ Människoexploatering;Explotación de personas;Juridik
+2§ Olaga frihetsberövande;Privación ilicita de la libertad;Juridik
+4§ Olaga tvång;Delito de coacciones;Juridik
+4a§ Grov fridskränkning/grov kvinnofridskränkning;Delito de atentado contra la integridad moral de la persona/ mujer, violación grave de la integridad de la persona/mujer;Juridik
+4b§ Olaga förföljelse;Persecución ilicita;Juridik
+4c§ Äktenskapstvång;Delito de matrimonio forzado, delito de coaccción para contraer matrimonio;Juridik
+4d§ Vilseledande till äktenskapsresa;Viaje ilícito engañoso con promesa de matrimonio;Juridik
+4e§ Hedersförtryck;Opresión de honor;Juridik
+5§ Olaga hot;Amenaza ilicita, delito de amenaza;Juridik
+6§ Hemfridsbrott och olaga intrång;Allanamiento de morada y usurpación;Juridik
+6a§ Kränkande fotografering;Captación ultrajante/ vejatoria de imagen;Juridik
+7§ Ofredande;Acoso;Juridik
+8§ Brytande av post- eller telehemlighet;Violación de secreto postal y de telecomunicaciones;Juridik
+9§ Intrång i förvar;Intrusión en lugar cerrado;Juridik
+9a§ Olovlig avlyssning;Escucha ilícita;Juridik
+9c§ Dataintrång & grovt dataintrång;Intrusión en sistemas informáticos;Juridik
+1§ Förtal;Difamación, calumnia;Juridik
+2§ Grovt förtal;Difamación grave;Juridik
+3§ Förolämpning;Insulto, ofensa;Juridik
+4§ Förtal av avliden;Difamación, calumnia de difunto;Juridik
+1§ Våldtäkt & grov våldtäkt;Violación y violación grave;Juridik
+1a§ Oaktsam våldtäkt;Violación negligente;Juridik
+2§ Sexuellt tvång och grovt sexuellt tvång;Coerción sexual;Juridik
+3§ Sexuellt utnyttjande av person i beroende ställning och grov sexuellt utnyttjande av person i beroende ställning;Abuso sexual de persona en situación (posicion) de dependencia;Juridik
+4§ Våldtäkt mot barn och grov våldtäkt mot barn;Violación de menor;Juridik
+5§ Sexuellt utnyttjande av barn;Abuso sexual de menor;Juridik
+6§ Sexuellt övergrepp mot barn och grov sexuellt övergrepp mot barn;Agresión sexual a menor;Juridik
+7§ Samlag med avkomling och samlag med syskon;Coito con descendente y coito con hermanos;Juridik
+8§ Utnyttjande/ grovt utnyttjande av barn för sexuell posering;Explotación de menores para poses sexuales;Juridik
+9§ Köp av sexuell handling av barn;Compra de acto sexual de menores;Juridik
+10§ Sexuellt ofredande;Acoso sexual;Juridik
+10a§ Kontakt med barn i sexuellt syfte;Contacto con menor para fines sexuales;Juridik
+11§ Köp av sexuell tjänst;Compra de servicio sexual;Juridik
+12§ Koppleri och grovt koppleri;Proxenetismo, proxenetismo con agravante;Juridik
+1§ Tvegifte och olovlig ingående av äktenskap;Bigamia y contracción ilícita de matrimonio;Juridik
+2§ Otillbörlig utverkande av samtycke eller tillstånd till adoption av barn;Obtención indebida de consentimiento o autorización para la adopción de un niño;Juridik
+3§ Förvanskande av familjeställning;Distorsión del estado familiar;Juridik
+4§ Egenmäktighet med barn/ grov egenmäktighet med barn;Sustracción de menores;Juridik
+1§ Stöld;Hurto/robo;Juridik
+2§ Snatteri;Hurto leve;Juridik
+4§ Grov stöld;Hurto grave/robo grave;Juridik
+5§ Rån;Robo / atraco;Juridik
+6§ Grovt rån;Robo grave/ atraco grave;Juridik
+7§ Tillgrepp av fortskaffningsmedel;Robo/ hurto de uso de vehículos;Juridik
+8§ Egenmäktig förfarande;Procedimiento arbitrario;Juridik
+9§ Självtäkt (olaga);Realización arbitraria del propio derecho;Juridik
+10§ Olovlig kraftavledning;Desviación ilícita de electricidad;Juridik
+10a § Olovlig avledning av värmeenergi;Desviación ilícita de energía de calefacción;Juridik
+11§ Åverkan eller självtäkt (enl. 12 kap. 2§ eller 8-9 §§);Daño/deterioro o realización arbitraria del propio derecho;Juridik
+;;Sjukvård
+fosterutvecklingen;El desarrollo fetal;Sjukvård
+förlossningen;El parto;Sjukvård
+Plötslig spädbarnsdöd;Muerte súbita infantil;Sjukvård
+embryot;El embrión;Sjukvård
+foster;El feto;Sjukvård
+navelsträngen;El cordón umbilical;Sjukvård
+moderkakan;La placenta;Sjukvård
+fostervattnet;El líquido amniótico;Sjukvård
+fosterhinnan;El amnios, el saco amniótico;Sjukvård
+ultraljudsundersökning;Ecografía;Sjukvård
+fostervattensprov;Amniocentesis;Sjukvård
+sätesbjudning;Presentación podálica;Sjukvård
+pannbjudning;Presentación cefálica de occipucio posterior;Sjukvård
+kronbjudning;Presentación cefálica (de occipucio anterior);Sjukvård
+förvärkar;Primeras contracciones, contracciones preparto, contracciones Braxton Hicks (las que pueden aparecer tb antes durante el ambarazo).;Sjukvård
+öppningsskedet;fase de dilatación;Sjukvård
+sammandragningarna;las contracciones;Sjukvård
+utdrivningsskedet;las fase de expulsión;Sjukvård
+krystimpulserna;los impulsos a empujar;Sjukvård
+sugklocka;ventosa;Sjukvård
+efterbördsskedet;la fase de alumbramiento (la fase de expulsión de la placenta);Sjukvård
+Vattnet går;Romper aguas;Sjukvård
+kejsarsnitt;Cesárea;Sjukvård
+amningen;La lactancia, el amamantamiento;Sjukvård
+koordinationsförmåga,;Capacidad de coordinación;Sjukvård
+finmotorik;Motricidad fina;Sjukvård
+nyföddhetsperioden;el periodo neonatal, el puerperio, el periodo puerperal;Sjukvård
+spädbarnsålder;Primera infancia;Sjukvård
+tillväxthormoner;Hormonas de crecimiento;Sjukvård
+Dygnsrytm;Ritmo circadiano;Sjukvård
+kroppsvätskor;Fluidos corporales, líquidos corporales;Sjukvård
+Folksjukdom;Enfermedad endémica, enfermedad ampliamente difundida;Sjukvård
+psykosomatiskt symtom;Síntoma psicosomático;Sjukvård
+objektiva symtom; ;Sjukvård
+subjektiva symtom; ;Sjukvård
+symtomfri;Libre de síntomas, asintomático;Sjukvård
+trötthet;Cansancio, fatiga;Sjukvård
+fysisk (trötthet);Cansancio físico, fatiga física;Sjukvård
+psykisk (trötthet);Cansancio psíquico, fatiga psíquica;Sjukvård
+allmän svaghet;Debilidad general;Sjukvård
+viktförändringar;Cambios de peso;Sjukvård
+feber;Fiebre;Sjukvård
+blekhet;Palidez;Sjukvård
+illamående;Náuseas;Sjukvård
+kräkningar;Vómitos;Sjukvård
+kräkreflex;Arcada;Sjukvård
+sjösjuka;Cinetosis, mareo;Sjukvård
+åksjuka;Cinetosis, mareo de viaje;Sjukvård
+hjärtklappning;Palpitación, taquicarda;Sjukvård
+andnöd;Falta de aire, dificultad para respirar;Sjukvård
+lufthunger;Hambre de aire;Sjukvård
+hosta;Tos;Sjukvård
+piper och väser;Gime, silba, pita, (estertores y sibilancias);Sjukvård
+rossling (rossla);Estertor (tener o emitir estertores);Sjukvård
+gny;Gemir;Sjukvård
+förkylning;Resfriado;Sjukvård
+torrhosta;Tos seca;Sjukvård
+slemhinnor;Mucosas;Sjukvård
+sköra slemhinnor (i slidan);Atrofia vaginal, vaginitis atrófica, mucosas atróficas;Sjukvård
+slemmiga upphostningar;Expectoraciones mucosas, esputo mucoso;Sjukvård
+yrsel;Mareo (gungande känsla), vértigo (allt snurrar);Sjukvård
+svimning;Desmayo;Sjukvård
+medvetande;Consciencia;Sjukvård
+olustkänsla;Sensación de malestar;Sjukvård
+kallsvett;Sudor frío;Sjukvård
+sömnlöshet;Insomnio;Sjukvård
+klåda;Picor, picazón, comezón;Sjukvård
+smärta;Dolor (ömhet - sensibilidad);Sjukvård
+smärtattack;Dolor agudo, dolor fuerte al instante;Sjukvård
+smärtstillande (mediciner);Analgésicos;Sjukvård
+värk;Dolor;Sjukvård
+molande värk;Dolor sordo;Sjukvård
+strålande smärta;Dolor irradiado;Sjukvård
+huvudvärk;Dolor de cabeza;Sjukvård
+spänningshuvudvärk;Dolor de cabeza tensional, cefalea tensional;Sjukvård
+myrkrypningar;Hormigueos;Sjukvård
+ont;Dolor;Sjukvård
+diagnos;Diagnóstico;Sjukvård
+Sjukdomshistoria (anamnes);Anamnesis, historial médico;Sjukvård
+kostvanor;Costumbres alimenticias, hábitos alimenticios;Sjukvård
+banta;Estar a régimen;Sjukvård
+gåstavar;Bastones de marcha;Sjukvård
+fertil ålder;Edad fértil;Sjukvård
+auskultation;Auscultación;Sjukvård
+stetoskop;Estetoscopio;Sjukvård
+palpation;Palpación;Sjukvård
+perkussion;Percusión;Sjukvård
+inspektion;Inspección;Sjukvård
+munhåla;Cavidad bucal;Sjukvård
+spatel;Espátula;Sjukvård
+puls och blodtryck;Pulso y tensión arterial, presión arterial o tensión;Sjukvård
+neurologisk undersökning; ;Sjukvård
+reflexer;Reflejos;Sjukvård
+provtagningar;Análisis, toma de muestras, muestreo;Sjukvård
+remiss;Volante médico, remisión , derivación;Sjukvård
+remittera;derivar;Sjukvård
+blod;Sangre;Sjukvård
+blodprov;Muestra de sangre;Sjukvård
+urin;Orina;Sjukvård
+avföring, (feces);Heces;Sjukvård
+avföringsprov;Muestra de heces;Sjukvård
+tjära;Alquitrán;Sjukvård
+fastande;en ayunas;Sjukvård
+saliv;Saliva;Sjukvård
+sjukdomsförlopp; ;Sjukvård
+förebygga;Prevenir;Sjukvård
+analys;Análisis;Sjukvård
+rutinprov;Prueba rutinaria;Sjukvård
+äggvita;Proteína, albúmina;Sjukvård
+reagenssticka;Tira reactiva;Sjukvård
+socker;Azúcar, glucosa;Sjukvård
+bakterier;Bacteria, bacterias;Sjukvård
+baciller;Bacilo, microbio;Sjukvård
+urinodling;Cultivo de orina;Sjukvård
+ryggmärgsvätska;Líquido encéfaloespinal, Líquido cefalorraquídeo, líquido cerebroespinal;Sjukvård
+spinalvätska;Líquido cefalorraquídeo, líquido cerebroespinal;Sjukvård
+resistensbestämning;Antibiograma;Sjukvård
+blodförgiftning;Sepsis;Sjukvård
+antikroppar;Anticuerpos;Sjukvård
+antikroppsundersökning;Análisis de anticuerpos;Sjukvård
+immuniteten;Inmunidad;Sjukvård
+slätröntgen;Radiografía simple o convencional;Sjukvård
+skiktröntgen;TAC, tomografia (axial) computarizada;Sjukvård
+kontrastmedel;Contraste;Sjukvård
+scintigrafi;Gammagrafía, centellografía, cintigrafía, escintigrafía;Sjukvård
+vävnadsskador;Daños de tejido, lesiones tilulares;Sjukvård
+datortomograf, CT;Tomografía Computarizada (TC);Sjukvård
+PET;Tomografía por emisión de positrones;Sjukvård
+magnetisk resonanstomografi;Resonancia magnética;Sjukvård
+ultraljudsundersökning;Ecografía, examen de ultasonido;Sjukvård
+magnetkameraröntgen;Resonancia magnética;Sjukvård
+ljudvågor;Ondas sonoras;Sjukvård
+fosterdiagnostik;Diagnóstico prenatal, diagnósitico fetal;Sjukvård
+cystor;Quistes;Sjukvård
+ekokardiografi -;Ecocardiografía, ecocardio;Sjukvård
+lavemang;Enema (med), lavativa;Sjukvård
+endoskopiska undersökningar;Pruebas endoscópicas;Sjukvård
+lokalbedövning;Anestesia local;Sjukvård
+endoskopisk kirurgi, titthålskirurgi;Cirugía endoscópica, cirugía minimamente invasiva;Sjukvård
+artroskopi;Artroscopia;Sjukvård
+bronkoskopi;Broncoscopia;Sjukvård
+koloskopi;Colonoscopia;Sjukvård
+cystoskopi;Cistoscopia;Sjukvård
+gastroskopi;Gastroscopia;Sjukvård
+laparoskopi;Laparoscopia;Sjukvård
+rektoskopi;Rectoscopia;Sjukvård
+gynekolog;Ginecólogo;Sjukvård
+gynekologisk undersökningsstol;Silla ginecológica, silla de reconocimiento ginecológico;Sjukvård
+ömhet;Sensibilidad;Sjukvård
+sjukliga förändringar;Cambios patológicos;Sjukvård
+cellprov;Citología;Sjukvård
+cellförändringar;Alteraciones celulares, cambios celulares;Sjukvård
+barnmorska;Matrona, comadrona, partera;Sjukvård
+kolposkopi;Colposcopia;Sjukvård
+PAD; ;Sjukvård
+polyper;Pólipos;Sjukvård
+myom, muskelknuta;Mioma;Sjukvård
+elektroencefalografi EEG;Electroencefalografía;Sjukvård
+arbets-EKG;Electrocardiograma de esfuerzo;Sjukvård
+kanyl;Cánula;Sjukvård
+biopsi; ;Sjukvård
+vävnadsprov;Prueba de tejido, muestra de tejido, biopsia;Sjukvård
+lumbalpunktion, LP;Punción lumbar;Sjukvård
+befruktad äggcell;Óvulo fecundado;Sjukvård
+medfödd missbildning;Malformación congénita, deformidad congénita, deformación;Sjukvård
+Förvärvad missbildning;Malformación adquirida;Sjukvård
+nervcell;Neurona, célula nerviosa;Sjukvård
+nervimpuls;Impulso nervioso;Sjukvård
+Samhällskunskap;Ciencias sociales;Samhällskunskap
+Arbetarrörelsen;El movimiento obrero;Samhällskunskap
+Statsvetenskap;Ciencia política;Samhällskunskap
+Nationalekonomi;Economía política;Samhällskunskap
+Sociologi;Sociología;Samhällskunskap
+Juridik;Derecho;Samhällskunskap
+Demokrati;Democracia;Samhällskunskap
+Samhälle;Sociedad;Samhällskunskap
+Rättsregler;Normas jurídicas;Samhällskunskap
+Grundlagar;Leyes orgánicas;Samhällskunskap
+Konstitution;Constitución;Samhällskunskap
+Statsskick;Régimen;Samhällskunskap
+Beslutande makt;Poder legislativo;Samhällskunskap
+Verkställande makt;Poder ejecutivo;Samhällskunskap
+Fri- och rättigheter;Libertades y derechos;Samhällskunskap
+Medborgare;Ciudadano;Samhällskunskap
+Lagar;Leyes;Samhällskunskap
+Föreskrifter;Reglamento;Samhällskunskap
+Riksdagsval;Elecciones parlamentarias/ generales;Samhällskunskap
+Vallagen;La ley electoral;Samhällskunskap
+Regeringsformen;La ley reguladora del gobierno sueco;Samhällskunskap
+Könsneutral;Neutralidad de género;Samhällskunskap
+Lagrådet;El consejo judicial;Samhällskunskap
+Domstolar;Tribunales;Samhällskunskap
+Diskriminering;Discriminación;Samhällskunskap
+Sexuell läggning;Orientación sexual;Samhällskunskap
+Nationella minoriteter;Minorías nacionales;Samhällskunskap
+Europeiska unionen EU;La Unión Europea UE;Samhällskunskap
+Förenta nationerna FN;La organización de las Naciones Unidas (ONU);Samhällskunskap
+Europarådet;El consejo europeo;Samhällskunskap
+Folkomröstning;Referéndum;Samhällskunskap
+Successionsordningen SO;La ley de sucesiones;Samhällskunskap
+Tryckfrihetsförordningen TF;La ley de libertad de prensa;Samhällskunskap
+Yttrandefrihetsgrundlagen YGL;La ley de libertad de expresión;Samhällskunskap
+Riksdagsordningen RO;La ley parlamentaria sueca;Samhällskunskap
+Parlamentarism;Parlamentarismo;Samhällskunskap
+Styrelseskick;Régimen;Samhällskunskap
+Representativ demokrati;Democracia representativa;Samhällskunskap
+Konung;Rey;Samhällskunskap
+Drottning;Reina;Samhällskunskap
+Statschef;Jefe de Estado;Samhällskunskap
+Fri åsiktsbildning;Libertad de opinión;Samhällskunskap
+Övergrepp;Abuso;Samhällskunskap
+Fackliga friheter;Libertades sindicales;Samhällskunskap
+Upphovsrätt;Derecho de autor;Samhällskunskap
+Näringsfrihet;Libertad de empresa;Samhällskunskap
+Yrkesfrihet;Libertad profesional;Samhällskunskap
+Lagstiftning;Proceso legislativo;Samhällskunskap
+Expropriation;Expropiación;Samhällskunskap
+Informationsfrihet;Libertad de información;Samhällskunskap
+Rikets säkerhet;La seguridad del estado;Samhällskunskap
+Mötesfrihet;Libertad de reunión;Samhällskunskap
+Demonstrationsfrihet;Libertad de manifestación;Samhällskunskap
+Föreningsfrihet;Libertad de asociación;Samhällskunskap
+Folkgrupp;Grupo étnico;Samhällskunskap
+Etniskt ursprung;Origen étnico;Samhällskunskap
+Absoluta fri- och rättigheter;Libertades y derechos absolutos;Samhällskunskap
+Religionsfrihet;Libertad religiosa;Samhällskunskap
+Dödsstraff;Pena de muerte, pena capital;Samhällskunskap
+Tortyr;Tortura;Samhällskunskap
+Kroppsstraff;Castigo corporal, castigo físico;Samhällskunskap
+Privatlivets helgd;Derecho a la intimidad;Samhällskunskap
+Trossamfund;Congregación o comunidad religiosa;Samhällskunskap
+Åsiktsregistrering;Registro de opinión;Samhällskunskap
+Kroppsvisitation;Cacheo;Samhällskunskap
+Kroppsbesikting;Registro corporal;Samhällskunskap
+Husrannsakan;Registro domiciliario;Samhällskunskap
+Integritet;Integridad;Samhällskunskap
+Samtycke;Consentimiento;Samhällskunskap
+Landsförvisa;Exiliar, desterrar;Samhällskunskap
+Rättssäkerhet;Seguridad jurídica;Samhällskunskap
+Brott;Delito, crimen;Samhällskunskap
+Rättegång;Juicio;Samhällskunskap
+Offentlighetsprincipen;El principio de publicidad;Samhällskunskap
+Kön;Género;Samhällskunskap
+Stridsåtgärder;Acciones de conflicto colectivo (p.e. acciones sindicales);Samhällskunskap
+Arbetsmarknaden;El mercado laboral;Samhällskunskap
+Arbetstagare;Empleado;Samhällskunskap
+Arbetsgivare;Empleador;Samhällskunskap
+Allemansrätten;El derecho sueco que permite a las personas transitar por terrenos privados;Samhällskunskap
+Missgynna;Desfavorecer;Samhällskunskap
+Gynna;Favorecer;Samhällskunskap
+Samer;Sami;Samhällskunskap
+Europakonventionen;El convenio europeo (de derechos humanos);Samhällskunskap
+Monarki;Monarquía;Samhällskunskap
+Republik;República;Samhällskunskap
+President;Presidente;Samhällskunskap
+Statsminister;Primer ministro;Samhällskunskap
+Statsråd;Ministro;Samhällskunskap
+Talmannen;El presidente del parlamento;Samhällskunskap
+Regeringen;El gobierno;Samhällskunskap
+Regeringskansli;Gabinete del gobierno, administración del estado;Samhällskunskap
+Departement;Ministerio;Samhällskunskap
+Statsrådsberedning;Gabinete del primer ministro (¿?);Samhällskunskap
+Förordning;Decreto;Samhällskunskap
+Kommuner;Municipios;Samhällskunskap
+Lagförslag;Proyecto de ley;Samhällskunskap
+Högsta domstolen HD;El tribunal supremo;Samhällskunskap
+Högsta förvaltningsdomstolen HFD;El tribunal supremo administrativo;Samhällskunskap
+Domare;Juez;Samhällskunskap
+Budgetförslag;Proyecto de presupuestos generales;Samhällskunskap
+Skatter;Impuestos;Samhällskunskap
+Anslag;Asignación presupuestaria;Samhällskunskap
+Inkomster;Ingresos;Samhällskunskap
+Valutapolitik;Política monetaria;Samhällskunskap
+Riksbanken;El banco central;Samhällskunskap
+Mellanfolkliga organisationer;Organizaciones internacionales;Samhällskunskap
+Utrikesnämnden; ;Samhällskunskap
+Rättsskipning;Administración de justicia;Samhällskunskap
+Myndigheter;Autoridades públicas;Samhällskunskap
+Lagprövningsrätt;El derecho de los tribunales a examinar si una ley está de acuerdo con la constitución.;Samhällskunskap
+Justitiekanslern JK;el Canciller de Justicia;Samhällskunskap
+Förvaltning;Administración pública;Samhällskunskap
+Dispens;Exención (estar exento a algo);Samhällskunskap
+Nåd;Indulto;Samhällskunskap
+Konstitutionsutskottet KU;La comisión de asuntos constitucionales, La comisión en el parlamento que tiene la función de revisar el trabajo de los ministerios y el gobierno.;Samhällskunskap
+Protokoll;Acta;Samhällskunskap
+Riksdagsledamot;Parlamentario, Diputado;Samhällskunskap
+Ärende;Asunto;Samhällskunskap
+Åtal;Acción pública, acción penal, imputación;Samhällskunskap
+Misstroendeförklaring;Voto de censura;Samhällskunskap
+Interpellationer;Pregunta en el parlamento de un diputado a un ministro.;Samhällskunskap
+Justitieombudsmännen JO, Riksdagens ombudsmän;El defensor del pueblo, La defensoría parlamentaria;Samhällskunskap
+Riksrevisionen;"Dirección (f) Nacional Sueca de Fiscalización
+ de la Gestión Pública (Utrikes Namnbok)";Samhällskunskap
+Kommunalskatt;Impuesto municipal;Samhällskunskap
+Krig och krigsfara;Guerra y riesgo de guerra;Samhällskunskap
+Regent;Regente;Samhällskunskap
+Avkomling;Descendente;Samhällskunskap
+Kognatisk tronföljd; ;Samhällskunskap
+Censurförbud;Prohibición contra la censura;Samhällskunskap
+Förtal;Difamación, calumnia;Samhällskunskap
+Kränkningar;Ultrajes, vejaciones, violaciones, delito de ofensa;Samhällskunskap
+Meddelarfrihet;Libertad para comunicar irregularidades a los medios de comunicación;Samhällskunskap
+Meddelarskydd;Protección de las fuentes de información;Samhällskunskap
+Offentliga handlingar;Documentos públicos;Samhällskunskap
+Anonymitet;Anonimato;Samhällskunskap
+Kvalificerad majoritet;Mayoría cualificada;Samhällskunskap
+Kammare;Cámara;Samhällskunskap
+Nämnder;Comités;Samhällskunskap
+Valperiod;Legislatura;Samhällskunskap
+Riksmöte; ;Samhällskunskap
+Ålderspresident; ;Samhällskunskap
+Gruppledare; ;Samhällskunskap
+Arbetsplenum; ;Samhällskunskap
+Folksuveränitetens princip;El principio de la soberanía popular;Samhällskunskap
+Misstroendevotum;Voto de censura;Samhällskunskap
+Region (f.d. landsting);Región;Samhällskunskap
+Allmänna val;Elecciones generales;Samhällskunskap
+Region (Landstings) fullmäktige;Parlamento regional;Samhällskunskap
+Kommunfullmäktige;Asamblea municipal;Samhällskunskap
+Kommunalval;Elecciones municipales;Samhällskunskap
+(Landstings) Regionval;Elecciones regionales;Samhällskunskap
+Extra val;Elecciones anticipadas;Samhällskunskap
+Allmän rösträtt;Sufragio universal;Samhällskunskap
+Lika rösträtt;Igualdad en derecho a voto;Samhällskunskap
+Mandat;Escaño, mandato;Samhällskunskap
+Proportionellt valsystem;Sistema electoral proporcional;Samhällskunskap
+Personröst;Voto preferencial;Samhällskunskap
+Europaparlamentet;El parlamento europeo;Samhällskunskap
+Förmögenhet;Fortuna;Samhällskunskap
+Valförordningen;La normativa electoral, el reglamento electoral;Samhällskunskap
+Valmyndigheten;La Autoridad electoral nacional;Samhällskunskap
+Länsstyrelse;Gobierno civil;Samhällskunskap
+Skatteverket;Agencia tributaria;Samhällskunskap
+Valsedlar;Papeletas;Samhällskunskap
+Röstlängd;Censo electoral;Samhällskunskap
+Omval;Relección;Samhällskunskap
+Sametinget;El parlamento de los Sami;Samhällskunskap
+Migrationsrätt;Derecho de migración;Migration
+Utlänningslagen;La ley de extranjería;Migration
+Utlänningsförordningen;El decreto de extranjería;Migration
+Lag om tillfälliga begränsningar av möjligheten att få uppehållstillstånd i Sverige;Ley sobre restricciones temporales a la posibilidad de obtener un permiso de residencia en Suecia;Migration
+Lag om mottagande av asylsökande m.fl;Ley sobre acogida de solicitantes de asilo;Migration
+Förordning om mottagande av asylsökande m.fl.;Decreto sobre acogida de solicitantes de asilo;Migration
+Lag om hälso- och sjukvård åt asylsökande m.fl.;Ley sobre atención sanitaria para solicitantes de asilo y otros.;Migration
+Lag om god man för ensamkommande barn;Ley de curadores para menores no acompañados;Migration
+Lag om uppehållstillstånd för studerande på gymnasial nivå (nya gymnasielagen);Ley de permiso de residencia para estudiantes a nivel de secundaria superior (la nueva ley de secundaria superior).;Migration
+Skollagen;La ley de educación;Migration
+Lag om ansvar för etableringsinsatser för vissa nyanlända invandrare;Ley de responsabilidad de programas de integración para ciertos inmigrantes recién llegados.;Migration
+Lag om mottagande av vissa nyanlända invandrare för bosättning (Bosättningslagen);Ley sobre acogida de ciertos inmigrantes recién llegados para residencia (Ley de residencia);Migration
+EU:s nya migrations- och asylpakt;El nuevo Pacto sobre Migración y Asilo de la UE;Migration
+Asylprocedurdirektivet;Directiva sobre procedimientos de asilo;Migration
+Sekundär förflyttning;Desplazamiento secundario;Migration
+Mottagardirektivet;La directiva de acogida;Migration
+Dublinförordningen *;El Convenio de Dublin;Migration
+Skyddsgrundsdirektivet;La directiva sobre los requisitos/motivos de protección;Migration
+Återvändardirektivet;La directiva de retorno;Migration
+Massflyktsdirektivet;La directiva europea de protección temporal;Migration
+Förenta nationernas allmänna förklaring om de mänskliga rättigheterna;La Declaración Universal de los Derechos Humanos de la ONU;Migration
+FN:s flyktingkonvention;Convencion sobre el estatuto de los refugiados;Migration
+Ratificera;Ratificar;Migration
+FN:s konvention om barns rättigheter (Barnkonventionen);La convención de los derechos del niño de la ONU;Migration
+Europakonventionen;El convenio europeo (de derechos humanos);Migration
+New York-konventionen om statslösa personers rättsliga ställning;Convención sobre el Reconocimiento y la Ejecución de las Sentencias Arbitrales Extranjeras (Nueva York, 1958);Migration
+Istanbulkonventionen;El Convenio de Estambul;Migration
+Antitortyrkonventionen;La convención contra la tortura;Migration
+Migrationsverket;La dirección general de migraciones de Suecia;Migration
+Enrådsmyndighet; ;Migration
+Regleringsbrev;Carta de regulación;Migration
+Särskilt uppdrag; ;Migration
+Statens invandrarverk; ;Migration
+Invandringspolitik;Política de inmigración;Migration
+Återinvandring;Inmigración de retorno;Migration
+Medborgarskapsfråga;Asunto de ciudadania;Migration
+Återvandring;Migración de Retorno;Migration
+Invandrarpolitik;Política de inmigración;Migration
+Invandringsreglering;Regularización de inmigración;Migration
+Integration;Integración;Migration
+Samhällsgemenskap;Cohesión social;Migration
+Invandrarorganisation;Organización de inmigrantes;Migration
+Region;Región;Migration
+Operativ verksamhet;Actividad operativa;Migration
+Avdelning;Departamento;Migration
+Fristående funktion;Función independiente;Migration
+Myndighetsstab;Plana mayor de la autoridad, equipo de plana mayor de;Migration
+Insynsråd;Consejo de transparencia;Migration
+Etiskt råd;Consejo ético;Migration
+Rätts- och landinformation, LIFOS (Landinformation och rättslig styrning);Base de datos de información sobre países de origen, Información de los países y de su forma jurídica de gobierno.;Migration
+Migrationsverkets statistik;La estadística de la dirección general sueca de Migración.;Migration
+Förordning med instruktioner för Migrationsverket;Decreto con instrucciones para la Dirección General de Migración.;Migration
+Migrationsarbete;Trabajo de migración;Migration
+En gemensam avsiktsförklaring;Una declaración de intenciones conjunta;Migration
+Samhällsutveckling;Desarrollo de la sociedad;Migration
+e-samverkansprogram;Programa digital de cooperación;Migration
+Samverkan mot brottslighet;Coooperación contra la delincuencia;Migration
+Anläggning;Instalacion;Migration
+Migrationsdomstol;Tribunal de migración;Migration
+Migrationsprocess;Proceso de migración;Migration
+Myndighetsbeslut;Resolución administrativa;Migration
+Migrationsöverdomstol;Tribunal supremo de migración;Migration
+Överklagande;Apelación, recurso;Migration
+Migrationsverkets beslut;Resolución de la Dirección General de Migraciones;Migration
+Förordna;Decretar, nombrar, designar;Migration
+Fullmakt;Poder, autorización, mandato de representación;Migration
+Ompröva beslut;Reconsiderar una decisión;Migration
+Klagande;Recurrente, apelante;Migration
+Ärende;Asunto, caso;Migration
+Återtagande;Readmisión;Migration
+Acceptera beslut;Acatar una resolución;Migration
+Nöjdförklara/förklara sig nöjd med;Aceptar (una sentencia);Migration
+Allmän förvaltningsdomstol;Tribunal administrativo general;Migration
+Högsta förvaltningsdomstol;El tribunal supremo administrativo;Migration
+lagrummet.se; ;Migration
+Asylmål;Casos/asuntos de asilo;Migration
+Anknytningsmål/anhörigmål;Casos de reagrupación familiar;Migration
+Tillståndsmål;Casos de autorización;Migration
+Medborgarskapsmål;Casos de ciudadanía;Migration
+Viseringsmål;Casos de visado;Migration
+Domsområde;Distrito jurídico;Migration
+Säkerhetsärende;Asunto de seguridad;Migration
+Juristdomare/lagfaren domare;Juez legal, juez letrado, juez de carrera;Migration
+Nämndeman/lekmannadomare;Juez lego;Migration
+Utslagsröst;Voto de calidad;Migration
+Röstetal;Número de votos;Migration
+Prejudikat/principiell betydelse/prejudicerande;Precedente;Migration
+Handläggning av mål;Tramitación de casos;Migration
+Handläggas skyndsamt;Se tramita de forma urgente, se debe hacer/tramitar con la máxima celeridad;Migration
+Ta i beaktande;Tener en cuenta, considerar;Migration
+Stängda dörrar/lyckta dörrar;Puertas cerradas;Migration
+Muntlig förhandling/skriftlig förhandling;Vista oral/escrita, procedimiento oral/ escrito;Migration
+Motpart;Contraparte, parte contraria;Migration
+Tvåpartsprocess;Proceso inter partes, proceso entre dos partes;Migration
+Sökande;Solicitante;Migration
+Undanröja beslut;Revocar, suprimir/ eliminar una resolución;Migration
+Återförvisning av mål;Remisión de un caso/ asunto;Migration
+Första instans;Primera instancia;Migration
+Slutinstans/högsta instans;Última instancia;Migration
+Prövningstillstånd;Permiso de admisibilidad;Migration
+Offentligt biträde vid domstol/rättsligt biträde;Asistente jurídico de oficio;Migration
+Rättegångsbalken;El Código procesal;Migration
+Förvaltningsprocesslagen (FPL);La ley de procedimiento administrativo;Migration
+Förvaltningsprocessenheten;La unidad procesal administrativa;Migration
+Tolk;Intérprete;Migration
+Överprövning av myndighetsbeslut;Revisión de resolución administrativa;Migration
+Skyldighet att lämna ut uppgift;Obligación de facilitar información;Migration
+Skyddsstatus;Estatuto de protección;Migration
+Statusförklaring;Declaración de estatuto;Migration
+Internationellt skydd;Protección internacional;Migration
+Flykting;Refugiado;Migration
+Alternativt skyddsbehövande;Persona con necesidad de protección subsidiaria;Migration
+Flyktingstatusförklaring (flyktingförklaring);Estatuto de refugiado;Migration
+Alternativ skyddsstatusförklaring;Estatuto de protección subsidiaria;Migration
+Internationell statusförklaring;Declaración de estatuto internacional;Migration
+Återtas till Sverige;Ser readmitido/a en Suecia;Migration
+Välgrundade skäl;Motivos fundados, razones bien fundadas, m;Migration
+Förföljelse;Persecución;Migration
+Tortyr;Tortura;Migration
+Kroppsstraff;Castigo corporal o físico;Migration
+Omänsklig eller förnedrande behandling;Trato inhumano o degradante /denigrante/ humillante);Migration
+Bestraffning;Castigo, penalización;Migration
+Väpnad konflikt;Conflicto armado;Migration
+Subsidiärt skyddsbehövande;Necesitado de protección subsidiaria;Migration
+Krigsbrott;Crimen de guerra;Migration
+Brott mot mänskligheten;Crimen contra la humanidad;Migration
+Kvotflykting;Reasentado por la ACNUR, refugiado de cuotas;Migration
+Vidarebosättning;Reasentamiento;Migration
+FN:s flyktingorgan/kommissariat (UNHCR);Oficina del Alto Comisionado de las Naciones Unidas para los refugiados;Migration
+Särskilt tilläggsuppdrag;Asignaciones adicionales específicas;Migration
+Sveriges internationella åtagande;Los compromisos internacionales de Suecia;Migration
+Synnerligen allvarligt hälsotillstånd;Estado de salud excepcionalemente grave;Migration
+Tillfälligt skydd;Protección temporal;Migration
+Tribunalvittne;Testigo de tribunal;Migration
+Tribunal;Tribunal;Migration
+Torped, yrkesmördare;Sicario, matón, asesino;Migration
+Asylprocess;Proceso de asilo;Migration
+Asylansökan;Solicitud de asilo;Migration
+Dublinförordningen;El convenio de Dublin;Migration
+Säkert land;Pais seguro;Migration
+Asyl;Asilo;Migration
+Ansökningsenhet;Unidad de solicitud;Migration
+Rättssäker prövning;Proceso jurídicamente seguro, proceso legalmente seguro;Migration
+Etablera sig;Establecerse;Migration
+Särbehandlas eller diskrimineras;Ser tratado de forma diferente o ser discriminado;Migration
+Kvotsystem;Sistema de cuotas;Migration
+Registrering av ansökan;Registro de solicitud;Migration
+Asylkvitto;Comprobante de (la solicitud de) asilo;Migration
+Identitet;Identidad, cédula (id-kort);Migration
+Livvakt;Escolta, guardaespaldas;Migration
+Legosoldat;Mercenario;Migration
+Födelsebevis;Certificado de nacimiento;Migration
+Militärbok;Libreta militar;Migration
+Vigselbevis;Certificado de matrimonio;Migration
+Asylprövning;Procedimiento de asilo;Migration
+Styrka;Corroborar, comprobar, certificar, autenticar, autentificar;Migration
+Sannolik;Verídico, probable;Migration
+Identitetshandling;Documento/cédula de identidad;Migration
+Klarlägga;Aclarar, clarificar;Migration
+Asylutredning;Investigación de motivos para el asilo;Migration
+Fingeravtryckskontroll;Control de huellas dactilares;Migration
+Samtal vid asylansökan;Entrevista de asilo;Migration
+Ogrundad ansökan;Solicitud infundada/ no fundada;Migration
+Språkanalys;Análisis de lenguaje/ idioma;Migration
+Anpassat boende;Vivienda adaptada;Migration
+Föra sin egen talan;Autorepresentación legal;Migration
+Protokollförare;Encargado de levantar acta;Migration
+Prövotid;Periodo de prueba;Migration

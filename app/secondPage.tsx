@@ -1,3 +1,4 @@
+import { colors } from "@/constants/colors";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -14,7 +15,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -32,13 +32,13 @@ type Translation = {
 // Vi visar tre kategorier i taget. Resten ser man genom att svepa.
 const CATEGORIES_PER_PAGE = 3;
 
-// Avstandet mellan kategori-rutorna.
+// Avståndet mellan kategori-rutorna.
 const CATEGORY_GAP = 10;
 
-// Har sparar vi vilka kategorier man anvant senast.
+// Här sparar vi vilka kategorier man använt senast.
 const RECENT_CATEGORIES_KEY = "recentCategories";
 
-// Lagger de senast anvanda kategorierna forst, resten efter.
+// Lägger de senast använda kategorierna först, resten efter.
 function sortByRecentlyUsed(categories: Category[], recentNames: string[]) {
   const recent: Category[] = [];
 
@@ -85,6 +85,27 @@ const languageNames: Record<string, string> = {
   en: "English",
   es: "Español",
 };
+
+// Databasens kategorinamn är svenska.
+// Den text användaren ser hämtas från translations.ts.
+function getCategoryTranslation(categoryName: string, t: (key: any) => string) {
+  switch (categoryName) {
+    case "Juridik":
+      return t("categoryJuridik");
+
+    case "Samhällskunskap":
+      return t("categorySamhallskunskap");
+
+    case "Migration":
+      return t("categoryMigration");
+
+    case "Sjukvård":
+      return t("categorySjukvard");
+
+    default:
+      return categoryName;
+  }
+}
 
 export default function SecondPage() {
   const router = useRouter();
@@ -142,8 +163,8 @@ export default function SecondPage() {
     }
   }
 
-  // Nar man oppnar en kategori laggs den forst i listan,
-  // sa att den syns direkt nasta gang man kommer hit.
+  // När man öppnar en kategori läggs den först i listan,
+  // så att den syns direkt nästa gång man kommer hit.
   async function openCategory(categoryName: string) {
     const updated = [
       categoryName,
@@ -151,6 +172,7 @@ export default function SecondPage() {
     ];
 
     setRecentCategories(updated);
+
     await AsyncStorage.setItem(RECENT_CATEGORIES_KEY, JSON.stringify(updated));
 
     router.push({
@@ -191,9 +213,7 @@ export default function SecondPage() {
     setAllTranslations(result);
   }
 
-  // Tillbaka till sprakvalet. Vi raderar INTE de sparade spraken,
-  // sa att de star kvar valda nar man kommer dit. Vill man byta
-  // sprak valjer man bara nya i listorna.
+  // Tillbaka till språkvalet.
   function changeLanguages() {
     router.dismissTo("/firstPage");
   }
@@ -304,8 +324,7 @@ export default function SecondPage() {
     }
   }
 
-  // Vi söker i BÅDA språken samtidigt, så det spelar ingen roll
-  // vilket språk man skriver på.
+  // Vi söker i BÅDA språken samtidigt.
   const searchText = search.trim().toLowerCase();
 
   const hasEnoughLetters = searchText.length >= MIN_SEARCH_LENGTH;
@@ -320,12 +339,12 @@ export default function SecondPage() {
 
   const visibleResults = searchResults.slice(0, MAX_RESULTS);
 
-  // Kategorierna, senast anvanda forst, uppdelade i sidor med tre i varje.
+  // Kategorierna, senast använda först.
   const categoryPages = splitIntoPages(
     sortByRecentlyUsed(categories, recentCategories),
   );
 
-  // Tre rutor plus tva mellanrum ska rymmas pa bredden.
+  // Tre rutor plus två mellanrum ska rymmas på bredden.
   const boxWidth = (carouselWidth - CATEGORY_GAP * 2) / CATEGORIES_PER_PAGE;
 
   const canGoLeft = page > 0;
@@ -337,6 +356,7 @@ export default function SecondPage() {
     }
 
     setPage(nextPage);
+
     carouselRef.current?.scrollTo({
       x: nextPage * carouselWidth,
       animated: true,
@@ -350,7 +370,7 @@ export default function SecondPage() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
       >
-        {/* Byt ordbokssprak till vanster, appens sprak till hoger */}
+        {/* Byt ordboksspråk till vänster, appens språk till höger */}
         <View style={styles.topRow}>
           <TouchableOpacity onPress={changeLanguages} style={styles.backButton}>
             <Text style={styles.backButtonText}>←</Text>
@@ -379,6 +399,7 @@ export default function SecondPage() {
               visibleResults.map((item) => (
                 <View key={item.word_id} style={styles.searchRow}>
                   <Text style={styles.searchWord}>{item.text_from}</Text>
+
                   <Text style={styles.searchTranslation}>{item.text_to}</Text>
                 </View>
               ))
@@ -390,7 +411,7 @@ export default function SecondPage() {
         <Text style={styles.title}>{t("categories")}</Text>
 
         <View style={styles.carouselRow}>
-          {/* Pil vanster */}
+          {/* Pil vänster */}
           <TouchableOpacity
             style={styles.arrow}
             onPress={() => goToPage(page - 1)}
@@ -401,10 +422,12 @@ export default function SecondPage() {
             </Text>
           </TouchableOpacity>
 
-          {/* Tre kategorier i taget - svep for att se fler */}
+          {/* Tre kategorier i taget - svep för att se fler */}
           <View
             style={styles.carousel}
-            onLayout={(event) => setCarouselWidth(event.nativeEvent.layout.width)}
+            onLayout={(event) =>
+              setCarouselWidth(event.nativeEvent.layout.width)
+            }
           >
             <ScrollView
               ref={carouselRef}
@@ -415,7 +438,9 @@ export default function SecondPage() {
               onScroll={(event) => {
                 if (carouselWidth > 0) {
                   setPage(
-                    Math.round(event.nativeEvent.contentOffset.x / carouselWidth),
+                    Math.round(
+                      event.nativeEvent.contentOffset.x / carouselWidth,
+                    ),
                   );
                 }
               }}
@@ -432,7 +457,9 @@ export default function SecondPage() {
                         style={[styles.box, { width: boxWidth }]}
                         onPress={() => openCategory(category.name)}
                       >
-                        <Text style={styles.categoryText}>{category.name}</Text>
+                        <Text style={styles.categoryText}>
+                          {getCategoryTranslation(category.name, t)}
+                        </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -440,7 +467,7 @@ export default function SecondPage() {
             </ScrollView>
           </View>
 
-          {/* Pil hoger */}
+          {/* Pil höger */}
           <TouchableOpacity
             style={styles.arrow}
             onPress={() => goToPage(page + 1)}
@@ -486,7 +513,10 @@ export default function SecondPage() {
         <TouchableOpacity
           style={styles.button}
           onPress={() =>
-            router.push({ pathname: "/notesPage", params: { from, to } })
+            router.push({
+              pathname: "/notesPage",
+              params: { from, to },
+            })
           }
         >
           <FontAwesome name="file-text-o" size={24} color="#111827" />
@@ -537,9 +567,7 @@ export default function SecondPage() {
 
               <Text style={styles.categoryTitle}>{t("category")}</Text>
 
-              <Text style={styles.optionalText}>
-                {t("categoryOptional")}
-              </Text>
+              <Text style={styles.optionalText}>{t("categoryOptional")}</Text>
 
               {categories
                 .filter((category) => category.name !== "Övrigt")
@@ -556,7 +584,7 @@ export default function SecondPage() {
                     >
                       <Text>
                         {isSelected ? "✓ " : ""}
-                        {category.name}
+                        {getCategoryTranslation(category.name, t)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -586,7 +614,7 @@ export default function SecondPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
   },
 
   scrollView: {
@@ -624,8 +652,10 @@ const styles = StyleSheet.create({
   /* SÖK */
 
   searchInput: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderWidth: 1.5,
+    borderColor: "#9ca3af",
+    backgroundColor: "#fff",
+    borderRadius: 8,
     padding: 12,
     marginBottom: 20,
   },
@@ -699,8 +729,10 @@ const styles = StyleSheet.create({
 
   box: {
     minHeight: 55,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderWidth: 1.5,
+    borderColor: "#9ca3af",
+    backgroundColor: "#fff",
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     padding: 8,
@@ -711,11 +743,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  /* KNAPPAR */
+  /* HUVUDBOXAR */
 
   button: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderWidth: 1.5,
+    borderColor: "#9ca3af",
+    backgroundColor: "#fff",
+    borderRadius: 8,
     padding: 14,
     marginTop: 20,
     alignSelf: "center",
@@ -752,6 +786,8 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: "#d1d5db",
+    backgroundColor: "#fff",
+    borderRadius: 8,
     padding: 12,
     marginTop: 12,
   },
@@ -769,8 +805,10 @@ const styles = StyleSheet.create({
   },
 
   category: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderWidth: 1.5,
+    borderColor: "#9ca3af",
+    backgroundColor: "#fff",
+    borderRadius: 8,
     padding: 10,
     marginBottom: 6,
   },
@@ -778,6 +816,8 @@ const styles = StyleSheet.create({
   selectedCategory: {
     borderWidth: 2,
     borderColor: "#111827",
+    backgroundColor: "#fff",
+    borderRadius: 8,
     padding: 10,
     marginBottom: 6,
   },

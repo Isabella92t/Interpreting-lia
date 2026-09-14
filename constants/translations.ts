@@ -1,15 +1,15 @@
-// All text som visas i appen samlas har, ett sprak i varje objekt.
-// Vill man andra en text sa andrar man den bara pa ett stalle.
+// All text som visas i appen samlas här, ett språk i varje objekt.
+// Vill man ändra en text så ändrar man den bara på ett ställe.
 //
-// Engelska ar standard. Om en text saknas i sv eller es
-// visas den engelska texten istallet.
+// Engelska är standard. Om en text saknas i sv eller es
+// visas den engelska texten istället.
 
 export const translations = {
   en: {
-    // Sprakvaljaren
+    // Språkäljaren
     appLanguage: "App language",
 
-    // Forsta sidan
+    // Första sidan
     chooseLanguages: "Choose languages",
     from: "FROM",
     to: "TO",
@@ -33,6 +33,12 @@ export const translations = {
     fillAllFields: "Please fill in all fields",
     languagesNotFound: "Could not find the languages",
     wordAdded: "The word has been added!",
+
+    // Kategorier
+    categoryJuridik: "Law",
+    categorySamhallskunskap: "Civics",
+    categoryMigration: "Migration",
+    categorySjukvard: "Healthcare",
 
     // Ordboken
     words: "words",
@@ -76,18 +82,26 @@ export const translations = {
     word: "Ord",
     translation: "Översättning",
     category: "Kategori",
-    categoryOptional: "Valfritt – välj ingen kategori för att lägga ordet i Övrigt.",
+    categoryOptional:
+      "Valfritt – välj ingen kategori för att lägga ordet i Övrigt.",
     add: "Lägg till",
     cancel: "Avbryt",
     fillAllFields: "Fyll i alla fält",
     languagesNotFound: "Språken kunde inte hittas",
     wordAdded: "Ordet har lagts till!",
 
+    // Kategorier
+    categoryJuridik: "Juridik",
+    categorySamhallskunskap: "Samhällskunskap",
+    categoryMigration: "Migration",
+    categorySjukvard: "Sjukvård",
+
     words: "ord",
     noWordsYet: "Inga ord här än",
 
     myNotes: "Mina anteckningar",
-    noNotesYet: "Du har inga anteckningar än.\nTryck på + för att skriva din första.",
+    noNotesYet:
+      "Du har inga anteckningar än.\nTryck på + för att skriva din första.",
     noteTitle: "Rubrik",
     noteText: "Skriv din anteckning här...",
     save: "Spara",
@@ -122,13 +136,18 @@ export const translations = {
     word: "Palabra",
     translation: "Traducción",
     category: "Categoría",
-    categoryOptional:
-      "Opcional: si no eliges ninguna, la palabra va a Övrigt.",
+    categoryOptional: "Opcional: si no eliges ninguna, la palabra va a Övrigt.",
     add: "Añadir",
     cancel: "Cancelar",
     fillAllFields: "Rellena todos los campos",
     languagesNotFound: "No se encontraron los idiomas",
     wordAdded: "¡La palabra se ha añadido!",
+
+    // Kategorier
+    categoryJuridik: "Derecho",
+    categorySamhallskunskap: "Educación cívica",
+    categoryMigration: "Migración",
+    categorySjukvard: "Atención sanitaria",
 
     words: "palabras",
     noWordsYet: "Aún no hay palabras aquí",
@@ -151,7 +170,7 @@ export const translations = {
   },
 } as const;
 
-// De tre spraken man kan valja i appen.
+// De tre språken man kan välja i appen.
 export const uiLanguages = [
   { code: "en", label: "English" },
   { code: "sv", label: "Svenska" },
@@ -160,5 +179,5 @@ export const uiLanguages = [
 
 export type UiLanguage = (typeof uiLanguages)[number]["code"];
 
-// Alla texter finns i engelska, sa den listan bestammer vilka namn som finns.
+// Alla texter finns i engelska, så den listan bestämmer vilka namn som finns.
 export type TextKey = keyof typeof translations.en;

@@ -1,7 +1,7 @@
-
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 
+import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useEffect, useState } from "react";
 import {
@@ -139,9 +139,7 @@ export default function DictionaryPage() {
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={true}
-        ListEmptyComponent={
-          <Text style={styles.empty}>{t("noWordsYet")}</Text>
-        }
+        ListEmptyComponent={<Text style={styles.empty}>{t("noWordsYet")}</Text>}
       />
     </View>
   );
@@ -150,7 +148,7 @@ export default function DictionaryPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
     padding: 24,
   },
 
@@ -187,8 +185,6 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
-  // Varje ord ar en rad med en tunn linje under,
-  // sa att man ser var ett ord slutar och nasta borjar.
   row: {
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -201,7 +197,6 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
 
-  // Oversattningen star under ordet i gratt, lite mindre.
   translation: {
     fontSize: 14,
     color: "#6b7280",

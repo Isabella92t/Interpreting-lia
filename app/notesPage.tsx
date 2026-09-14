@@ -2,6 +2,7 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 
+import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useCallback, useState } from "react";
 import {
@@ -107,9 +108,7 @@ export default function NotesPage() {
             </Text>
           </TouchableOpacity>
         )}
-        ListEmptyComponent={
-          <Text style={styles.empty}>{t("noNotesYet")}</Text>
-        }
+        ListEmptyComponent={<Text style={styles.empty}>{t("noNotesYet")}</Text>}
       />
 
       {/* Ny anteckning */}
@@ -129,7 +128,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     // Ljusgra bakgrund sa att de vita pappren syns tydligt.
-    backgroundColor: "#f6f6f7",
+    backgroundColor: colors.background,
     padding: 24,
   },
 

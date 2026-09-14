@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { SQLiteProvider } from "expo-sqlite";
 
+import { colors } from "@/constants/colors";
 import { AuthProvider } from "@/context/auth-context";
 import { UiLanguageProvider } from "@/context/ui-language-context";
 
@@ -18,7 +19,13 @@ export default function RootLayout() {
     >
       <UiLanguageProvider>
         <AuthProvider>
-          <Stack />
+          <Stack
+            screenOptions={{
+              contentStyle: {
+                backgroundColor: colors.background,
+              },
+            }}
+          />
         </AuthProvider>
       </UiLanguageProvider>
     </SQLiteProvider>
