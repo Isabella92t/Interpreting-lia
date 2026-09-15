@@ -13,20 +13,17 @@ import {
   View,
 } from "react-native";
 
-// Hur hogt varje skrivrad ar. Texten och linjerna anvander samma
-// varde, annars hamnar texten mellan linjerna istallet for pa dem.
 const LINE_HEIGHT = 18;
-
-// Hur manga linjer vi ritar pa pappret.
 const LINE_COUNT = 7;
 
 type Note = {
   id: number;
   title: string;
   text: string;
+  created_at: string;
+  selected_date: string | null;
 };
 
-// Ritar de vagrata linjerna, som i ett skrivblock.
 function PaperLines() {
   return (
     <View style={styles.lines} pointerEvents="none">
@@ -43,13 +40,13 @@ export default function NotesPage() {
 
   const { t } = useUiLanguage();
 
-  // Sprakvalen skickas med sa att andra sidor vet vilka sprak man valt.
-  const { from, to } = useLocalSearchParams<{ from?: string; to?: string }>();
+  const { from, to } = useLocalSearchParams<{
+    from?: string;
+    to?: string;
+  }>();
 
   const [notes, setNotes] = useState<Note[]>([]);
 
-  // useFocusEffect kors varje gang man kommer TILLBAKA till sidan.
-  // Da syns en ny anteckning direkt i listan.
   useFocusEffect(
     useCallback(() => {
       loadNotes();
@@ -58,7 +55,16 @@ export default function NotesPage() {
 
   async function loadNotes() {
     const result = await db.getAllAsync<Note>(
-      "SELECT id, title, text FROM notes ORDER BY created_at DESC",
+      `
+      SELECT
+        id,
+        title,
+        text,
+        created_at,
+        selected_date
+      FROM notes
+      ORDER BY created_at DESC
+      `,
     );
 
     setNotes(result);
@@ -68,7 +74,10 @@ export default function NotesPage() {
     <View style={styles.container}>
       <TouchableOpacity
         onPress={() =>
-          router.dismissTo({ pathname: "/secondPage", params: { from, to } })
+          router.dismissTo({
+            pathname: "/secondPage",
+            params: { from, to },
+          })
         }
         style={styles.backButton}
       >
@@ -77,7 +86,6 @@ export default function NotesPage() {
 
       <Text style={styles.title}>{t("myNotes")}</Text>
 
-      {/* Varje anteckning ser ut som ett papper. Klicka for att lasa den. */}
       <FlatList
         data={notes}
         keyExtractor={(item) => String(item.id)}
@@ -90,32 +98,54 @@ export default function NotesPage() {
             onPress={() =>
               router.push({
                 pathname: "/notePage",
-                params: { id: String(item.id), from, to },
+                params: {
+                  id: String(item.id),
+                  from,
+                  to,
+                },
               })
             }
           >
             <PaperLines />
 
-            {/* Den rosa marginal-linjen langst till vanster. */}
             <View style={styles.marginLine} pointerEvents="none" />
 
-            <Text style={styles.paperTitle} numberOfLines={1}>
+            {item.selected_date && (
+              <Text style={styles.selectedDate}>{item.selected_date}</Text>
+            )}
+
+            <Text
+              style={[
+                styles.paperTitle,
+                item.selected_date ? styles.paperTitleWithDate : undefined,
+              ]}
+              numberOfLines={1}
+            >
               {item.title}
             </Text>
 
             <Text style={styles.paperText} numberOfLines={5}>
               {item.text}
             </Text>
+
+            <Text style={styles.createdDate}>
+              {new Date(item.created_at).toLocaleString("sv-SE")}
+            </Text>
           </TouchableOpacity>
         )}
         ListEmptyComponent={<Text style={styles.empty}>{t("noNotesYet")}</Text>}
       />
 
-      {/* Ny anteckning */}
       <TouchableOpacity
         style={styles.addButton}
         onPress={() =>
-          router.push({ pathname: "/notePage", params: { from, to } })
+          router.push({
+            pathname: "/notePage",
+            params: {
+              from,
+              to,
+            },
+          })
         }
       >
         <FontAwesome name="plus" size={24} color="#fff" />
@@ -127,7 +157,6 @@ export default function NotesPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // Ljusgra bakgrund sa att de vita pappren syns tydligt.
     backgroundColor: colors.background,
     padding: 24,
   },
@@ -138,7 +167,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    // Vit mot den ljusgra bakgrunden, annars syns knappen daligt.
     backgroundColor: "#fff",
   },
 
@@ -164,31 +192,29 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 
-  // Ett papper med linjer och skugga, som ett blad ur ett skrivblock.
   paper: {
-    flex: 1,
+    width: "48%",
     minHeight: LINE_HEIGHT * LINE_COUNT + 20,
-    // Lite varmare an vitt, som riktigt papper.
     backgroundColor: "#fffdf7",
     borderWidth: 1,
     borderColor: "#e8e2d4",
-    // Papper har nastan raka horn.
     borderRadius: 2,
     paddingTop: 10,
     paddingBottom: 10,
     paddingRight: 10,
-    // Extra plats till vanster for marginal-linjen.
     paddingLeft: 22,
     marginBottom: 12,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOpacity: 0.12,
     shadowRadius: 3,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     elevation: 3,
   },
 
-  // Linjerna ligger bakom texten, med samma padding som pappret.
   lines: {
     position: "absolute",
     top: 10,
@@ -211,18 +237,38 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0bcbc",
   },
 
+  selectedDate: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+
   paperTitle: {
     fontSize: 13,
     fontWeight: "600",
     color: "#111827",
-    // Samma radhojd som linjerna, sa att rubriken hamnar pa en linje.
     lineHeight: LINE_HEIGHT,
+  },
+
+  paperTitleWithDate: {
+    marginTop: 2,
   },
 
   paperText: {
     fontSize: 12,
     color: "#4b5563",
     lineHeight: LINE_HEIGHT,
+  },
+
+  createdDate: {
+    position: "absolute",
+    bottom: 6,
+    right: 8,
+    fontSize: 8,
+    color: "#6b7280",
+    opacity: 0.55,
   },
 
   empty: {
@@ -233,7 +279,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Runda plus-knappen nere i hogra hornet.
   addButton: {
     position: "absolute",
     right: 24,

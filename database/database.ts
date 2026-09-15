@@ -1,4 +1,3 @@
-
 import type { SQLiteDatabase } from "expo-sqlite";
 
 export async function createTables(db: SQLiteDatabase) {
@@ -40,7 +39,8 @@ export async function createTables(db: SQLiteDatabase) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       text TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      selected_date TEXT
     );
 
     CREATE TABLE IF NOT EXISTS idioms (
@@ -58,6 +58,13 @@ export async function createTables(db: SQLiteDatabase) {
       FOREIGN KEY (language_id) REFERENCES languages(id)
     );
   `);
+
+  // Lägg till selected_date om databasen redan finns
+  try {
+    await db.runAsync("ALTER TABLE notes ADD COLUMN selected_date TEXT");
+  } catch {
+    // Kolumnen finns redan, så inget behöver göras.
+  }
 
   // Ta bort den gamla kategorin "Samhälle"
   // och alla kopplingar till den.
