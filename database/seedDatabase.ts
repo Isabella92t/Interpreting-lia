@@ -82,16 +82,6 @@ export async function seedDatabase(db: SQLiteDatabase) {
   );
 
   // =========================
-  // Kategorier
-  // =========================
-
-  const categories = ["Juridik", "Samhällskunskap", "Migration", "Sjukvård"];
-
-  for (const category of categories) {
-    await db.runAsync("INSERT OR IGNORE INTO tags (name) VALUES (?)", category);
-  }
-
-  // =========================
   // Hämta språk-ID
   // =========================
 
@@ -115,6 +105,29 @@ export async function seedDatabase(db: SQLiteDatabase) {
   }
 
   // =========================
+  // Kategorier
+  // Dessa hör till Svenska → Spanska
+  // =========================
+
+  const categories = ["Juridik", "Samhällskunskap", "Migration", "Sjukvård"];
+
+  for (const category of categories) {
+    await db.runAsync(
+      `
+      INSERT OR IGNORE INTO tags (
+        name,
+        from_language_id,
+        to_language_id
+      )
+      VALUES (?, ?, ?)
+      `,
+      category,
+      svenska.id,
+      spanska.id,
+    );
+  }
+
+  // =========================
   // Hämta kategori-ID:n
   // =========================
 
@@ -122,8 +135,16 @@ export async function seedDatabase(db: SQLiteDatabase) {
 
   for (const category of categories) {
     const tag = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM tags WHERE name = ?",
+      `
+      SELECT id
+      FROM tags
+      WHERE name = ?
+        AND from_language_id = ?
+        AND to_language_id = ?
+      `,
       category,
+      svenska.id,
+      spanska.id,
     );
 
     if (tag) {

@@ -138,6 +138,10 @@ export default function SecondPage() {
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
+  // Lägg till kategori
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+
   useEffect(() => {
     loadCategories();
     loadRecentCategories();
@@ -216,6 +220,75 @@ export default function SecondPage() {
   // Tillbaka till språkvalet.
   function changeLanguages() {
     router.dismissTo("/firstPage");
+  }
+
+  async function addCategory() {
+    const categoryName = newCategory.trim();
+
+    if (!categoryName) {
+      Alert.alert("Skriv ett kategorinamn");
+      return;
+    }
+
+    const fromLanguage = languageNames[String(from).toLowerCase()];
+    const toLanguage = languageNames[String(to).toLowerCase()];
+
+    if (!fromLanguage || !toLanguage) {
+      Alert.alert(t("languagesNotFound"));
+      return;
+    }
+
+    const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM languages WHERE name = ?",
+      fromLanguage,
+    );
+
+    const toLanguageResult = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM languages WHERE name = ?",
+      toLanguage,
+    );
+
+    if (!fromLanguageResult || !toLanguageResult) {
+      Alert.alert(t("languagesNotFound"));
+      return;
+    }
+
+    const existingCategory = await db.getFirstAsync<{ id: number }>(
+      `
+      SELECT id
+      FROM tags
+      WHERE LOWER(name) = LOWER(?)
+        AND from_language_id = ?
+        AND to_language_id = ?
+      `,
+      categoryName,
+      fromLanguageResult.id,
+      toLanguageResult.id,
+    );
+
+    if (existingCategory) {
+      Alert.alert("Kategorin finns redan");
+      return;
+    }
+
+    await db.runAsync(
+      `
+      INSERT INTO tags (
+        name,
+        from_language_id,
+        to_language_id
+      )
+      VALUES (?, ?, ?)
+      `,
+      categoryName,
+      fromLanguageResult.id,
+      toLanguageResult.id,
+    );
+
+    setNewCategory("");
+    setShowAddCategory(false);
+
+    await loadCategories();
   }
 
   async function addWord() {
@@ -408,7 +481,16 @@ export default function SecondPage() {
         )}
 
         {/* KATEGORIER */}
-        <Text style={styles.title}>{t("categories")}</Text>
+        <View style={styles.categoryHeader}>
+          <Text style={styles.title}>{t("categories")}</Text>
+
+          <TouchableOpacity
+            style={styles.addCategoryButton}
+            onPress={() => setShowAddCategory(true)}
+          >
+            <Text style={styles.addCategoryText}>+</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.carouselRow}>
           {/* Pil vänster */}
@@ -531,6 +613,42 @@ export default function SecondPage() {
           <Text>{t("addWord")}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Popup för att lägga till kategori */}
+      <Modal
+        visible={showAddCategory}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAddCategory(false)}
+      >
+        <View style={styles.modalBackground}>
+          <View style={styles.categoryModal}>
+            <Text style={styles.modalTitle}>Lägg till kategori</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Kategorinamn"
+              value={newCategory}
+              onChangeText={setNewCategory}
+              autoFocus
+            />
+
+            <TouchableOpacity style={styles.addButton} onPress={addCategory}>
+              <Text>Lägg till</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                setNewCategory("");
+                setShowAddCategory(false);
+              }}
+            >
+              <Text>{t("cancel")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Popup för att lägga till ord */}
       <Modal
@@ -690,11 +808,37 @@ const styles = StyleSheet.create({
 
   /* KATEGORIER */
 
+  categoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+    gap: 8,
+  },
+
   title: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 18,
     textAlign: "center",
+    marginBottom: 0,
+  },
+
+  addCategoryButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#9ca3af",
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  addCategoryText: {
+    fontSize: 20,
+    lineHeight: 22,
+    color: "#111827",
+    fontWeight: "500",
   },
 
   carouselRow: {
@@ -775,6 +919,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 24,
     borderRadius: 8,
+  },
+
+  categoryModal: {
+    backgroundColor: "#fff",
+    padding: 24,
+    borderRadius: 8,
+    marginHorizontal: 24,
   },
 
   modalTitle: {

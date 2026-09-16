@@ -22,19 +22,6 @@ export async function createTables(db: SQLiteDatabase) {
       FOREIGN KEY (language_id) REFERENCES languages(id)
     );
 
-    CREATE TABLE IF NOT EXISTS tags (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE
-    );
-
-    CREATE TABLE IF NOT EXISTS word_tags (
-      word_id INTEGER NOT NULL,
-      tag_id INTEGER NOT NULL,
-      PRIMARY KEY (word_id, tag_id),
-      FOREIGN KEY (word_id) REFERENCES words(id),
-      FOREIGN KEY (tag_id) REFERENCES tags(id)
-    );
-
     CREATE TABLE IF NOT EXISTS notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -63,15 +50,160 @@ export async function createTables(db: SQLiteDatabase) {
   try {
     await db.runAsync("ALTER TABLE notes ADD COLUMN selected_date TEXT");
   } catch {
-    // Kolumnen finns redan, så inget behöver göras.
+    // Kolumnen finns redan.
   }
 
-  // Ta bort den gamla kategorin "Samhälle"
-  // och alla kopplingar till den.
+  // --------------------------------------------------
+  // Språk
+  // --------------------------------------------------
+
+  await db.runAsync(
+    "INSERT OR IGNORE INTO languages (name) VALUES (?)",
+    "Svenska",
+  );
+
+  await db.runAsync(
+    "INSERT OR IGNORE INTO languages (name) VALUES (?)",
+    "English",
+  );
+
+  await db.runAsync(
+    "INSERT OR IGNORE INTO languages (name) VALUES (?)",
+    "Español",
+  );
+
+  const svenska = await db.getFirstAsync<{ id: number }>(
+    "SELECT id FROM languages WHERE name = ?",
+    "Svenska",
+  );
+
+  const spanska = await db.getFirstAsync<{ id: number }>(
+    "SELECT id FROM languages WHERE name = ?",
+    "Español",
+  );
+
+  if (!svenska || !spanska) {
+    throw new Error("Svenska eller Spanska saknas i languages-tabellen.");
+  }
+
+  // --------------------------------------------------
+  // Kontrollera om gamla tags-tabellen finns
+  // --------------------------------------------------
+
+  const tagsTable = await db.getFirstAsync<{ name: string }>(
+    `
+    SELECT name
+    FROM sqlite_master
+    WHERE type = 'table'
+      AND name = 'tags'
+    `,
+  );
+
+  // --------------------------------------------------
+  // Om tags inte finns: skapa den nya versionen
+  // --------------------------------------------------
+
+  if (!tagsTable) {
+    await db.execAsync(`
+      CREATE TABLE tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        from_language_id INTEGER NOT NULL,
+        to_language_id INTEGER NOT NULL,
+        UNIQUE (name, from_language_id, to_language_id),
+        FOREIGN KEY (from_language_id) REFERENCES languages(id),
+        FOREIGN KEY (to_language_id) REFERENCES languages(id)
+      );
+
+      CREATE TABLE word_tags (
+        word_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        PRIMARY KEY (word_id, tag_id),
+        FOREIGN KEY (word_id) REFERENCES words(id),
+        FOREIGN KEY (tag_id) REFERENCES tags(id)
+      );
+    `);
+  } else {
+    // --------------------------------------------------
+    // Kontrollera om tags redan är migrerad
+    // --------------------------------------------------
+
+    const columns = await db.getAllAsync<{ name: string }>(
+      "PRAGMA table_info(tags)",
+    );
+
+    const hasLanguageColumns =
+      columns.some((column) => column.name === "from_language_id") &&
+      columns.some((column) => column.name === "to_language_id");
+
+    // --------------------------------------------------
+    // Migrera gamla tags till språkpar
+    // --------------------------------------------------
+
+    if (!hasLanguageColumns) {
+      await db.execAsync(`
+        CREATE TABLE tags_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          from_language_id INTEGER NOT NULL,
+          to_language_id INTEGER NOT NULL,
+          UNIQUE (name, from_language_id, to_language_id),
+          FOREIGN KEY (from_language_id) REFERENCES languages(id),
+          FOREIGN KEY (to_language_id) REFERENCES languages(id)
+        );
+      `);
+
+      await db.runAsync(
+        `
+        INSERT INTO tags_new (
+          id,
+          name,
+          from_language_id,
+          to_language_id
+        )
+        SELECT
+          id,
+          name,
+          ?,
+          ?
+        FROM tags;
+        `,
+        svenska.id,
+        spanska.id,
+      );
+
+      await db.execAsync(`
+        CREATE TABLE word_tags_new (
+          word_id INTEGER NOT NULL,
+          tag_id INTEGER NOT NULL,
+          PRIMARY KEY (word_id, tag_id),
+          FOREIGN KEY (word_id) REFERENCES words(id),
+          FOREIGN KEY (tag_id) REFERENCES tags_new(id)
+        );
+
+        INSERT INTO word_tags_new (word_id, tag_id)
+        SELECT word_id, tag_id
+        FROM word_tags;
+
+        DROP TABLE word_tags;
+        DROP TABLE tags;
+
+        ALTER TABLE tags_new RENAME TO tags;
+        ALTER TABLE word_tags_new RENAME TO word_tags;
+      `);
+    }
+  }
+
+  // --------------------------------------------------
+  // Ta bort gamla "Samhälle"
+  // --------------------------------------------------
+
   await db.runAsync(`
     DELETE FROM word_tags
     WHERE tag_id IN (
-      SELECT id FROM tags WHERE name = 'Samhälle'
+      SELECT id
+      FROM tags
+      WHERE name = 'Samhälle'
     );
   `);
 
