@@ -1,3 +1,4 @@
+import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 
@@ -8,6 +9,7 @@ import {
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -37,6 +39,8 @@ export default function DictionaryPage() {
   }>();
 
   const [translations, setTranslations] = useState<Translation[]>([]);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchText, setSearchText] = useState("");
 
   useEffect(() => {
     loadTranslations();
@@ -108,27 +112,75 @@ export default function DictionaryPage() {
     setTranslations(result);
   }
 
+  const filteredTranslations = translations.filter((item) =>
+    item.text_from.toLowerCase().includes(searchText.trim().toLowerCase()),
+  );
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        onPress={() =>
-          router.dismissTo({ pathname: "/secondPage", params: { from, to } })
-        }
-        style={styles.backButton}
-      >
-        <Text style={styles.backButtonText}>←</Text>
-      </TouchableOpacity>
+      <View style={styles.topRow}>
+        <TouchableOpacity
+          onPress={() =>
+            router.dismissTo({
+              pathname: "/secondPage",
+              params: { from, to },
+            })
+          }
+          style={styles.backButton}
+        >
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => {
+            setSearchVisible((visible) => !visible);
+
+            if (searchVisible) {
+              setSearchText("");
+            }
+          }}
+          style={styles.searchButton}
+        >
+          <FontAwesome name="search" size={28} color="#111827" />
+        </TouchableOpacity>
+      </View>
 
       <Text style={styles.title}>{category ? category : t("dictionary")}</Text>
 
       <Text style={styles.subtitle}>
         {languageNames[String(from ?? "").toLowerCase()]} →{" "}
-        {languageNames[String(to ?? "").toLowerCase()]} · {translations.length}{" "}
-        {t("words")}
+        {languageNames[String(to ?? "").toLowerCase()]} ·{" "}
+        {filteredTranslations.length} {t("words")}
       </Text>
 
+      {searchVisible && (
+        <View style={styles.searchContainer}>
+          <FontAwesome
+            name="search"
+            size={18}
+            color="#6b7280"
+            style={styles.searchIcon}
+          />
+
+          <TextInput
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholder="Sök ord..."
+            placeholderTextColor="#9ca3af"
+            autoFocus
+            style={styles.searchInput}
+          />
+
+          {searchText.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchText("")}>
+              <Text style={styles.clearButton}>×</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       <FlatList
-        data={translations}
+        data={filteredTranslations}
         keyExtractor={(item) => String(item.word_id)}
         renderItem={({ item }) => (
           <View style={styles.row}>
@@ -152,6 +204,12 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
   backButton: {
     width: 32,
     height: 32,
@@ -167,6 +225,13 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
 
+  searchButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   title: {
     fontSize: 20,
     fontWeight: "600",
@@ -179,6 +244,34 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     textAlign: "center",
     marginBottom: 20,
+  },
+
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 12,
+    height: 48,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+
+  searchIcon: {
+    marginRight: 10,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#111827",
+  },
+
+  clearButton: {
+    fontSize: 26,
+    color: "#6b7280",
+    paddingLeft: 8,
   },
 
   listContent: {
