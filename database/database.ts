@@ -372,4 +372,28 @@ export async function createTables(db: SQLiteDatabase) {
     DELETE FROM tags
     WHERE name = 'Samhälle';
   `);
+
+  // --------------------------------------------------
+  // Standardkategori för ord utan vald kategori
+  // --------------------------------------------------
+
+  await db.runAsync(
+    `
+    INSERT OR IGNORE INTO tags (
+      name,
+      name_sv,
+      name_en,
+      name_es,
+      from_language_id,
+      to_language_id
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    "Övrigt",
+    "Övrigt",
+    "Other",
+    "Otros",
+    svenska.id,
+    spanska.id,
+  );
 }
