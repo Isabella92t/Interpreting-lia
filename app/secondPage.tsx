@@ -21,6 +21,9 @@ import {
 type Category = {
   id: number;
   name: string;
+  name_sv: string | null;
+  name_en: string | null;
+  name_es: string | null;
 };
 
 type Translation = {
@@ -29,7 +32,7 @@ type Translation = {
   text_to: string;
 };
 
-// Vi visar tre kategorier i taget. Resten ser man genom att svepa.
+// Vi visar tre kategorier i taget.
 const CATEGORIES_PER_PAGE = 3;
 
 // Avståndet mellan kategori-rutorna.
@@ -38,7 +41,12 @@ const CATEGORY_GAP = 10;
 // Här sparar vi vilka kategorier man använt senast.
 const RECENT_CATEGORIES_KEY = "recentCategories";
 
-// Lägger de senast använda kategorierna först, resten efter.
+// Man måste skriva minst tre bokstäver innan förslagen visas.
+const MIN_SEARCH_LENGTH = 3;
+
+// Vi visar högst tre förslag.
+const MAX_RESULTS = 3;
+
 function sortByRecentlyUsed(categories: Category[], recentNames: string[]) {
   const recent: Category[] = [];
 
@@ -55,7 +63,6 @@ function sortByRecentlyUsed(categories: Category[], recentNames: string[]) {
   return [...recent, ...rest];
 }
 
-// Delar upp kategorierna i sidor med tre i varje.
 function splitIntoPages(categories: Category[]) {
   const pages: Category[][] = [];
 
@@ -66,14 +73,8 @@ function splitIntoPages(categories: Category[]) {
   return pages;
 }
 
-// Man måste skriva minst tre bokstäver innan förslagen visas.
-const MIN_SEARCH_LENGTH = 3;
-
-// Vi visar högst tre förslag.
-const MAX_RESULTS = 3;
-
-// Delar upp texten i ord och kollar om NÅGOT ord börjar med det man skrev.
-// "falsk" hittar alltså "Olovlig befattning med falska pengar".
+// Delar upp texten i ord och kollar om något ord
+// börjar med det man skrev.
 function startsWithSearch(text: string, searchText: string) {
   const words = text.toLowerCase().split(/[\s/,()]+/);
 
@@ -86,32 +87,11 @@ const languageNames: Record<string, string> = {
   es: "Español",
 };
 
-// Databasens kategorinamn är svenska.
-// Den text användaren ser hämtas från translations.ts.
-function getCategoryTranslation(categoryName: string, t: (key: any) => string) {
-  switch (categoryName) {
-    case "Juridik":
-      return t("categoryJuridik");
-
-    case "Samhällskunskap":
-      return t("categorySamhallskunskap");
-
-    case "Migration":
-      return t("categoryMigration");
-
-    case "Sjukvård":
-      return t("categorySjukvard");
-
-    default:
-      return categoryName;
-  }
-}
-
 export default function SecondPage() {
   const router = useRouter();
   const db = useSQLiteContext();
 
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
 
   const { from, to } = useLocalSearchParams<{
     from?: string;
@@ -120,15 +100,18 @@ export default function SecondPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
 
-  // Alla ord i de valda språken. Vi hämtar dem en gång och söker sedan
-  // i listan, så att sökningen känns direkt när man skriver.
+  // Alla ord i de valda språken.
   const [allTranslations, setAllTranslations] = useState<Translation[]>([]);
+
   const [search, setSearch] = useState("");
 
   // Kategori-karusellen
   const [recentCategories, setRecentCategories] = useState<string[]>([]);
+
   const [page, setPage] = useState(0);
+
   const [carouselWidth, setCarouselWidth] = useState(0);
+
   const carouselRef = useRef<ScrollView>(null);
 
   const [showAddWord, setShowAddWord] = useState(false);
@@ -140,7 +123,14 @@ export default function SecondPage() {
 
   // Lägg till kategori
   const [showAddCategory, setShowAddCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState("");
+
+  // Alla tre språk kan fyllas i.
+  // Minst två måste fyllas i.
+  const [newCategorySv, setNewCategorySv] = useState("");
+
+  const [newCategoryEn, setNewCategoryEn] = useState("");
+
+  const [newCategoryEs, setNewCategoryEs] = useState("");
 
   useEffect(() => {
     loadCategories();
@@ -152,23 +142,39 @@ export default function SecondPage() {
   }, [from, to]);
 
   async function loadCategories() {
-    const result = await db.getAllAsync<Category>(
-      "SELECT id, name FROM tags ORDER BY name ASC",
-    );
+    try {
+      const result = await db.getAllAsync<Category>(
+        `
+          SELECT
+            id,
+            name,
+            name_sv,
+            name_en,
+            name_es
+          FROM tags
+          ORDER BY name ASC
+        `,
+      );
 
-    setCategories(result);
-  }
-
-  async function loadRecentCategories() {
-    const saved = await AsyncStorage.getItem(RECENT_CATEGORIES_KEY);
-
-    if (saved) {
-      setRecentCategories(JSON.parse(saved));
+      setCategories(result);
+    } catch (error) {
+      console.error("Kunde inte läsa kategorier:", error);
     }
   }
 
-  // När man öppnar en kategori läggs den först i listan,
-  // så att den syns direkt nästa gång man kommer hit.
+  async function loadRecentCategories() {
+    try {
+      const saved = await AsyncStorage.getItem(RECENT_CATEGORIES_KEY);
+
+      if (saved) {
+        setRecentCategories(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error("Kunde inte läsa senaste kategorier:", error);
+    }
+  }
+
+  // När man öppnar en kategori läggs den först.
   async function openCategory(categoryName: string) {
     const updated = [
       categoryName,
@@ -181,40 +187,52 @@ export default function SecondPage() {
 
     router.push({
       pathname: "/dictionaryPage",
-      params: { from, to, category: categoryName },
+      params: {
+        from,
+        to,
+        category: categoryName,
+      },
     });
   }
 
   async function loadAllTranslations() {
     const fromLanguage = languageNames[String(from).toLowerCase()];
+
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
       return;
     }
 
-    const result = await db.getAllAsync<Translation>(
-      `
-      SELECT DISTINCT
-        from_translation.text AS text_from,
-        to_translation.text AS text_to,
-        from_translation.word_id
-      FROM translations AS from_translation
-      INNER JOIN translations AS to_translation
-        ON from_translation.word_id = to_translation.word_id
-      INNER JOIN languages AS from_language
-        ON from_translation.language_id = from_language.id
-      INNER JOIN languages AS to_language
-        ON to_translation.language_id = to_language.id
-      WHERE from_language.name = ?
-        AND to_language.name = ?
-      ORDER BY LOWER(text_from) ASC
-      `,
-      fromLanguage,
-      toLanguage,
-    );
+    try {
+      const result = await db.getAllAsync<Translation>(
+        `
+            SELECT DISTINCT
+              from_translation.text AS text_from,
+              to_translation.text AS text_to,
+              from_translation.word_id
+            FROM translations AS from_translation
+            INNER JOIN translations AS to_translation
+              ON from_translation.word_id =
+                 to_translation.word_id
+            INNER JOIN languages AS from_language
+              ON from_translation.language_id =
+                 from_language.id
+            INNER JOIN languages AS to_language
+              ON to_translation.language_id =
+                 to_language.id
+            WHERE from_language.name = ?
+              AND to_language.name = ?
+            ORDER BY LOWER(text_from) ASC
+          `,
+        fromLanguage,
+        toLanguage,
+      );
 
-    setAllTranslations(result);
+      setAllTranslations(result);
+    } catch (error) {
+      console.error("Kunde inte läsa översättningar:", error);
+    }
   }
 
   // Tillbaka till språkvalet.
@@ -222,15 +240,63 @@ export default function SecondPage() {
     router.dismissTo("/firstPage");
   }
 
-  async function addCategory() {
-    const categoryName = newCategory.trim();
+  // --------------------------------------------------
+  // Vilket kategorinamn ska visas?
+  // --------------------------------------------------
 
-    if (!categoryName) {
-      Alert.alert("Skriv ett kategorinamn");
+  function getCategoryName(category: Category) {
+    const currentLanguage = String(language).toLowerCase();
+
+    const svenska = category.name_sv?.trim() || "";
+
+    const engelska = category.name_en?.trim() || "";
+
+    const spanska = category.name_es?.trim() || "";
+
+    // Appen är på svenska.
+    if (currentLanguage === "sv") {
+      return svenska || engelska || spanska || category.name;
+    }
+
+    // Appen är på engelska.
+    if (currentLanguage === "en") {
+      return engelska || svenska || spanska || category.name;
+    }
+
+    // Appen är på spanska.
+    if (currentLanguage === "es") {
+      return spanska || svenska || engelska || category.name;
+    }
+
+    // Säker fallback.
+    return svenska || engelska || spanska || category.name;
+  }
+
+  // --------------------------------------------------
+  // Lägg till kategori
+  // --------------------------------------------------
+
+  async function addCategory() {
+    const categorySv = newCategorySv.trim();
+    const categoryEn = newCategoryEn.trim();
+    const categoryEs = newCategoryEs.trim();
+
+    const filledLanguages = [categorySv, categoryEn, categoryEs].filter(
+      (value) => value.length > 0,
+    ).length;
+
+    // Minst två av tre språk måste fyllas i.
+    if (filledLanguages < 2) {
+      Alert.alert(
+        "Fyll i minst två språk",
+        "Du kan välja vilka två eller tre språk du vill använda.",
+      );
+
       return;
     }
 
     const fromLanguage = languageNames[String(from).toLowerCase()];
+
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
@@ -238,58 +304,97 @@ export default function SecondPage() {
       return;
     }
 
-    const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM languages WHERE name = ?",
-      fromLanguage,
-    );
+    try {
+      const fromLanguageResult = await db.getFirstAsync<{
+        id: number;
+      }>("SELECT id FROM languages WHERE name = ?", fromLanguage);
 
-    const toLanguageResult = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM languages WHERE name = ?",
-      toLanguage,
-    );
+      const toLanguageResult = await db.getFirstAsync<{
+        id: number;
+      }>("SELECT id FROM languages WHERE name = ?", toLanguage);
 
-    if (!fromLanguageResult || !toLanguageResult) {
-      Alert.alert(t("languagesNotFound"));
-      return;
+      if (!fromLanguageResult || !toLanguageResult) {
+        Alert.alert(t("languagesNotFound"));
+        return;
+      }
+
+      // Internt namn.
+      //
+      // Vi använder det första ifyllda språket.
+      //
+      // Detta påverkar inte vilket språk som visas
+      // i appen. Visningen använder name_sv/name_en/
+      // name_es ovan.
+      const internalName = categorySv || categoryEn || categoryEs;
+
+      const existingCategory = await db.getFirstAsync<{
+        id: number;
+      }>(
+        `
+            SELECT id
+            FROM tags
+            WHERE LOWER(name) = LOWER(?)
+              AND from_language_id = ?
+              AND to_language_id = ?
+          `,
+        internalName,
+        fromLanguageResult.id,
+        toLanguageResult.id,
+      );
+
+      if (existingCategory) {
+        Alert.alert("Kategorin finns redan");
+
+        return;
+      }
+
+      // Viktigt:
+      //
+      // Tomma språk sparas som "" och inte NULL.
+      // Det fungerar även om SQLite-tabellen
+      // fortfarande har NOT NULL på dessa kolumner.
+      await db.runAsync(
+        `
+          INSERT INTO tags (
+            name,
+            name_sv,
+            name_en,
+            name_es,
+            from_language_id,
+            to_language_id
+          )
+          VALUES (?, ?, ?, ?, ?, ?)
+        `,
+        internalName,
+        categorySv,
+        categoryEn,
+        categoryEs,
+        fromLanguageResult.id,
+        toLanguageResult.id,
+      );
+
+      setNewCategorySv("");
+      setNewCategoryEn("");
+      setNewCategoryEs("");
+
+      setShowAddCategory(false);
+
+      await loadCategories();
+
+      Alert.alert("Kategori tillagd");
+    } catch (error) {
+      console.error("Kunde inte spara kategori:", error);
+
+      Alert.alert(
+        "Kunde inte spara kategorin",
+        "Något gick fel när kategorin skulle sparas.",
+      );
     }
-
-    const existingCategory = await db.getFirstAsync<{ id: number }>(
-      `
-      SELECT id
-      FROM tags
-      WHERE LOWER(name) = LOWER(?)
-        AND from_language_id = ?
-        AND to_language_id = ?
-      `,
-      categoryName,
-      fromLanguageResult.id,
-      toLanguageResult.id,
-    );
-
-    if (existingCategory) {
-      Alert.alert("Kategorin finns redan");
-      return;
-    }
-
-    await db.runAsync(
-      `
-      INSERT INTO tags (
-        name,
-        from_language_id,
-        to_language_id
-      )
-      VALUES (?, ?, ?)
-      `,
-      categoryName,
-      fromLanguageResult.id,
-      toLanguageResult.id,
-    );
-
-    setNewCategory("");
-    setShowAddCategory(false);
-
-    await loadCategories();
   }
+
+  // --------------------------------------------------
+  // Lägg till ord
+  // --------------------------------------------------
 
   async function addWord() {
     if (!word.trim() || !translation.trim()) {
@@ -298,6 +403,7 @@ export default function SecondPage() {
     }
 
     const fromLanguage = languageNames[String(from).toLowerCase()];
+
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
@@ -310,28 +416,29 @@ export default function SecondPage() {
       word.trim(),
     );
 
-    const wordResult = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM words WHERE name = ?",
-      word.trim(),
-    );
+    const wordResult = await db.getFirstAsync<{
+      id: number;
+    }>("SELECT id FROM words WHERE name = ?", word.trim());
 
     if (!wordResult) {
       return;
     }
 
-    const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM languages WHERE name = ?",
-      fromLanguage,
-    );
+    const fromLanguageResult = await db.getFirstAsync<{
+      id: number;
+    }>("SELECT id FROM languages WHERE name = ?", fromLanguage);
 
-    const toLanguageResult = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM languages WHERE name = ?",
-      toLanguage,
-    );
+    const toLanguageResult = await db.getFirstAsync<{
+      id: number;
+    }>("SELECT id FROM languages WHERE name = ?", toLanguage);
 
     if (fromLanguageResult) {
       await db.runAsync(
-        "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+        `
+          INSERT OR IGNORE INTO translations
+          (word_id, language_id, text)
+          VALUES (?, ?, ?)
+        `,
         wordResult.id,
         fromLanguageResult.id,
         word.trim(),
@@ -340,7 +447,11 @@ export default function SecondPage() {
 
     if (toLanguageResult) {
       await db.runAsync(
-        "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+        `
+          INSERT OR IGNORE INTO translations
+          (word_id, language_id, text)
+          VALUES (?, ?, ?)
+        `,
         wordResult.id,
         toLanguageResult.id,
         translation.trim(),
@@ -348,28 +459,34 @@ export default function SecondPage() {
     }
 
     if (selectedCategories.length === 0) {
-      const otherCategory = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM tags WHERE name = ?",
-        "Övrigt",
-      );
+      const otherCategory = await db.getFirstAsync<{
+        id: number;
+      }>("SELECT id FROM tags WHERE name = ?", "Övrigt");
 
       if (otherCategory) {
         await db.runAsync(
-          "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
+          `
+            INSERT OR IGNORE INTO word_tags
+            (word_id, tag_id)
+            VALUES (?, ?)
+          `,
           wordResult.id,
           otherCategory.id,
         );
       }
     } else {
       for (const categoryName of selectedCategories) {
-        const categoryResult = await db.getFirstAsync<{ id: number }>(
-          "SELECT id FROM tags WHERE name = ?",
-          categoryName,
-        );
+        const categoryResult = await db.getFirstAsync<{
+          id: number;
+        }>("SELECT id FROM tags WHERE name = ?", categoryName);
 
         if (categoryResult) {
           await db.runAsync(
-            "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
+            `
+              INSERT OR IGNORE INTO word_tags
+              (word_id, tag_id)
+              VALUES (?, ?)
+            `,
             wordResult.id,
             categoryResult.id,
           );
@@ -397,7 +514,10 @@ export default function SecondPage() {
     }
   }
 
-  // Vi söker i BÅDA språken samtidigt.
+  // --------------------------------------------------
+  // Sökning
+  // --------------------------------------------------
+
   const searchText = search.trim().toLowerCase();
 
   const hasEnoughLetters = searchText.length >= MIN_SEARCH_LENGTH;
@@ -412,15 +532,18 @@ export default function SecondPage() {
 
   const visibleResults = searchResults.slice(0, MAX_RESULTS);
 
-  // Kategorierna, senast använda först.
+  // --------------------------------------------------
+  // Kategorier
+  // --------------------------------------------------
+
   const categoryPages = splitIntoPages(
     sortByRecentlyUsed(categories, recentCategories),
   );
 
-  // Tre rutor plus två mellanrum ska rymmas på bredden.
   const boxWidth = (carouselWidth - CATEGORY_GAP * 2) / CATEGORIES_PER_PAGE;
 
   const canGoLeft = page > 0;
+
   const canGoRight = page < categoryPages.length - 1;
 
   function goToPage(nextPage: number) {
@@ -443,7 +566,8 @@ export default function SecondPage() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
       >
-        {/* Byt ordboksspråk till vänster, appens språk till höger */}
+        {/* Byt ordboksspråk till vänster,
+            appens språk till höger */}
         <View style={styles.topRow}>
           <TouchableOpacity onPress={changeLanguages} style={styles.backButton}>
             <Text style={styles.backButtonText}>←</Text>
@@ -504,7 +628,7 @@ export default function SecondPage() {
             </Text>
           </TouchableOpacity>
 
-          {/* Tre kategorier i taget - svep för att se fler */}
+          {/* Tre kategorier i taget */}
           <View
             style={styles.carousel}
             onLayout={(event) =>
@@ -531,16 +655,26 @@ export default function SecondPage() {
                 categoryPages.map((categoriesOnPage, pageIndex) => (
                   <View
                     key={pageIndex}
-                    style={[styles.carouselPage, { width: carouselWidth }]}
+                    style={[
+                      styles.carouselPage,
+                      {
+                        width: carouselWidth,
+                      },
+                    ]}
                   >
                     {categoriesOnPage.map((category) => (
                       <TouchableOpacity
                         key={category.id}
-                        style={[styles.box, { width: boxWidth }]}
+                        style={[
+                          styles.box,
+                          {
+                            width: boxWidth,
+                          },
+                        ]}
                         onPress={() => openCategory(category.name)}
                       >
                         <Text style={styles.categoryText}>
-                          {getCategoryTranslation(category.name, t)}
+                          {getCategoryName(category)}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -567,11 +701,15 @@ export default function SecondPage() {
           onPress={() =>
             router.push({
               pathname: "/dictionaryPage",
-              params: { from, to },
+              params: {
+                from,
+                to,
+              },
             })
           }
         >
           <FontAwesome name="book" size={24} color="#111827" />
+
           <Text>{t("dictionary")}</Text>
         </TouchableOpacity>
 
@@ -597,11 +735,15 @@ export default function SecondPage() {
           onPress={() =>
             router.push({
               pathname: "/notesPage",
-              params: { from, to },
+              params: {
+                from,
+                to,
+              },
             })
           }
         >
           <FontAwesome name="file-text-o" size={24} color="#111827" />
+
           <Text>{t("notes")}</Text>
         </TouchableOpacity>
 
@@ -614,7 +756,10 @@ export default function SecondPage() {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* ------------------------------------------ */}
       {/* Popup för att lägga till kategori */}
+      {/* ------------------------------------------ */}
+
       <Modal
         visible={showAddCategory}
         transparent={true}
@@ -625,13 +770,40 @@ export default function SecondPage() {
           <View style={styles.categoryModal}>
             <Text style={styles.modalTitle}>Lägg till kategori</Text>
 
+            {/* Svenska */}
+            <Text style={styles.languageLabel}>Svenska</Text>
+
             <TextInput
               style={styles.input}
-              placeholder="Kategorinamn"
-              value={newCategory}
-              onChangeText={setNewCategory}
+              placeholder="Kategorinamn på svenska"
+              value={newCategorySv}
+              onChangeText={setNewCategorySv}
               autoFocus
             />
+
+            {/* English */}
+            <Text style={styles.languageLabel}>English</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Category name in English"
+              value={newCategoryEn}
+              onChangeText={setNewCategoryEn}
+            />
+
+            {/* Español */}
+            <Text style={styles.languageLabel}>Español</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Nombre de categoría en español"
+              value={newCategoryEs}
+              onChangeText={setNewCategoryEs}
+            />
+
+            <Text style={styles.categoryHint}>
+              Fyll i minst två av de tre språken.
+            </Text>
 
             <TouchableOpacity style={styles.addButton} onPress={addCategory}>
               <Text>Lägg till</Text>
@@ -640,7 +812,9 @@ export default function SecondPage() {
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => {
-                setNewCategory("");
+                setNewCategorySv("");
+                setNewCategoryEn("");
+                setNewCategoryEs("");
                 setShowAddCategory(false);
               }}
             >
@@ -650,7 +824,10 @@ export default function SecondPage() {
         </View>
       </Modal>
 
+      {/* ------------------------------------------ */}
       {/* Popup för att lägga till ord */}
+      {/* ------------------------------------------ */}
+
       <Modal
         visible={showAddWord}
         transparent={true}
@@ -702,7 +879,8 @@ export default function SecondPage() {
                     >
                       <Text>
                         {isSelected ? "✓ " : ""}
-                        {getCategoryTranslation(category.name, t)}
+
+                        {getCategoryName(category)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -934,13 +1112,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  languageLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+
+  categoryHint: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 10,
+  },
+
   input: {
     borderWidth: 1,
     borderColor: "#d1d5db",
     backgroundColor: "#fff",
     borderRadius: 8,
     padding: 12,
-    marginTop: 12,
+    marginTop: 4,
   },
 
   categoryTitle: {

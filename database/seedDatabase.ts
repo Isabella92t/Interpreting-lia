@@ -100,28 +100,84 @@ export async function seedDatabase(db: SQLiteDatabase) {
     "Español",
   );
 
-  if (!svenska || !spanska) {
-    throw new Error("Svenska eller Spanska saknas i languages-tabellen.");
+  if (!svenska || !engelska || !spanska) {
+    throw new Error("Ett eller flera språk saknas i languages-tabellen.");
   }
 
   // =========================
   // Kategorier
+  // Svenska / English / Español
   // Dessa hör till Svenska → Spanska
   // =========================
 
-  const categories = ["Juridik", "Samhällskunskap", "Migration", "Sjukvård"];
+  const categories = [
+    {
+      sv: "Juridik",
+      en: "Law",
+      es: "Derecho",
+    },
+    {
+      sv: "Samhällskunskap",
+      en: "Social Studies",
+      es: "Ciencias Sociales",
+    },
+    {
+      sv: "Migration",
+      en: "Migration",
+      es: "Migración",
+    },
+    {
+      sv: "Sjukvård",
+      en: "Healthcare",
+      es: "Salud",
+    },
+  ];
 
   for (const category of categories) {
     await db.runAsync(
       `
       INSERT OR IGNORE INTO tags (
         name,
+        name_sv,
+        name_en,
+        name_es,
         from_language_id,
         to_language_id
       )
-      VALUES (?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?)
       `,
-      category,
+      category.sv,
+      category.sv,
+      category.en,
+      category.es,
+      svenska.id,
+      spanska.id,
+    );
+
+    // Om kategorin redan fanns från tidigare version,
+    // se till att översättningarna är korrekta.
+    await db.runAsync(
+      `
+      UPDATE tags
+      SET
+        name = ?,
+        name_sv = ?,
+        name_en = ?,
+        name_es = ?
+      WHERE id = (
+        SELECT id
+        FROM tags
+        WHERE name = ?
+          AND from_language_id = ?
+          AND to_language_id = ?
+        LIMIT 1
+      )
+      `,
+      category.sv,
+      category.sv,
+      category.en,
+      category.es,
+      category.sv,
       svenska.id,
       spanska.id,
     );
@@ -142,13 +198,13 @@ export async function seedDatabase(db: SQLiteDatabase) {
         AND from_language_id = ?
         AND to_language_id = ?
       `,
-      category,
+      category.sv,
       svenska.id,
       spanska.id,
     );
 
     if (tag) {
-      tagIds[category] = tag.id;
+      tagIds[category.sv] = tag.id;
     }
   }
 
@@ -236,7 +292,6 @@ export async function seedDatabase(db: SQLiteDatabase) {
 
     await db.runAsync("INSERT OR IGNORE INTO words (name) VALUES (?)", sv);
 
-    // Hämta word-ID
     const word = await db.getFirstAsync<{ id: number }>(
       "SELECT id FROM words WHERE name = ?",
       sv,

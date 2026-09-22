@@ -46,7 +46,8 @@ export async function createTables(db: SQLiteDatabase) {
     );
   `);
 
-  // Lägg till selected_date om databasen redan finns
+  // Lägg till selected_date om databasen redan finns.
+  // Detta påverkar inte kalenderfunktionen.
   try {
     await db.runAsync("ALTER TABLE notes ADD COLUMN selected_date TEXT");
   } catch {
@@ -77,17 +78,22 @@ export async function createTables(db: SQLiteDatabase) {
     "Svenska",
   );
 
+  const engelska = await db.getFirstAsync<{ id: number }>(
+    "SELECT id FROM languages WHERE name = ?",
+    "English",
+  );
+
   const spanska = await db.getFirstAsync<{ id: number }>(
     "SELECT id FROM languages WHERE name = ?",
     "Español",
   );
 
-  if (!svenska || !spanska) {
-    throw new Error("Svenska eller Spanska saknas i languages-tabellen.");
+  if (!svenska || !engelska || !spanska) {
+    throw new Error("Ett eller flera språk saknas i languages-tabellen.");
   }
 
   // --------------------------------------------------
-  // Kontrollera om gamla tags-tabellen finns
+  // Kontrollera om tags-tabellen finns
   // --------------------------------------------------
 
   const tagsTable = await db.getFirstAsync<{ name: string }>(
@@ -107,25 +113,45 @@ export async function createTables(db: SQLiteDatabase) {
     await db.execAsync(`
       CREATE TABLE tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        -- Detta är fortfarande det interna svenska namnet.
+        -- Vi behåller det för att inte bryta befintliga
+        -- kopplingar till word_tags och dictionaryPage.
         name TEXT NOT NULL,
+
+        -- Alla tre översättningar är frivilliga i databasen.
+        name_sv TEXT,
+        name_en TEXT,
+        name_es TEXT,
+
         from_language_id INTEGER NOT NULL,
         to_language_id INTEGER NOT NULL,
+
         UNIQUE (name, from_language_id, to_language_id),
-        FOREIGN KEY (from_language_id) REFERENCES languages(id),
-        FOREIGN KEY (to_language_id) REFERENCES languages(id)
+
+        FOREIGN KEY (from_language_id)
+          REFERENCES languages(id),
+
+        FOREIGN KEY (to_language_id)
+          REFERENCES languages(id)
       );
 
       CREATE TABLE word_tags (
         word_id INTEGER NOT NULL,
         tag_id INTEGER NOT NULL,
+
         PRIMARY KEY (word_id, tag_id),
-        FOREIGN KEY (word_id) REFERENCES words(id),
-        FOREIGN KEY (tag_id) REFERENCES tags(id)
+
+        FOREIGN KEY (word_id)
+          REFERENCES words(id),
+
+        FOREIGN KEY (tag_id)
+          REFERENCES tags(id)
       );
     `);
   } else {
     // --------------------------------------------------
-    // Kontrollera om tags redan är migrerad
+    // Kontrollera vilka kolumner tags har
     // --------------------------------------------------
 
     const columns = await db.getAllAsync<{ name: string }>(
@@ -137,7 +163,7 @@ export async function createTables(db: SQLiteDatabase) {
       columns.some((column) => column.name === "to_language_id");
 
     // --------------------------------------------------
-    // Migrera gamla tags till språkpar
+    // Gamla tags utan språkpar
     // --------------------------------------------------
 
     if (!hasLanguageColumns) {
@@ -145,11 +171,25 @@ export async function createTables(db: SQLiteDatabase) {
         CREATE TABLE tags_new (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
+
+          name_sv TEXT,
+          name_en TEXT,
+          name_es TEXT,
+
           from_language_id INTEGER NOT NULL,
           to_language_id INTEGER NOT NULL,
-          UNIQUE (name, from_language_id, to_language_id),
-          FOREIGN KEY (from_language_id) REFERENCES languages(id),
-          FOREIGN KEY (to_language_id) REFERENCES languages(id)
+
+          UNIQUE (
+            name,
+            from_language_id,
+            to_language_id
+          ),
+
+          FOREIGN KEY (from_language_id)
+            REFERENCES languages(id),
+
+          FOREIGN KEY (to_language_id)
+            REFERENCES languages(id)
         );
       `);
 
@@ -158,11 +198,17 @@ export async function createTables(db: SQLiteDatabase) {
         INSERT INTO tags_new (
           id,
           name,
+          name_sv,
+          name_en,
+          name_es,
           from_language_id,
           to_language_id
         )
         SELECT
           id,
+          name,
+          name,
+          name,
           name,
           ?,
           ?
@@ -176,9 +222,14 @@ export async function createTables(db: SQLiteDatabase) {
         CREATE TABLE word_tags_new (
           word_id INTEGER NOT NULL,
           tag_id INTEGER NOT NULL,
+
           PRIMARY KEY (word_id, tag_id),
-          FOREIGN KEY (word_id) REFERENCES words(id),
-          FOREIGN KEY (tag_id) REFERENCES tags_new(id)
+
+          FOREIGN KEY (word_id)
+            REFERENCES words(id),
+
+          FOREIGN KEY (tag_id)
+            REFERENCES tags_new(id)
         );
 
         INSERT INTO word_tags_new (word_id, tag_id)
@@ -191,8 +242,118 @@ export async function createTables(db: SQLiteDatabase) {
         ALTER TABLE tags_new RENAME TO tags;
         ALTER TABLE word_tags_new RENAME TO word_tags;
       `);
+    } else {
+      // --------------------------------------------------
+      // tags har redan språkpar.
+      // Lägg till översättningskolumner om de saknas.
+      // --------------------------------------------------
+
+      const updatedColumns = await db.getAllAsync<{ name: string }>(
+        "PRAGMA table_info(tags)",
+      );
+
+      const hasNameSv = updatedColumns.some(
+        (column) => column.name === "name_sv",
+      );
+
+      const hasNameEn = updatedColumns.some(
+        (column) => column.name === "name_en",
+      );
+
+      const hasNameEs = updatedColumns.some(
+        (column) => column.name === "name_es",
+      );
+
+      if (!hasNameSv) {
+        await db.runAsync("ALTER TABLE tags ADD COLUMN name_sv TEXT");
+      }
+
+      if (!hasNameEn) {
+        await db.runAsync("ALTER TABLE tags ADD COLUMN name_en TEXT");
+      }
+
+      if (!hasNameEs) {
+        await db.runAsync("ALTER TABLE tags ADD COLUMN name_es TEXT");
+      }
     }
   }
+
+  // --------------------------------------------------
+  // Se till att gamla kategorier får svenska namn
+  // --------------------------------------------------
+
+  await db.runAsync(
+    `
+    UPDATE tags
+    SET name_sv = name
+    WHERE name_sv IS NULL
+       OR name_sv = ''
+    `,
+  );
+
+  // --------------------------------------------------
+  // Översättningar för de gamla kategorierna
+  // --------------------------------------------------
+
+  await db.runAsync(
+    `
+    UPDATE tags
+    SET
+      name_en = 'Law',
+      name_es = 'Derecho'
+    WHERE name = 'Juridik'
+    `,
+  );
+
+  await db.runAsync(
+    `
+    UPDATE tags
+    SET
+      name_en = 'Social Studies',
+      name_es = 'Ciencias Sociales'
+    WHERE name = 'Samhällskunskap'
+    `,
+  );
+
+  await db.runAsync(
+    `
+    UPDATE tags
+    SET
+      name_en = 'Migration',
+      name_es = 'Migración'
+    WHERE name = 'Migration'
+    `,
+  );
+
+  await db.runAsync(
+    `
+    UPDATE tags
+    SET
+      name_en = 'Healthcare',
+      name_es = 'Salud'
+    WHERE name = 'Sjukvård'
+    `,
+  );
+
+  // Gamla kategorier som saknar engelsk/spansk
+  // översättning får svenska som fallback.
+  await db.runAsync(
+    `
+    UPDATE tags
+    SET name_en = name_sv
+    WHERE name_en IS NULL
+       OR name_en = ''
+    `,
+  );
+
+  await db.runAsync(
+    `
+    UPDATE tags
+    SET name_es = name_sv
+    WHERE name_es IS NULL
+       OR name_es = ''
+    `,
+  );
 
   // --------------------------------------------------
   // Ta bort gamla "Samhälle"
