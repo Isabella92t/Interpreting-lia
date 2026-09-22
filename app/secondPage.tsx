@@ -1,9 +1,8 @@
+import { LanguagePicker } from "@/components/language-picker";
 import { colors } from "@/constants/colors";
+import { useUiLanguage } from "@/context/ui-language-context";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-import { LanguagePicker } from "@/components/language-picker";
-import { useUiLanguage } from "@/context/ui-language-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useRef, useState } from "react";
@@ -32,19 +31,10 @@ type Translation = {
   text_to: string;
 };
 
-// Vi visar tre kategorier i taget.
 const CATEGORIES_PER_PAGE = 3;
-
-// Avståndet mellan kategori-rutorna.
 const CATEGORY_GAP = 10;
-
-// Här sparar vi vilka kategorier man använt senast.
 const RECENT_CATEGORIES_KEY = "recentCategories";
-
-// Man måste skriva minst tre bokstäver innan förslagen visas.
 const MIN_SEARCH_LENGTH = 3;
-
-// Vi visar högst tre förslag.
 const MAX_RESULTS = 3;
 
 function sortByRecentlyUsed(categories: Category[], recentNames: string[]) {
@@ -73,8 +63,6 @@ function splitIntoPages(categories: Category[]) {
   return pages;
 }
 
-// Delar upp texten i ord och kollar om något ord
-// börjar med det man skrev.
 function startsWithSearch(text: string, searchText: string) {
   const words = text.toLowerCase().split(/[\s/,()]+/);
 
@@ -99,17 +87,12 @@ export default function SecondPage() {
   }>();
 
   const [categories, setCategories] = useState<Category[]>([]);
-
-  // Alla ord i de valda språken.
   const [allTranslations, setAllTranslations] = useState<Translation[]>([]);
 
   const [search, setSearch] = useState("");
 
-  // Kategori-karusellen
   const [recentCategories, setRecentCategories] = useState<string[]>([]);
-
   const [page, setPage] = useState(0);
-
   const [carouselWidth, setCarouselWidth] = useState(0);
 
   const carouselRef = useRef<ScrollView>(null);
@@ -121,15 +104,10 @@ export default function SecondPage() {
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
-  // Lägg till kategori
   const [showAddCategory, setShowAddCategory] = useState(false);
 
-  // Alla tre språk kan fyllas i.
-  // Minst två måste fyllas i.
   const [newCategorySv, setNewCategorySv] = useState("");
-
   const [newCategoryEn, setNewCategoryEn] = useState("");
-
   const [newCategoryEs, setNewCategoryEs] = useState("");
 
   useEffect(() => {
@@ -174,7 +152,6 @@ export default function SecondPage() {
     }
   }
 
-  // När man öppnar en kategori läggs den först.
   async function openCategory(categoryName: string) {
     const updated = [
       categoryName,
@@ -197,7 +174,6 @@ export default function SecondPage() {
 
   async function loadAllTranslations() {
     const fromLanguage = languageNames[String(from).toLowerCase()];
-
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
@@ -207,24 +183,24 @@ export default function SecondPage() {
     try {
       const result = await db.getAllAsync<Translation>(
         `
-            SELECT DISTINCT
-              from_translation.text AS text_from,
-              to_translation.text AS text_to,
-              from_translation.word_id
-            FROM translations AS from_translation
-            INNER JOIN translations AS to_translation
-              ON from_translation.word_id =
-                 to_translation.word_id
-            INNER JOIN languages AS from_language
-              ON from_translation.language_id =
-                 from_language.id
-            INNER JOIN languages AS to_language
-              ON to_translation.language_id =
-                 to_language.id
-            WHERE from_language.name = ?
-              AND to_language.name = ?
-            ORDER BY LOWER(text_from) ASC
-          `,
+          SELECT DISTINCT
+            from_translation.text AS text_from,
+            to_translation.text AS text_to,
+            from_translation.word_id
+          FROM translations AS from_translation
+          INNER JOIN translations AS to_translation
+            ON from_translation.word_id =
+               to_translation.word_id
+          INNER JOIN languages AS from_language
+            ON from_translation.language_id =
+               from_language.id
+          INNER JOIN languages AS to_language
+            ON to_translation.language_id =
+               to_language.id
+          WHERE from_language.name = ?
+            AND to_language.name = ?
+          ORDER BY LOWER(text_from) ASC
+        `,
         fromLanguage,
         toLanguage,
       );
@@ -235,46 +211,31 @@ export default function SecondPage() {
     }
   }
 
-  // Tillbaka till språkvalet.
   function changeLanguages() {
     router.dismissTo("/firstPage");
   }
-
-  // --------------------------------------------------
-  // Vilket kategorinamn ska visas?
-  // --------------------------------------------------
 
   function getCategoryName(category: Category) {
     const currentLanguage = String(language).toLowerCase();
 
     const svenska = category.name_sv?.trim() || "";
-
     const engelska = category.name_en?.trim() || "";
-
     const spanska = category.name_es?.trim() || "";
 
-    // Appen är på svenska.
     if (currentLanguage === "sv") {
       return svenska || engelska || spanska || category.name;
     }
 
-    // Appen är på engelska.
     if (currentLanguage === "en") {
       return engelska || svenska || spanska || category.name;
     }
 
-    // Appen är på spanska.
     if (currentLanguage === "es") {
       return spanska || svenska || engelska || category.name;
     }
 
-    // Säker fallback.
     return svenska || engelska || spanska || category.name;
   }
-
-  // --------------------------------------------------
-  // Lägg till kategori
-  // --------------------------------------------------
 
   async function addCategory() {
     const categorySv = newCategorySv.trim();
@@ -285,7 +246,6 @@ export default function SecondPage() {
       (value) => value.length > 0,
     ).length;
 
-    // Minst två av tre språk måste fyllas i.
     if (filledLanguages < 2) {
       Alert.alert(
         "Fyll i minst två språk",
@@ -296,7 +256,6 @@ export default function SecondPage() {
     }
 
     const fromLanguage = languageNames[String(from).toLowerCase()];
-
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
@@ -305,31 +264,24 @@ export default function SecondPage() {
     }
 
     try {
-      const fromLanguageResult = await db.getFirstAsync<{
-        id: number;
-      }>("SELECT id FROM languages WHERE name = ?", fromLanguage);
+      const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM languages WHERE name = ?",
+        fromLanguage,
+      );
 
-      const toLanguageResult = await db.getFirstAsync<{
-        id: number;
-      }>("SELECT id FROM languages WHERE name = ?", toLanguage);
+      const toLanguageResult = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM languages WHERE name = ?",
+        toLanguage,
+      );
 
       if (!fromLanguageResult || !toLanguageResult) {
         Alert.alert(t("languagesNotFound"));
         return;
       }
 
-      // Internt namn.
-      //
-      // Vi använder det första ifyllda språket.
-      //
-      // Detta påverkar inte vilket språk som visas
-      // i appen. Visningen använder name_sv/name_en/
-      // name_es ovan.
       const internalName = categorySv || categoryEn || categoryEs;
 
-      const existingCategory = await db.getFirstAsync<{
-        id: number;
-      }>(
+      const existingCategory = await db.getFirstAsync<{ id: number }>(
         `
             SELECT id
             FROM tags
@@ -344,15 +296,9 @@ export default function SecondPage() {
 
       if (existingCategory) {
         Alert.alert("Kategorin finns redan");
-
         return;
       }
 
-      // Viktigt:
-      //
-      // Tomma språk sparas som "" och inte NULL.
-      // Det fungerar även om SQLite-tabellen
-      // fortfarande har NOT NULL på dessa kolumner.
       await db.runAsync(
         `
           INSERT INTO tags (
@@ -376,7 +322,6 @@ export default function SecondPage() {
       setNewCategorySv("");
       setNewCategoryEn("");
       setNewCategoryEs("");
-
       setShowAddCategory(false);
 
       await loadCategories();
@@ -392,10 +337,6 @@ export default function SecondPage() {
     }
   }
 
-  // --------------------------------------------------
-  // Lägg till ord
-  // --------------------------------------------------
-
   async function addWord() {
     if (!word.trim() || !translation.trim()) {
       Alert.alert(t("fillAllFields"));
@@ -403,7 +344,6 @@ export default function SecondPage() {
     }
 
     const fromLanguage = languageNames[String(from).toLowerCase()];
-
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
@@ -416,28 +356,31 @@ export default function SecondPage() {
       word.trim(),
     );
 
-    const wordResult = await db.getFirstAsync<{
-      id: number;
-    }>("SELECT id FROM words WHERE name = ?", word.trim());
+    const wordResult = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM words WHERE name = ?",
+      word.trim(),
+    );
 
     if (!wordResult) {
       return;
     }
 
-    const fromLanguageResult = await db.getFirstAsync<{
-      id: number;
-    }>("SELECT id FROM languages WHERE name = ?", fromLanguage);
+    const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM languages WHERE name = ?",
+      fromLanguage,
+    );
 
-    const toLanguageResult = await db.getFirstAsync<{
-      id: number;
-    }>("SELECT id FROM languages WHERE name = ?", toLanguage);
+    const toLanguageResult = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM languages WHERE name = ?",
+      toLanguage,
+    );
 
     if (fromLanguageResult) {
       await db.runAsync(
         `
           INSERT OR IGNORE INTO translations
-          (word_id, language_id, text)
-          VALUES (?, ?, ?)
+            (word_id, language_id, text)
+            VALUES (?, ?, ?)
         `,
         wordResult.id,
         fromLanguageResult.id,
@@ -449,8 +392,8 @@ export default function SecondPage() {
       await db.runAsync(
         `
           INSERT OR IGNORE INTO translations
-          (word_id, language_id, text)
-          VALUES (?, ?, ?)
+            (word_id, language_id, text)
+            VALUES (?, ?, ?)
         `,
         wordResult.id,
         toLanguageResult.id,
@@ -459,16 +402,17 @@ export default function SecondPage() {
     }
 
     if (selectedCategories.length === 0) {
-      const otherCategory = await db.getFirstAsync<{
-        id: number;
-      }>("SELECT id FROM tags WHERE name = ?", "Övrigt");
+      const otherCategory = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM tags WHERE name = ?",
+        "Övrigt",
+      );
 
       if (otherCategory) {
         await db.runAsync(
           `
             INSERT OR IGNORE INTO word_tags
-            (word_id, tag_id)
-            VALUES (?, ?)
+              (word_id, tag_id)
+              VALUES (?, ?)
           `,
           wordResult.id,
           otherCategory.id,
@@ -476,16 +420,17 @@ export default function SecondPage() {
       }
     } else {
       for (const categoryName of selectedCategories) {
-        const categoryResult = await db.getFirstAsync<{
-          id: number;
-        }>("SELECT id FROM tags WHERE name = ?", categoryName);
+        const categoryResult = await db.getFirstAsync<{ id: number }>(
+          "SELECT id FROM tags WHERE name = ?",
+          categoryName,
+        );
 
         if (categoryResult) {
           await db.runAsync(
             `
               INSERT OR IGNORE INTO word_tags
-              (word_id, tag_id)
-              VALUES (?, ?)
+                (word_id, tag_id)
+                VALUES (?, ?)
             `,
             wordResult.id,
             categoryResult.id,
@@ -514,12 +459,7 @@ export default function SecondPage() {
     }
   }
 
-  // --------------------------------------------------
-  // Sökning
-  // --------------------------------------------------
-
   const searchText = search.trim().toLowerCase();
-
   const hasEnoughLetters = searchText.length >= MIN_SEARCH_LENGTH;
 
   const searchResults = hasEnoughLetters
@@ -532,18 +472,16 @@ export default function SecondPage() {
 
   const visibleResults = searchResults.slice(0, MAX_RESULTS);
 
-  // --------------------------------------------------
-  // Kategorier
-  // --------------------------------------------------
-
   const categoryPages = splitIntoPages(
     sortByRecentlyUsed(categories, recentCategories),
   );
 
-  const boxWidth = (carouselWidth - CATEGORY_GAP * 2) / CATEGORIES_PER_PAGE;
+  const boxWidth =
+    carouselWidth > 0
+      ? (carouselWidth - CATEGORY_GAP * 2) / CATEGORIES_PER_PAGE
+      : 0;
 
   const canGoLeft = page > 0;
-
   const canGoRight = page < categoryPages.length - 1;
 
   function goToPage(nextPage: number) {
@@ -564,28 +502,53 @@ export default function SecondPage() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Byt ordboksspråk till vänster,
-            appens språk till höger */}
+        {/* HEADER */}
+
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={changeLanguages} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={changeLanguages}
+            style={styles.backButton}
+            activeOpacity={0.8}
+          >
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
 
           <LanguagePicker />
         </View>
 
-        {/* SÖK */}
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t("searchPlaceholder")}
-          value={search}
-          onChangeText={setSearch}
-        />
+        {/* SPRÅKPAR */}
+
+        <View style={styles.languagePair}>
+          <Text style={styles.languagePairText}>
+            {languageNames[String(from).toLowerCase()] || from}
+          </Text>
+
+          <Text style={styles.languagePairArrow}>→</Text>
+
+          <Text style={styles.languagePairText}>
+            {languageNames[String(to).toLowerCase()] || to}
+          </Text>
+        </View>
+
+        {/* GLOBAL SÖKNING */}
+
+        <View style={styles.searchContainer}>
+          <FontAwesome name="search" size={17} color={colors.textSecondary} />
+
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t("searchPlaceholder")}
+            placeholderTextColor={colors.textSecondary}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
 
         {searchText.length > 0 && !hasEnoughLetters && (
-          <Text style={styles.noResults}>{t("minThreeLetters")}</Text>
+          <Text style={styles.searchHint}>{t("minThreeLetters")}</Text>
         )}
 
         {hasEnoughLetters && (
@@ -593,42 +556,59 @@ export default function SecondPage() {
             {searchResults.length === 0 ? (
               <Text style={styles.noResults}>{t("noMatches")}</Text>
             ) : (
-              visibleResults.map((item) => (
-                <View key={item.word_id} style={styles.searchRow}>
-                  <Text style={styles.searchWord}>{item.text_from}</Text>
+              <>
+                {visibleResults.map((item) => (
+                  <View key={item.word_id} style={styles.searchRow}>
+                    <View style={styles.searchTextContainer}>
+                      <Text style={styles.searchWord}>{item.text_from}</Text>
 
-                  <Text style={styles.searchTranslation}>{item.text_to}</Text>
-                </View>
-              ))
+                      <Text style={styles.searchTranslation}>
+                        {item.text_to}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.searchArrow}>→</Text>
+                  </View>
+                ))}
+
+                {searchResults.length > MAX_RESULTS && (
+                  <Text style={styles.moreResults}>
+                    + {searchResults.length - MAX_RESULTS} fler träffar
+                  </Text>
+                )}
+              </>
             )}
           </View>
         )}
 
         {/* KATEGORIER */}
-        <View style={styles.categoryHeader}>
-          <Text style={styles.title}>{t("categories")}</Text>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t("categories")}</Text>
 
           <TouchableOpacity
             style={styles.addCategoryButton}
             onPress={() => setShowAddCategory(true)}
+            activeOpacity={0.8}
           >
             <Text style={styles.addCategoryText}>+</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.carouselRow}>
-          {/* Pil vänster */}
           <TouchableOpacity
-            style={styles.arrow}
+            style={styles.arrowButton}
             onPress={() => goToPage(page - 1)}
             disabled={!canGoLeft}
+            activeOpacity={0.7}
           >
-            <Text style={canGoLeft ? styles.arrowText : styles.arrowTextFaded}>
+            <Text
+              style={canGoLeft ? styles.arrowText : styles.arrowTextDisabled}
+            >
               ‹
             </Text>
           </TouchableOpacity>
 
-          {/* Tre kategorier i taget */}
           <View
             style={styles.carousel}
             onLayout={(event) =>
@@ -655,23 +635,14 @@ export default function SecondPage() {
                 categoryPages.map((categoriesOnPage, pageIndex) => (
                   <View
                     key={pageIndex}
-                    style={[
-                      styles.carouselPage,
-                      {
-                        width: carouselWidth,
-                      },
-                    ]}
+                    style={[styles.carouselPage, { width: carouselWidth }]}
                   >
                     {categoriesOnPage.map((category) => (
                       <TouchableOpacity
                         key={category.id}
-                        style={[
-                          styles.box,
-                          {
-                            width: boxWidth,
-                          },
-                        ]}
+                        style={[styles.categoryCard, { width: boxWidth }]}
                         onPress={() => openCategory(category.name)}
+                        activeOpacity={0.8}
                       >
                         <Text style={styles.categoryText}>
                           {getCategoryName(category)}
@@ -683,21 +654,28 @@ export default function SecondPage() {
             </ScrollView>
           </View>
 
-          {/* Pil höger */}
           <TouchableOpacity
-            style={styles.arrow}
+            style={styles.arrowButton}
             onPress={() => goToPage(page + 1)}
             disabled={!canGoRight}
+            activeOpacity={0.7}
           >
-            <Text style={canGoRight ? styles.arrowText : styles.arrowTextFaded}>
+            <Text
+              style={canGoRight ? styles.arrowText : styles.arrowTextDisabled}
+            >
               ›
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Dictionary */}
+        {/* HUVUDFUNKTIONER */}
+
+        <View style={styles.sectionHeaderSimple}>
+          <Text style={styles.sectionTitle}>Ord & uttryck</Text>
+        </View>
+
         <TouchableOpacity
-          style={styles.button}
+          style={styles.featureCard}
           onPress={() =>
             router.push({
               pathname: "/dictionaryPage",
@@ -707,15 +685,25 @@ export default function SecondPage() {
               },
             })
           }
+          activeOpacity={0.8}
         >
-          <FontAwesome name="book" size={24} color="#111827" />
+          <View style={styles.featureIcon}>
+            <FontAwesome name="book" size={21} color={colors.primary} />
+          </View>
 
-          <Text>{t("dictionary")}</Text>
+          <View style={styles.featureText}>
+            <Text style={styles.featureTitle}>{t("dictionary")}</Text>
+
+            <Text style={styles.featureDescription}>
+              Bläddra bland ord och öva på dina språk
+            </Text>
+          </View>
+
+          <Text style={styles.featureArrow}>›</Text>
         </TouchableOpacity>
 
-        {/* Idiomer */}
         <TouchableOpacity
-          style={styles.button}
+          style={styles.featureCard}
           onPress={() =>
             router.push({
               pathname: "/idiomsPage",
@@ -725,13 +713,25 @@ export default function SecondPage() {
               },
             })
           }
+          activeOpacity={0.8}
         >
-          <Text>{t("idioms")}</Text>
+          <View style={styles.featureIcon}>
+            <FontAwesome name="comments-o" size={21} color={colors.primary} />
+          </View>
+
+          <View style={styles.featureText}>
+            <Text style={styles.featureTitle}>{t("idioms")}</Text>
+
+            <Text style={styles.featureDescription}>
+              Vanliga uttryck och fraser
+            </Text>
+          </View>
+
+          <Text style={styles.featureArrow}>›</Text>
         </TouchableOpacity>
 
-        {/* Notes */}
         <TouchableOpacity
-          style={styles.button}
+          style={styles.featureCard}
           onPress={() =>
             router.push({
               pathname: "/notesPage",
@@ -741,28 +741,43 @@ export default function SecondPage() {
               },
             })
           }
+          activeOpacity={0.8}
         >
-          <FontAwesome name="file-text-o" size={24} color="#111827" />
+          <View style={styles.featureIcon}>
+            <FontAwesome name="file-text-o" size={21} color={colors.primary} />
+          </View>
 
-          <Text>{t("notes")}</Text>
+          <View style={styles.featureText}>
+            <Text style={styles.featureTitle}>{t("notes")}</Text>
+
+            <Text style={styles.featureDescription}>
+              Dina egna anteckningar
+            </Text>
+          </View>
+
+          <Text style={styles.featureArrow}>›</Text>
         </TouchableOpacity>
 
-        {/* Lägg till ord */}
+        {/* LÄGG TILL ORD */}
+
         <TouchableOpacity
-          style={styles.button}
+          style={styles.secondaryButton}
           onPress={() => setShowAddWord(true)}
+          activeOpacity={0.8}
         >
-          <Text>{t("addWord")}</Text>
+          <Text style={styles.secondaryButtonPlus}>+</Text>
+
+          <Text style={styles.secondaryButtonText}>{t("addWord")}</Text>
         </TouchableOpacity>
       </ScrollView>
 
       {/* ------------------------------------------ */}
-      {/* Popup för att lägga till kategori */}
+      {/* LÄGG TILL KATEGORI */}
       {/* ------------------------------------------ */}
 
       <Modal
         visible={showAddCategory}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setShowAddCategory(false)}
       >
@@ -770,33 +785,33 @@ export default function SecondPage() {
           <View style={styles.categoryModal}>
             <Text style={styles.modalTitle}>Lägg till kategori</Text>
 
-            {/* Svenska */}
             <Text style={styles.languageLabel}>Svenska</Text>
 
             <TextInput
               style={styles.input}
               placeholder="Kategorinamn på svenska"
+              placeholderTextColor={colors.textSecondary}
               value={newCategorySv}
               onChangeText={setNewCategorySv}
               autoFocus
             />
 
-            {/* English */}
             <Text style={styles.languageLabel}>English</Text>
 
             <TextInput
               style={styles.input}
               placeholder="Category name in English"
+              placeholderTextColor={colors.textSecondary}
               value={newCategoryEn}
               onChangeText={setNewCategoryEn}
             />
 
-            {/* Español */}
             <Text style={styles.languageLabel}>Español</Text>
 
             <TextInput
               style={styles.input}
               placeholder="Nombre de categoría en español"
+              placeholderTextColor={colors.textSecondary}
               value={newCategoryEs}
               onChangeText={setNewCategoryEs}
             />
@@ -805,12 +820,16 @@ export default function SecondPage() {
               Fyll i minst två av de tre språken.
             </Text>
 
-            <TouchableOpacity style={styles.addButton} onPress={addCategory}>
-              <Text>Lägg till</Text>
+            <TouchableOpacity
+              style={styles.modalPrimaryButton}
+              onPress={addCategory}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalPrimaryButtonText}>Lägg till</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={styles.modalCancelButton}
               onPress={() => {
                 setNewCategorySv("");
                 setNewCategoryEn("");
@@ -818,19 +837,19 @@ export default function SecondPage() {
                 setShowAddCategory(false);
               }}
             >
-              <Text>{t("cancel")}</Text>
+              <Text style={styles.modalCancelText}>{t("cancel")}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       {/* ------------------------------------------ */}
-      {/* Popup för att lägga till ord */}
+      {/* LÄGG TILL ORD */}
       {/* ------------------------------------------ */}
 
       <Modal
         visible={showAddWord}
-        transparent={true}
+        transparent
         animationType="slide"
         onRequestClose={() => setShowAddWord(false)}
       >
@@ -842,13 +861,18 @@ export default function SecondPage() {
             <View style={styles.modal}>
               <Text style={styles.modalTitle}>{t("addWord")}</Text>
 
-              <Text>
-                {from} → {to}
-              </Text>
+              <View style={styles.modalLanguagePair}>
+                <Text style={styles.modalLanguageText}>{from}</Text>
+
+                <Text style={styles.modalLanguageArrow}>→</Text>
+
+                <Text style={styles.modalLanguageText}>{to}</Text>
+              </View>
 
               <TextInput
                 style={styles.input}
                 placeholder={t("word")}
+                placeholderTextColor={colors.textSecondary}
                 value={word}
                 onChangeText={setWord}
               />
@@ -856,6 +880,7 @@ export default function SecondPage() {
               <TextInput
                 style={styles.input}
                 placeholder={t("translation")}
+                placeholderTextColor={colors.textSecondary}
                 value={translation}
                 onChangeText={setTranslation}
               />
@@ -876,28 +901,38 @@ export default function SecondPage() {
                         isSelected ? styles.selectedCategory : styles.category
                       }
                       onPress={() => toggleCategory(category.name)}
+                      activeOpacity={0.8}
                     >
-                      <Text>
-                        {isSelected ? "✓ " : ""}
-
+                      <Text
+                        style={
+                          isSelected
+                            ? styles.selectedCategoryText
+                            : styles.categoryOptionText
+                        }
+                      >
+                        {isSelected ? "✓  " : ""}
                         {getCategoryName(category)}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
 
-              <TouchableOpacity style={styles.addButton} onPress={addWord}>
-                <Text>{t("add")}</Text>
+              <TouchableOpacity
+                style={styles.modalPrimaryButton}
+                onPress={addWord}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalPrimaryButtonText}>{t("add")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.cancelButton}
+                style={styles.modalCancelButton}
                 onPress={() => {
                   setSelectedCategories([]);
                   setShowAddWord(false);
                 }}
               >
-                <Text>{t("cancel")}</Text>
+                <Text style={styles.modalCancelText}>{t("cancel")}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -918,106 +953,180 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    padding: 24,
+    paddingHorizontal: 24,
     paddingTop: 40,
-    paddingBottom: 40,
+    paddingBottom: 50,
   },
+
+  /* HEADER */
 
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 18,
   },
 
   backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 
   backButtonText: {
-    fontSize: 20,
+    fontSize: 21,
+    fontWeight: "500",
+    color: colors.text,
+  },
+
+  languagePair: {
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+
+  languagePairText: {
+    fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
+    color: colors.text,
+  },
+
+  languagePairArrow: {
+    fontSize: 17,
+    color: colors.textSecondary,
+    marginHorizontal: 10,
   },
 
   /* SÖK */
 
+  searchContainer: {
+    height: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+  },
+
   searchInput: {
-    borderWidth: 1.5,
-    borderColor: "#9ca3af",
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
+    flex: 1,
+    height: "100%",
+    marginLeft: 11,
+    fontSize: 16,
+    color: colors.text,
+  },
+
+  searchHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 8,
+    marginLeft: 4,
   },
 
   searchResults: {
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    overflow: "hidden",
   },
 
   searchRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
+    minHeight: 62,
+    paddingHorizontal: 16,
     paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  searchTextContainer: {
+    flex: 1,
   },
 
   searchWord: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
+    color: colors.text,
   },
 
   searchTranslation: {
     fontSize: 14,
-    color: "#6b7280",
-    marginTop: 2,
+    color: colors.textSecondary,
+    marginTop: 3,
+  },
+
+  searchArrow: {
+    fontSize: 18,
+    color: colors.primary,
+    marginLeft: 12,
   },
 
   noResults: {
     fontSize: 14,
-    color: "#6b7280",
-    paddingVertical: 10,
+    color: colors.textSecondary,
+    padding: 16,
   },
 
-  /* KATEGORIER */
+  moreResults: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    padding: 12,
+    textAlign: "center",
+  },
 
-  categoryHeader: {
+  /* SEKTIONER */
+
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 18,
-    gap: 8,
+    marginTop: 28,
+    marginBottom: 14,
   },
 
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-    textAlign: "center",
-    marginBottom: 0,
+  sectionHeaderSimple: {
+    marginTop: 30,
+    marginBottom: 12,
+  },
+
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    color: colors.text,
   },
 
   addCategoryButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginLeft: 8,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#9ca3af",
-    backgroundColor: "#fff",
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
 
   addCategoryText: {
-    fontSize: 20,
-    lineHeight: 22,
-    color: "#111827",
+    fontSize: 21,
+    lineHeight: 23,
+    color: colors.primary,
     fontWeight: "500",
   },
+
+  /* KATEGORIER */
 
   carouselRow: {
     flexDirection: "row",
@@ -1033,58 +1142,127 @@ const styles = StyleSheet.create({
     gap: CATEGORY_GAP,
   },
 
-  arrow: {
+  arrowButton: {
     width: 24,
+    height: 58,
     alignItems: "center",
     justifyContent: "center",
   },
 
   arrowText: {
     fontSize: 30,
-    color: "#111827",
+    color: colors.text,
+    fontWeight: "300",
   },
 
-  arrowTextFaded: {
+  arrowTextDisabled: {
     fontSize: 30,
-    color: "#d1d5db",
+    color: colors.border,
+    fontWeight: "300",
   },
 
-  box: {
-    minHeight: 55,
-    borderWidth: 1.5,
-    borderColor: "#9ca3af",
-    backgroundColor: "#fff",
-    borderRadius: 8,
+  categoryCard: {
+    minHeight: 64,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
-    padding: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
 
   categoryText: {
     textAlign: "center",
-    fontSize: 14,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+    color: colors.text,
   },
 
-  /* HUVUDBOXAR */
+  /* HUVUDFUNKTIONER */
 
-  button: {
-    borderWidth: 1.5,
-    borderColor: "#9ca3af",
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 14,
-    marginTop: 20,
-    alignSelf: "center",
-    width: "50%",
+  featureCard: {
+    minHeight: 76,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    paddingHorizontal: 15,
+    marginBottom: 10,
+  },
+
+  featureIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 13,
+  },
+
+  featureText: {
+    flex: 1,
+  },
+
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: "650",
+    color: colors.text,
+  },
+
+  featureDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 3,
+  },
+
+  featureArrow: {
+    fontSize: 27,
+    fontWeight: "300",
+    color: colors.textSecondary,
+    marginLeft: 8,
+  },
+
+  /* LÄGG TILL ORD */
+
+  secondaryButton: {
+    height: 52,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+
+  secondaryButtonPlus: {
+    fontSize: 20,
+    color: colors.primary,
+    marginRight: 8,
+    fontWeight: "500",
+  },
+
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.text,
   },
 
   /* MODAL */
 
   modalBackground: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: "rgba(15, 23, 42, 0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
   },
 
   modalScrollContent: {
@@ -1094,87 +1272,157 @@ const styles = StyleSheet.create({
   },
 
   modal: {
-    backgroundColor: "#fff",
+    width: "100%",
+    maxWidth: 500,
+    backgroundColor: "#FFFFFF",
     padding: 24,
-    borderRadius: 8,
+    borderRadius: 20,
+    shadowColor: "#000000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   categoryModal: {
-    backgroundColor: "#fff",
+    width: "100%",
+    maxWidth: 500,
+    backgroundColor: "#FFFFFF",
     padding: 24,
-    borderRadius: 8,
+    borderRadius: 20,
     marginHorizontal: 24,
+    shadowColor: "#000000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: 18,
+  },
+
+  modalLanguagePair: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  modalLanguageText: {
+    fontSize: 14,
     fontWeight: "600",
-    marginBottom: 16,
+    color: colors.text,
+  },
+
+  modalLanguageArrow: {
+    color: colors.textSecondary,
+    marginHorizontal: 8,
   },
 
   languageLabel: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.text,
     marginTop: 10,
-    marginBottom: 4,
+    marginBottom: 5,
   },
 
   categoryHint: {
     fontSize: 12,
-    color: "#6b7280",
+    color: colors.textSecondary,
     marginTop: 10,
+    lineHeight: 17,
   },
 
   input: {
+    minHeight: 48,
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 4,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    color: colors.text,
+    marginTop: 5,
+    fontSize: 15,
   },
 
   categoryTitle: {
-    marginTop: 18,
-    marginBottom: 4,
-    fontWeight: "600",
+    marginTop: 20,
+    marginBottom: 5,
+    fontWeight: "700",
+    color: colors.text,
   },
 
   optionalText: {
     fontSize: 12,
-    color: "#6b7280",
-    marginBottom: 8,
+    color: colors.textSecondary,
+    marginBottom: 10,
   },
 
   category: {
-    borderWidth: 1.5,
-    borderColor: "#9ca3af",
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 7,
   },
 
   selectedCategory: {
-    borderWidth: 2,
-    borderColor: "#111827",
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 6,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 12,
+    padding: 11,
+    marginBottom: 7,
   },
 
-  addButton: {
-    borderWidth: 1,
-    borderColor: "#111827",
-    padding: 12,
-    marginTop: 18,
-    alignItems: "center",
+  categoryOptionText: {
+    color: colors.text,
+    fontSize: 14,
   },
 
-  cancelButton: {
-    padding: 12,
-    marginTop: 8,
+  selectedCategoryText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  modalPrimaryButton: {
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
     alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+  },
+
+  modalPrimaryButtonText: {
+    color: colors.surface,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  modalCancelButton: {
+    height: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+
+  modalCancelText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
