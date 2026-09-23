@@ -34,6 +34,7 @@ type Translation = {
 const CATEGORIES_PER_PAGE = 3;
 const CATEGORY_GAP = 10;
 const RECENT_CATEGORIES_KEY = "recentCategories";
+const CATEGORY_EXPANDED_KEY = "categoriesExpanded";
 const MIN_SEARCH_LENGTH = 3;
 const MAX_RESULTS = 3;
 
@@ -95,6 +96,8 @@ export default function SecondPage() {
   const [page, setPage] = useState(0);
   const [carouselWidth, setCarouselWidth] = useState(0);
 
+  const [categoriesExpanded, setCategoriesExpanded] = useState(true);
+
   const carouselRef = useRef<ScrollView>(null);
 
   const [showAddWord, setShowAddWord] = useState(false);
@@ -113,6 +116,7 @@ export default function SecondPage() {
   useEffect(() => {
     loadCategories();
     loadRecentCategories();
+    loadCategoriesExpanded();
   }, []);
 
   useEffect(() => {
@@ -149,6 +153,33 @@ export default function SecondPage() {
       }
     } catch (error) {
       console.error("Kunde inte läsa senaste kategorier:", error);
+    }
+  }
+
+  async function loadCategoriesExpanded() {
+    try {
+      const saved = await AsyncStorage.getItem(CATEGORY_EXPANDED_KEY);
+
+      if (saved !== null) {
+        setCategoriesExpanded(saved === "true");
+      }
+    } catch (error) {
+      console.error("Kunde inte läsa kategoriläge:", error);
+    }
+  }
+
+  async function toggleCategoriesExpanded() {
+    const newValue = !categoriesExpanded;
+
+    setCategoriesExpanded(newValue);
+
+    try {
+      await AsyncStorage.setItem(
+        CATEGORY_EXPANDED_KEY,
+        String(newValue),
+      );
+    } catch (error) {
+      console.error("Kunde inte spara kategoriläge:", error);
     }
   }
 
@@ -584,7 +615,21 @@ export default function SecondPage() {
         {/* KATEGORIER */}
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t("categories")}</Text>
+          <View style={styles.categoryHeaderTitle}>
+            <Text style={styles.sectionTitle}>{t("categories")}</Text>
+
+            <TouchableOpacity
+              style={styles.collapseButton}
+              onPress={toggleCategoriesExpanded}
+              activeOpacity={0.8}
+            >
+              <FontAwesome
+                name={categoriesExpanded ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={styles.addCategoryButton}
@@ -595,78 +640,80 @@ export default function SecondPage() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.carouselRow}>
-          <TouchableOpacity
-            style={styles.arrowButton}
-            onPress={() => goToPage(page - 1)}
-            disabled={!canGoLeft}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={canGoLeft ? styles.arrowText : styles.arrowTextDisabled}
+        {categoriesExpanded && (
+          <View style={styles.carouselRow}>
+            <TouchableOpacity
+              style={styles.arrowButton}
+              onPress={() => goToPage(page - 1)}
+              disabled={!canGoLeft}
+              activeOpacity={0.7}
             >
-              ‹
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={canGoLeft ? styles.arrowText : styles.arrowTextDisabled}
+              >
+                ‹
+              </Text>
+            </TouchableOpacity>
 
-          <View
-            style={styles.carousel}
-            onLayout={(event) =>
-              setCarouselWidth(event.nativeEvent.layout.width)
-            }
-          >
-            <ScrollView
-              ref={carouselRef}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              scrollEventThrottle={16}
-              onScroll={(event) => {
-                if (carouselWidth > 0) {
-                  setPage(
-                    Math.round(
-                      event.nativeEvent.contentOffset.x / carouselWidth,
-                    ),
-                  );
-                }
-              }}
+            <View
+              style={styles.carousel}
+              onLayout={(event) =>
+                setCarouselWidth(event.nativeEvent.layout.width)
+              }
             >
-              {carouselWidth > 0 &&
-                categoryPages.map((categoriesOnPage, pageIndex) => (
-                  <View
-                    key={pageIndex}
-                    style={[styles.carouselPage, { width: carouselWidth }]}
-                  >
-                    {categoriesOnPage.map((category) => (
-                      <TouchableOpacity
-                        key={category.id}
-                        style={[styles.categoryCard, { width: boxWidth }]}
-                        onPress={() => openCategory(category.name)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.categoryText}>
-                          {getCategoryName(category)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                ))}
-            </ScrollView>
+              <ScrollView
+                ref={carouselRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onScroll={(event) => {
+                  if (carouselWidth > 0) {
+                    setPage(
+                      Math.round(
+                        event.nativeEvent.contentOffset.x / carouselWidth,
+                      ),
+                    );
+                  }
+                }}
+              >
+                {carouselWidth > 0 &&
+                  categoryPages.map((categoriesOnPage, pageIndex) => (
+                    <View
+                      key={pageIndex}
+                      style={[styles.carouselPage, { width: carouselWidth }]}
+                    >
+                      {categoriesOnPage.map((category) => (
+                        <TouchableOpacity
+                          key={category.id}
+                          style={[styles.categoryCard, { width: boxWidth }]}
+                          onPress={() => openCategory(category.name)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.categoryText}>
+                            {getCategoryName(category)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ))}
+              </ScrollView>
+            </View>
+
+            <TouchableOpacity
+              style={styles.arrowButton}
+              onPress={() => goToPage(page + 1)}
+              disabled={!canGoRight}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={canGoRight ? styles.arrowText : styles.arrowTextDisabled}
+              >
+                ›
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={styles.arrowButton}
-            onPress={() => goToPage(page + 1)}
-            disabled={!canGoRight}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={canGoRight ? styles.arrowText : styles.arrowTextDisabled}
-            >
-              ›
-            </Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
         {/* HUVUDFUNKTIONER */}
 
@@ -825,7 +872,7 @@ export default function SecondPage() {
               onPress={addCategory}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalPrimaryButtonText}>Lägg till</Text>
+              <Text style={styles.modalPrimaryButtonText}>{t("add")}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -836,6 +883,7 @@ export default function SecondPage() {
                 setNewCategoryEs("");
                 setShowAddCategory(false);
               }}
+              activeOpacity={0.8}
             >
               <Text style={styles.modalCancelText}>{t("cancel")}</Text>
             </TouchableOpacity>
@@ -931,6 +979,7 @@ export default function SecondPage() {
                   setSelectedCategories([]);
                   setShowAddWord(false);
                 }}
+                activeOpacity={0.8}
               >
                 <Text style={styles.modalCancelText}>{t("cancel")}</Text>
               </TouchableOpacity>
@@ -1091,9 +1140,20 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
     marginTop: 28,
     marginBottom: 14,
+  },
+
+  categoryHeaderTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  collapseButton: {
+    marginLeft: 10,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
 
   sectionHeaderSimple: {
@@ -1231,7 +1291,9 @@ const styles = StyleSheet.create({
   /* LÄGG TILL ORD */
 
   secondaryButton: {
+    width: 160,
     height: 52,
+    alignSelf: "center",
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1399,9 +1461,13 @@ const styles = StyleSheet.create({
   },
 
   modalPrimaryButton: {
-    height: 50,
-    borderRadius: 14,
+    width: 160,
+    height: 46,
+    alignSelf: "center",
+    borderRadius: 12,
     backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
@@ -1414,15 +1480,21 @@ const styles = StyleSheet.create({
   },
 
   modalCancelButton: {
+    width: 160,
     height: 46,
+    alignSelf: "center",
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
+    marginTop: 10,
   },
 
   modalCancelText: {
-    color: colors.textSecondary,
-    fontSize: 14,
+    color: colors.text,
+    fontSize: 15,
     fontWeight: "600",
   },
 });

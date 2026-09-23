@@ -101,7 +101,7 @@ export default function DictionaryPage() {
           from_translation.word_id
         FROM translations AS from_translation
         INNER JOIN translations AS to_translation
-          ON from_translation.word_id = to_translation.word_id
+          ON to_translation.word_id = from_translation.word_id
         INNER JOIN languages AS from_language
           ON from_translation.language_id = from_language.id
         INNER JOIN languages AS to_language
@@ -417,7 +417,7 @@ export default function DictionaryPage() {
               <TouchableOpacity
                 onPress={saveEditedWord}
                 style={{
-                  backgroundColor: "#6366f1",
+                  backgroundColor: "#e0e7ff",
                   borderRadius: 10,
                   paddingHorizontal: 18,
                   paddingVertical: 12,
@@ -425,7 +425,7 @@ export default function DictionaryPage() {
               >
                 <Text
                   style={{
-                    color: "#fff",
+                    color: "#4338ca",
                     fontSize: 14,
                     fontWeight: "600",
                   }}
@@ -531,12 +531,15 @@ const styles = StyleSheet.create({
   wordRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
   },
 
   word: {
+    flex: 1,
     fontSize: 15,
     fontWeight: "600",
     color: "#111827",
+    paddingRight: 8,
   },
 
   editButton: {
@@ -544,7 +547,7 @@ const styles = StyleSheet.create({
     height: 20,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 5,
+    marginLeft: 14,
   },
 
   translation: {
