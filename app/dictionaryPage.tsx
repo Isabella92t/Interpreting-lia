@@ -7,6 +7,7 @@ import { useUiLanguage } from "@/context/ui-language-context";
 import { useEffect, useState } from "react";
 import {
   FlatList,
+  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -41,6 +42,11 @@ export default function DictionaryPage() {
   const [translations, setTranslations] = useState<Translation[]>([]);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
+
+  // Redigering
+  const [editingWord, setEditingWord] = useState<Translation | null>(null);
+  const [editTextFrom, setEditTextFrom] = useState("");
+  const [editTextTo, setEditTextTo] = useState("");
 
   useEffect(() => {
     loadTranslations();
@@ -112,12 +118,95 @@ export default function DictionaryPage() {
     setTranslations(result);
   }
 
+  // Öppna redigeringsfönstret
+  function openEditWord(item: Translation) {
+    setEditingWord(item);
+    setEditTextFrom(item.text_from);
+    setEditTextTo(item.text_to);
+  }
+
+  // Spara båda översättningarna
+  async function saveEditedWord() {
+    if (!editingWord) return;
+
+    const selectedFrom = String(from ?? "").toLowerCase();
+    const selectedTo = String(to ?? "").toLowerCase();
+
+    const fromLanguage = languageNames[selectedFrom];
+    const toLanguage = languageNames[selectedTo];
+
+    if (!fromLanguage || !toLanguage) {
+      return;
+    }
+
+    // Hämta språkens ID från databasen
+    const fromLanguageRow = await db.getFirstAsync<{ id: number }>(
+      `
+      SELECT id
+      FROM languages
+      WHERE name = ?
+      `,
+      fromLanguage,
+    );
+
+    const toLanguageRow = await db.getFirstAsync<{ id: number }>(
+      `
+      SELECT id
+      FROM languages
+      WHERE name = ?
+      `,
+      toLanguage,
+    );
+
+    if (!fromLanguageRow || !toLanguageRow) {
+      return;
+    }
+
+    // Kontrollera att båda fälten innehåller text
+    if (!editTextFrom.trim() || !editTextTo.trim()) {
+      return;
+    }
+
+    // Uppdatera ordet på det första språket
+    await db.runAsync(
+      `
+      UPDATE translations
+      SET text = ?
+      WHERE word_id = ?
+        AND language_id = ?
+      `,
+      editTextFrom.trim(),
+      editingWord.word_id,
+      fromLanguageRow.id,
+    );
+
+    // Uppdatera ordet på det andra språket
+    await db.runAsync(
+      `
+      UPDATE translations
+      SET text = ?
+      WHERE word_id = ?
+        AND language_id = ?
+      `,
+      editTextTo.trim(),
+      editingWord.word_id,
+      toLanguageRow.id,
+    );
+
+    // Stäng redigeringsfönstret
+    setEditingWord(null);
+
+    // Ladda om listan så att ändringen syns direkt
+    await loadTranslations();
+  }
+
   const filteredTranslations = translations.filter((item) =>
     item.text_from.toLowerCase().includes(searchText.trim().toLowerCase()),
   );
 
   return (
     <View style={styles.container}>
+      {/* TOPP */}
       <View style={styles.topRow}>
         <TouchableOpacity
           onPress={() =>
@@ -145,6 +234,7 @@ export default function DictionaryPage() {
         </TouchableOpacity>
       </View>
 
+      {/* TITEL */}
       <Text style={styles.title}>{category ? category : t("dictionary")}</Text>
 
       <Text style={styles.subtitle}>
@@ -153,6 +243,7 @@ export default function DictionaryPage() {
         {filteredTranslations.length} {t("words")}
       </Text>
 
+      {/* SÖK */}
       {searchVisible && (
         <View style={styles.searchContainer}>
           <FontAwesome
@@ -179,13 +270,26 @@ export default function DictionaryPage() {
         </View>
       )}
 
+      {/* ORDLISTA */}
       <FlatList
         data={filteredTranslations}
         keyExtractor={(item) => String(item.word_id)}
         renderItem={({ item }) => (
           <View style={styles.row}>
-            <Text style={styles.word}>{item.text_from}</Text>
+            {/* FÖRSTA SPRÅKET + LITEN REDIGERA-KNAPP */}
+            <View style={styles.wordRow}>
+              <Text style={styles.word}>{item.text_from}</Text>
 
+              <TouchableOpacity
+                onPress={() => openEditWord(item)}
+                style={styles.editButton}
+                hitSlop={6}
+              >
+                <FontAwesome name="pencil" size={12} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
+
+            {/* ANDRA SPRÅKET */}
             <Text style={styles.translation}>{item.text_to}</Text>
           </View>
         )}
@@ -193,6 +297,63 @@ export default function DictionaryPage() {
         showsVerticalScrollIndicator={true}
         ListEmptyComponent={<Text style={styles.empty}>{t("noWordsYet")}</Text>}
       />
+
+      {/* REDIGERA-MODAL */}
+      <Modal
+        visible={editingWord !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingWord(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editModal}>
+            <Text style={styles.editTitle}>Redigera ord</Text>
+
+            {/* FÖRSTA SPRÅKET */}
+            <Text style={styles.editLabel}>
+              {languageNames[String(from ?? "").toLowerCase()]}
+            </Text>
+
+            <TextInput
+              value={editTextFrom}
+              onChangeText={setEditTextFrom}
+              style={styles.editInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            {/* ANDRA SPRÅKET */}
+            <Text style={styles.editLabel}>
+              {languageNames[String(to ?? "").toLowerCase()]}
+            </Text>
+
+            <TextInput
+              value={editTextTo}
+              onChangeText={setEditTextTo}
+              style={styles.editInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            {/* KNAPPAR */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setEditingWord(null)}
+                style={styles.cancelButton}
+              >
+                <Text style={styles.cancelButtonText}>Avbryt</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={saveEditedWord}
+                style={styles.saveButton}
+              >
+                <Text style={styles.saveButtonText}>Spara</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -284,10 +445,23 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f3f4f6",
   },
 
+  wordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
   word: {
     fontSize: 15,
     fontWeight: "600",
     color: "#111827",
+  },
+
+  editButton: {
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 5,
   },
 
   translation: {
@@ -301,5 +475,76 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     textAlign: "center",
     paddingVertical: 24,
+  },
+
+  // MODAL
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+
+  editModal: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    padding: 20,
+  },
+
+  editTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 18,
+  },
+
+  editLabel: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginBottom: 5,
+  },
+
+  editInput: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: "#111827",
+    marginBottom: 14,
+  },
+
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 4,
+  },
+
+  cancelButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+
+  cancelButtonText: {
+    color: "#6b7280",
+    fontSize: 14,
+  },
+
+  saveButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+
+  saveButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
