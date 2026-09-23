@@ -239,9 +239,14 @@ export default function DictionaryPage() {
   }
 
   const filteredTranslations = translations
-    .filter((item) =>
-      item.text_from.toLowerCase().includes(searchText.trim().toLowerCase()),
-    )
+    .filter((item) => {
+      const search = searchText.trim().toLowerCase();
+
+      return (
+        item.text_from.toLowerCase().includes(search) ||
+        item.text_to.toLowerCase().includes(search)
+      );
+    })
     .sort((a, b) =>
       a.text_from.localeCompare(b.text_from, "sv", {
         sensitivity: "base",
