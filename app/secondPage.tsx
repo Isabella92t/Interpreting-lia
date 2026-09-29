@@ -1,5 +1,4 @@
 import { LanguagePicker } from "@/components/language-picker";
-import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -64,10 +63,27 @@ function splitIntoPages(categories: Category[]) {
   return pages;
 }
 
+/* ÄNDRAD: klarar både ord och hela fraser/meningar med mellanslag */
 function startsWithSearch(text: string, searchText: string) {
-  const words = text.toLowerCase().split(/[\s/,()]+/);
+  const normalizedText = text.toLowerCase().trim().replace(/\s+/g, " ");
 
-  return words.some((word) => word.startsWith(searchText));
+  const normalizedSearch = searchText.toLowerCase().trim().replace(/\s+/g, " ");
+
+  if (!normalizedSearch) {
+    return false;
+  }
+
+  /* Om man söker på flera ord, t.ex. "god morgon",
+     sök efter hela frasen i texten. */
+  if (normalizedSearch.includes(" ")) {
+    return normalizedText.includes(normalizedSearch);
+  }
+
+  /* Om man söker på ett ord, t.ex. "god",
+     ska "god", "goda", "goddag" osv kunna hittas. */
+  const words = normalizedText.split(/[\s/,()!?;:]+/);
+
+  return words.some((word) => word.startsWith(normalizedSearch));
 }
 
 const languageNames: Record<string, string> = {
@@ -174,10 +190,7 @@ export default function SecondPage() {
     setCategoriesExpanded(newValue);
 
     try {
-      await AsyncStorage.setItem(
-        CATEGORY_EXPANDED_KEY,
-        String(newValue),
-      );
+      await AsyncStorage.setItem(CATEGORY_EXPANDED_KEY, String(newValue));
     } catch (error) {
       console.error("Kunde inte spara kategoriläge:", error);
     }
@@ -208,6 +221,7 @@ export default function SecondPage() {
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
+      setAllTranslations([]);
       return;
     }
 
@@ -215,22 +229,25 @@ export default function SecondPage() {
       const result = await db.getAllAsync<Translation>(
         `
           SELECT DISTINCT
+            from_translation.word_id,
             from_translation.text AS text_from,
-            to_translation.text AS text_to,
-            from_translation.word_id
+            to_translation.text AS text_to
+
           FROM translations AS from_translation
+
           INNER JOIN translations AS to_translation
-            ON from_translation.word_id =
-               to_translation.word_id
+            ON from_translation.word_id = to_translation.word_id
+
           INNER JOIN languages AS from_language
-            ON from_translation.language_id =
-               from_language.id
+            ON from_translation.language_id = from_language.id
+
           INNER JOIN languages AS to_language
-            ON to_translation.language_id =
-               to_language.id
+            ON to_translation.language_id = to_language.id
+
           WHERE from_language.name = ?
             AND to_language.name = ?
-          ORDER BY LOWER(text_from) ASC
+
+          ORDER BY LOWER(from_translation.text) ASC
         `,
         fromLanguage,
         toLanguage,
@@ -239,6 +256,7 @@ export default function SecondPage() {
       setAllTranslations(result);
     } catch (error) {
       console.error("Kunde inte läsa översättningar:", error);
+      setAllTranslations([]);
     }
   }
 
@@ -314,12 +332,12 @@ export default function SecondPage() {
 
       const existingCategory = await db.getFirstAsync<{ id: number }>(
         `
-            SELECT id
-            FROM tags
-            WHERE LOWER(name) = LOWER(?)
-              AND from_language_id = ?
-              AND to_language_id = ?
-          `,
+          SELECT id
+          FROM tags
+          WHERE LOWER(name) = LOWER(?)
+            AND from_language_id = ?
+            AND to_language_id = ?
+        `,
         internalName,
         fromLanguageResult.id,
         toLanguageResult.id,
@@ -493,12 +511,29 @@ export default function SecondPage() {
   const searchText = search.trim().toLowerCase();
   const hasEnoughLetters = searchText.length >= MIN_SEARCH_LENGTH;
 
+  /* ÄNDRAD: söker i både text_from och text_to och vänder resultatet
+     om det är text_to som matchar. */
   const searchResults = hasEnoughLetters
-    ? allTranslations.filter(
-        (item) =>
-          startsWithSearch(item.text_from, searchText) ||
-          startsWithSearch(item.text_to, searchText),
-      )
+    ? allTranslations
+        .filter(
+          (item) =>
+            startsWithSearch(item.text_from, searchText) ||
+            startsWithSearch(item.text_to, searchText),
+        )
+        .map((item) => {
+          const fromMatches = startsWithSearch(item.text_from, searchText);
+          const toMatches = startsWithSearch(item.text_to, searchText);
+
+          if (toMatches && !fromMatches) {
+            return {
+              ...item,
+              text_from: item.text_to,
+              text_to: item.text_from,
+            };
+          }
+
+          return item;
+        })
     : [];
 
   const visibleResults = searchResults.slice(0, MAX_RESULTS);
@@ -567,12 +602,12 @@ export default function SecondPage() {
         {/* GLOBAL SÖKNING */}
 
         <View style={styles.searchContainer}>
-          <FontAwesome name="search" size={17} color={colors.textSecondary} />
+          <FontAwesome name="search" size={16} color="#94A3B8" />
 
           <TextInput
             style={styles.searchInput}
             placeholder={t("searchPlaceholder")}
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor="#94A3B8"
             value={search}
             onChangeText={setSearch}
           />
@@ -625,8 +660,8 @@ export default function SecondPage() {
             >
               <FontAwesome
                 name={categoriesExpanded ? "chevron-up" : "chevron-down"}
-                size={16}
-                color={colors.primary}
+                size={15}
+                color="#64748B"
               />
             </TouchableOpacity>
           </View>
@@ -735,7 +770,7 @@ export default function SecondPage() {
           activeOpacity={0.8}
         >
           <View style={styles.featureIcon}>
-            <FontAwesome name="book" size={21} color={colors.primary} />
+            <FontAwesome name="book" size={20} color="#2563EB" />
           </View>
 
           <View style={styles.featureText}>
@@ -763,7 +798,7 @@ export default function SecondPage() {
           activeOpacity={0.8}
         >
           <View style={styles.featureIcon}>
-            <FontAwesome name="comments-o" size={21} color={colors.primary} />
+            <FontAwesome name="comments-o" size={20} color="#2563EB" />
           </View>
 
           <View style={styles.featureText}>
@@ -791,7 +826,7 @@ export default function SecondPage() {
           activeOpacity={0.8}
         >
           <View style={styles.featureIcon}>
-            <FontAwesome name="file-text-o" size={21} color={colors.primary} />
+            <FontAwesome name="file-text-o" size={20} color="#2563EB" />
           </View>
 
           <View style={styles.featureText}>
@@ -818,9 +853,7 @@ export default function SecondPage() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* ------------------------------------------ */}
       {/* LÄGG TILL KATEGORI */}
-      {/* ------------------------------------------ */}
 
       <Modal
         visible={showAddCategory}
@@ -837,7 +870,7 @@ export default function SecondPage() {
             <TextInput
               style={styles.input}
               placeholder="Kategorinamn på svenska"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#94A3B8"
               value={newCategorySv}
               onChangeText={setNewCategorySv}
               autoFocus
@@ -848,7 +881,7 @@ export default function SecondPage() {
             <TextInput
               style={styles.input}
               placeholder="Category name in English"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#94A3B8"
               value={newCategoryEn}
               onChangeText={setNewCategoryEn}
             />
@@ -858,7 +891,7 @@ export default function SecondPage() {
             <TextInput
               style={styles.input}
               placeholder="Nombre de categoría en español"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#94A3B8"
               value={newCategoryEs}
               onChangeText={setNewCategoryEs}
             />
@@ -891,100 +924,93 @@ export default function SecondPage() {
         </View>
       </Modal>
 
-      {/* ------------------------------------------ */}
       {/* LÄGG TILL ORD */}
-      {/* ------------------------------------------ */}
 
       <Modal
         visible={showAddWord}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowAddWord(false)}
       >
         <View style={styles.modalBackground}>
-          <ScrollView
-            contentContainerStyle={styles.modalScrollContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.modal}>
-              <Text style={styles.modalTitle}>{t("addWord")}</Text>
+          <View style={styles.categoryModal}>
+            <Text style={styles.modalTitle}>{t("addWord")}</Text>
 
-              <View style={styles.modalLanguagePair}>
-                <Text style={styles.modalLanguageText}>{from}</Text>
+            <View style={styles.modalLanguagePair}>
+              <Text style={styles.modalLanguageText}>{from}</Text>
 
-                <Text style={styles.modalLanguageArrow}>→</Text>
+              <Text style={styles.modalLanguageArrow}>→</Text>
 
-                <Text style={styles.modalLanguageText}>{to}</Text>
-              </View>
-
-              <TextInput
-                style={styles.input}
-                placeholder={t("word")}
-                placeholderTextColor={colors.textSecondary}
-                value={word}
-                onChangeText={setWord}
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder={t("translation")}
-                placeholderTextColor={colors.textSecondary}
-                value={translation}
-                onChangeText={setTranslation}
-              />
-
-              <Text style={styles.categoryTitle}>{t("category")}</Text>
-
-              <Text style={styles.optionalText}>{t("categoryOptional")}</Text>
-
-              {categories
-                .filter((category) => category.name !== "Övrigt")
-                .map((category) => {
-                  const isSelected = selectedCategories.includes(category.name);
-
-                  return (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={
-                        isSelected ? styles.selectedCategory : styles.category
-                      }
-                      onPress={() => toggleCategory(category.name)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={
-                          isSelected
-                            ? styles.selectedCategoryText
-                            : styles.categoryOptionText
-                        }
-                      >
-                        {isSelected ? "✓  " : ""}
-                        {getCategoryName(category)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-
-              <TouchableOpacity
-                style={styles.modalPrimaryButton}
-                onPress={addWord}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalPrimaryButtonText}>{t("add")}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => {
-                  setSelectedCategories([]);
-                  setShowAddWord(false);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalCancelText}>{t("cancel")}</Text>
-              </TouchableOpacity>
+              <Text style={styles.modalLanguageText}>{to}</Text>
             </View>
-          </ScrollView>
+
+            <TextInput
+              style={styles.input}
+              placeholder={t("word")}
+              placeholderTextColor="#94A3B8"
+              value={word}
+              onChangeText={setWord}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder={t("translation")}
+              placeholderTextColor="#94A3B8"
+              value={translation}
+              onChangeText={setTranslation}
+            />
+
+            <Text style={styles.categoryTitle}>{t("category")}</Text>
+
+            <Text style={styles.optionalText}>{t("categoryOptional")}</Text>
+
+            {categories
+              .filter((category) => category.name !== "Övrigt")
+              .map((category) => {
+                const isSelected = selectedCategories.includes(category.name);
+
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={
+                      isSelected ? styles.selectedCategory : styles.category
+                    }
+                    onPress={() => toggleCategory(category.name)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={
+                        isSelected
+                          ? styles.selectedCategoryText
+                          : styles.categoryOptionText
+                      }
+                    >
+                      {isSelected ? "✓  " : ""}
+                      {getCategoryName(category)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+            <TouchableOpacity
+              style={styles.modalPrimaryButton}
+              onPress={addWord}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalPrimaryButtonText}>{t("add")}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => {
+                setSelectedCategories([]);
+                setShowAddWord(false);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalCancelText}>{t("cancel")}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </View>
@@ -994,7 +1020,7 @@ export default function SecondPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#F8FAFC",
   },
 
   scrollView: {
@@ -1002,8 +1028,8 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 40,
+    paddingHorizontal: 22,
+    paddingTop: 38,
     paddingBottom: 50,
   },
 
@@ -1013,24 +1039,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 18,
+    marginBottom: 16,
   },
 
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#E2E8F0",
   },
 
   backButtonText: {
     fontSize: 21,
-    fontWeight: "500",
-    color: colors.text,
+    fontWeight: "400",
+    color: "#334155",
   },
 
   languagePair: {
@@ -1041,14 +1067,14 @@ const styles = StyleSheet.create({
   },
 
   languagePairText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
-    color: colors.text,
+    color: "#334155",
   },
 
   languagePairArrow: {
-    fontSize: 17,
-    color: colors.textSecondary,
+    fontSize: 16,
+    color: "#94A3B8",
     marginHorizontal: 10,
   },
 
@@ -1059,10 +1085,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    backgroundColor: colors.surface,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
   },
 
   searchInput: {
@@ -1070,12 +1096,12 @@ const styles = StyleSheet.create({
     height: "100%",
     marginLeft: 11,
     fontSize: 16,
-    color: colors.text,
+    color: "#0F172A",
   },
 
   searchHint: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: "#94A3B8",
     marginTop: 8,
     marginLeft: 4,
   },
@@ -1084,9 +1110,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
     overflow: "hidden",
   },
 
@@ -1095,7 +1121,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: "#F1F5F9",
     flexDirection: "row",
     alignItems: "center",
   },
@@ -1107,30 +1133,30 @@ const styles = StyleSheet.create({
   searchWord: {
     fontSize: 15,
     fontWeight: "600",
-    color: colors.text,
+    color: "#0F172A",
   },
 
   searchTranslation: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: "#64748B",
     marginTop: 3,
   },
 
   searchArrow: {
     fontSize: 18,
-    color: colors.primary,
+    color: "#2563EB",
     marginLeft: 12,
   },
 
   noResults: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: "#94A3B8",
     padding: 16,
   },
 
   moreResults: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: "#94A3B8",
     padding: 12,
     textAlign: "center",
   },
@@ -1141,7 +1167,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 28,
+    marginTop: 30,
     marginBottom: 14,
   },
 
@@ -1151,9 +1177,9 @@ const styles = StyleSheet.create({
   },
 
   collapseButton: {
-    marginLeft: 10,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    marginLeft: 9,
+    paddingHorizontal: 5,
+    paddingVertical: 3,
   },
 
   sectionHeaderSimple: {
@@ -1164,17 +1190,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 19,
     fontWeight: "700",
-    color: colors.text,
+    color: "#0F172A",
   },
 
   addCategoryButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     marginLeft: 8,
-    backgroundColor: colors.surface,
+    backgroundColor: "#EFF6FF",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#DBEAFE",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1182,7 +1208,7 @@ const styles = StyleSheet.create({
   addCategoryText: {
     fontSize: 21,
     lineHeight: 23,
-    color: colors.primary,
+    color: "#2563EB",
     fontWeight: "500",
   },
 
@@ -1203,30 +1229,30 @@ const styles = StyleSheet.create({
   },
 
   arrowButton: {
-    width: 24,
+    width: 25,
     height: 58,
     alignItems: "center",
     justifyContent: "center",
   },
 
   arrowText: {
-    fontSize: 30,
-    color: colors.text,
+    fontSize: 29,
+    color: "#475569",
     fontWeight: "300",
   },
 
   arrowTextDisabled: {
-    fontSize: 30,
-    color: colors.border,
+    fontSize: 29,
+    color: "#CBD5E1",
     fontWeight: "300",
   },
 
   categoryCard: {
     minHeight: 64,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 8,
@@ -1238,7 +1264,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "600",
-    color: colors.text,
+    color: "#334155",
   },
 
   /* HUVUDFUNKTIONER */
@@ -1246,9 +1272,9 @@ const styles = StyleSheet.create({
   featureCard: {
     minHeight: 76,
     borderRadius: 16,
-    backgroundColor: colors.surface,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#E2E8F0",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 15,
@@ -1271,42 +1297,42 @@ const styles = StyleSheet.create({
 
   featureTitle: {
     fontSize: 16,
-    fontWeight: "650",
-    color: colors.text,
+    fontWeight: "600",
+    color: "#0F172A",
   },
 
   featureDescription: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: "#64748B",
     marginTop: 3,
   },
 
   featureArrow: {
-    fontSize: 27,
+    fontSize: 26,
     fontWeight: "300",
-    color: colors.textSecondary,
+    color: "#94A3B8",
     marginLeft: 8,
   },
 
   /* LÄGG TILL ORD */
 
   secondaryButton: {
-    width: 160,
-    height: 52,
+    width: 170,
+    height: 50,
     alignSelf: "center",
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: "#DBEAFE",
+    backgroundColor: "#EFF6FF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 10,
+    marginTop: 12,
   },
 
   secondaryButtonPlus: {
     fontSize: 20,
-    color: colors.primary,
+    color: "#2563EB",
     marginRight: 8,
     fontWeight: "500",
   },
@@ -1314,14 +1340,14 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: "600",
-    color: colors.text,
+    color: "#2563EB",
   },
 
   /* MODAL */
 
   modalBackground: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.35)",
+    backgroundColor: "rgba(15, 23, 42, 0.30)",
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
@@ -1338,14 +1364,14 @@ const styles = StyleSheet.create({
     maxWidth: 500,
     backgroundColor: "#FFFFFF",
     padding: 24,
-    borderRadius: 20,
+    borderRadius: 22,
     shadowColor: "#000000",
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
     elevation: 8,
   },
 
@@ -1354,22 +1380,22 @@ const styles = StyleSheet.create({
     maxWidth: 500,
     backgroundColor: "#FFFFFF",
     padding: 24,
-    borderRadius: 20,
+    borderRadius: 22,
     marginHorizontal: 24,
     shadowColor: "#000000",
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
     elevation: 8,
   },
 
   modalTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: colors.text,
+    color: "#0F172A",
     marginBottom: 18,
   },
 
@@ -1382,25 +1408,25 @@ const styles = StyleSheet.create({
   modalLanguageText: {
     fontSize: 14,
     fontWeight: "600",
-    color: colors.text,
+    color: "#334155",
   },
 
   modalLanguageArrow: {
-    color: colors.textSecondary,
+    color: "#94A3B8",
     marginHorizontal: 8,
   },
 
   languageLabel: {
     fontSize: 13,
     fontWeight: "700",
-    color: colors.text,
+    color: "#334155",
     marginTop: 10,
     marginBottom: 5,
   },
 
   categoryHint: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: "#94A3B8",
     marginTop: 10,
     lineHeight: 17,
   },
@@ -1408,12 +1434,12 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
     borderRadius: 12,
     paddingHorizontal: 13,
     paddingVertical: 11,
-    color: colors.text,
+    color: "#0F172A",
     marginTop: 5,
     fontSize: 15,
   },
@@ -1422,19 +1448,19 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 5,
     fontWeight: "700",
-    color: colors.text,
+    color: "#0F172A",
   },
 
   optionalText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: "#94A3B8",
     marginBottom: 10,
   },
 
   category: {
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 12,
     marginBottom: 7,
@@ -1442,7 +1468,7 @@ const styles = StyleSheet.create({
 
   selectedCategory: {
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: "#2563EB",
     backgroundColor: "#EFF6FF",
     borderRadius: 12,
     padding: 11,
@@ -1450,12 +1476,12 @@ const styles = StyleSheet.create({
   },
 
   categoryOptionText: {
-    color: colors.text,
+    color: "#334155",
     fontSize: 14,
   },
 
   selectedCategoryText: {
-    color: colors.primary,
+    color: "#2563EB",
     fontSize: 14,
     fontWeight: "600",
   },
@@ -1465,16 +1491,16 @@ const styles = StyleSheet.create({
     height: 46,
     alignSelf: "center",
     borderRadius: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: "#2563EB",
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: "#2563EB",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
   },
 
   modalPrimaryButtonText: {
-    color: colors.surface,
+    color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
   },
@@ -1484,16 +1510,16 @@ const styles = StyleSheet.create({
     height: 46,
     alignSelf: "center",
     borderRadius: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 10,
   },
 
   modalCancelText: {
-    color: colors.text,
+    color: "#334155",
     fontSize: 15,
     fontWeight: "600",
   },
