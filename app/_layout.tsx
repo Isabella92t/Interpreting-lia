@@ -21,6 +21,9 @@ export default function RootLayout() {
         <AuthProvider>
           <Stack
             screenOptions={{
+              // Varje sida ritar sin egen rubrik och sin egen
+              // tillbaka-pil, sa vi doljer den inbyggda listen.
+              headerShown: false,
               contentStyle: {
                 backgroundColor: colors.background,
               },

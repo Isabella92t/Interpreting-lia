@@ -302,7 +302,7 @@ export default function DictionaryPage() {
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
-            placeholder="Sök ord..."
+            placeholder={t("searchPlaceholder")}
             placeholderTextColor="#9ca3af"
             autoFocus
             style={styles.searchInput}

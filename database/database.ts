@@ -30,6 +30,23 @@ export async function createTables(db: SQLiteDatabase) {
       selected_date TEXT
     );
 
+    -- Egna ordlistor till flashcards.
+    -- Man valjer sjalv namn och vilka ord som ska vara med.
+    CREATE TABLE IF NOT EXISTS decks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    -- Vilka ord som ligger i vilken lista.
+    CREATE TABLE IF NOT EXISTS deck_words (
+      deck_id INTEGER NOT NULL,
+      word_id INTEGER NOT NULL,
+      PRIMARY KEY (deck_id, word_id),
+      FOREIGN KEY (deck_id) REFERENCES decks(id),
+      FOREIGN KEY (word_id) REFERENCES words(id)
+    );
+
     CREATE TABLE IF NOT EXISTS idioms (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE

@@ -1,6 +1,7 @@
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import type { SQLiteDatabase } from "expo-sqlite";
+import { Platform } from "react-native";
 
 // =========================
 // Enkel CSV-parser
@@ -222,9 +223,14 @@ export async function seedDatabase(db: SQLiteDatabase) {
     throw new Error("Kunde inte hitta minaordtillapp.csv");
   }
 
-  const csvText = await FileSystem.readAsStringAsync(fileUri, {
-    encoding: FileSystem.EncodingType.UTF8,
-  });
+  // expo-file-system finns inte pa webben. Dar laser vi filen
+  // med fetch istallet, som webblasaren har inbyggt.
+  const csvText =
+    Platform.OS === "web"
+      ? await (await fetch(fileUri)).text()
+      : await FileSystem.readAsStringAsync(fileUri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
 
   // =========================
   // Läs CSV-rader

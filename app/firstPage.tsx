@@ -138,7 +138,7 @@ export default function FirstPage() {
         <Text style={styles.title}>{t("chooseLanguages")}</Text>
 
         {/* FRÅN */}
-        <Text style={styles.label}>FRÅN</Text>
+        <Text style={styles.label}>{t("from")}</Text>
 
         <TouchableOpacity
           activeOpacity={0.8}
@@ -210,7 +210,7 @@ export default function FirstPage() {
         </TouchableOpacity>
 
         {/* TILL */}
-        <Text style={styles.label}>TILL</Text>
+        <Text style={styles.label}>{t("to")}</Text>
 
         <TouchableOpacity
           activeOpacity={0.8}

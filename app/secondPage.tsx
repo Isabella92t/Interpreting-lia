@@ -296,10 +296,7 @@ export default function SecondPage() {
     ).length;
 
     if (filledLanguages < 2) {
-      Alert.alert(
-        "Fyll i minst två språk",
-        "Du kan välja vilka två eller tre språk du vill använda.",
-      );
+      Alert.alert(t("fillTwoLanguages"), t("fillTwoLanguagesHelp"));
 
       return;
     }
@@ -344,7 +341,7 @@ export default function SecondPage() {
       );
 
       if (existingCategory) {
-        Alert.alert("Kategorin finns redan");
+        Alert.alert(t("categoryExists"));
         return;
       }
 
@@ -375,14 +372,11 @@ export default function SecondPage() {
 
       await loadCategories();
 
-      Alert.alert("Kategori tillagd");
+      Alert.alert(t("categoryAdded"));
     } catch (error) {
       console.error("Kunde inte spara kategori:", error);
 
-      Alert.alert(
-        "Kunde inte spara kategorin",
-        "Något gick fel när kategorin skulle sparas.",
-      );
+      Alert.alert(t("categorySaveFailed"), t("categorySaveFailedHelp"));
     }
   }
 
@@ -775,10 +769,6 @@ export default function SecondPage() {
 
           <View style={styles.featureText}>
             <Text style={styles.featureTitle}>{t("dictionary")}</Text>
-
-            <Text style={styles.featureDescription}>
-              Bläddra bland ord och öva på dina språk
-            </Text>
           </View>
 
           <Text style={styles.featureArrow}>›</Text>
@@ -803,10 +793,6 @@ export default function SecondPage() {
 
           <View style={styles.featureText}>
             <Text style={styles.featureTitle}>{t("idioms")}</Text>
-
-            <Text style={styles.featureDescription}>
-              Vanliga uttryck och fraser
-            </Text>
           </View>
 
           <Text style={styles.featureArrow}>›</Text>
@@ -831,10 +817,30 @@ export default function SecondPage() {
 
           <View style={styles.featureText}>
             <Text style={styles.featureTitle}>{t("notes")}</Text>
+          </View>
 
-            <Text style={styles.featureDescription}>
-              Dina egna anteckningar
-            </Text>
+          <Text style={styles.featureArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={() =>
+            router.push({
+              pathname: "/flashcardsPage",
+              params: {
+                from,
+                to,
+              },
+            })
+          }
+          activeOpacity={0.8}
+        >
+          <View style={styles.featureIcon}>
+            <FontAwesome name="clone" size={20} color="#2563EB" />
+          </View>
+
+          <View style={styles.featureText}>
+            <Text style={styles.featureTitle}>{t("flashcards")}</Text>
           </View>
 
           <Text style={styles.featureArrow}>›</Text>
@@ -863,13 +869,13 @@ export default function SecondPage() {
       >
         <View style={styles.modalBackground}>
           <View style={styles.categoryModal}>
-            <Text style={styles.modalTitle}>Lägg till kategori</Text>
+            <Text style={styles.modalTitle}>{t("addCategory")}</Text>
 
             <Text style={styles.languageLabel}>Svenska</Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Kategorinamn på svenska"
+              placeholder={t("categoryNameSv")}
               placeholderTextColor="#94A3B8"
               value={newCategorySv}
               onChangeText={setNewCategorySv}
@@ -880,7 +886,7 @@ export default function SecondPage() {
 
             <TextInput
               style={styles.input}
-              placeholder="Category name in English"
+              placeholder={t("categoryNameEn")}
               placeholderTextColor="#94A3B8"
               value={newCategoryEn}
               onChangeText={setNewCategoryEn}
@@ -890,7 +896,7 @@ export default function SecondPage() {
 
             <TextInput
               style={styles.input}
-              placeholder="Nombre de categoría en español"
+              placeholder={t("categoryNameEs")}
               placeholderTextColor="#94A3B8"
               value={newCategoryEs}
               onChangeText={setNewCategoryEs}
@@ -1299,12 +1305,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#0F172A",
-  },
-
-  featureDescription: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 3,
   },
 
   featureArrow: {
