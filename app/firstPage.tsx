@@ -12,9 +12,7 @@ import {
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { BackButton } from "@/components/back-button";
 import { LanguagePicker } from "@/components/language-picker";
-import { useAuth } from "@/context/auth-context";
 import { useUiLanguage } from "@/context/ui-language-context";
 
 const languages = [
@@ -25,7 +23,6 @@ const languages = [
 
 export default function FirstPage() {
   const router = useRouter();
-  const { signOut } = useAuth();
   const { t } = useUiLanguage();
 
   const [fromOpen, setFromOpen] = useState(false);
@@ -121,15 +118,9 @@ export default function FirstPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      {/* HEADER */}
+      {/* HEADER. Första sidan är startsidan, så den har ingen
+          tillbaka-knapp. Bara jordgloben, uppe till höger. */}
       <View style={styles.header}>
-        <BackButton
-          onPress={() => {
-            signOut();
-            router.replace("/login");
-          }}
-        />
-
         <LanguagePicker />
       </View>
 
@@ -316,7 +307,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     paddingTop: 16,
   },
 

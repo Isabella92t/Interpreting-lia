@@ -65,11 +65,6 @@ export const translations = {
     deleteNoteTitle: "Delete this note?",
     deleteNoteMessage: "This cannot be undone.",
 
-    // Inloggning
-    appName: "Interpreter App",
-    loginIntro: "Log in or create an account to continue.",
-    loginButton: "Log in or create account",
-    skip: "Skip",
 
     // Flashcards
     flashcards: "Flashcards",
@@ -153,10 +148,6 @@ export const translations = {
     deleteNoteTitle: "Ta bort anteckningen?",
     deleteNoteMessage: "Det går inte att ångra.",
 
-    appName: "Tolkappen",
-    loginIntro: "Logga in eller skapa ett konto för att fortsätta.",
-    loginButton: "Logga in eller skapa konto",
-    skip: "Hoppa över",
 
     // Flashcards
     flashcards: "Flashcards",
@@ -238,10 +229,6 @@ export const translations = {
     deleteNoteTitle: "¿Eliminar esta nota?",
     deleteNoteMessage: "No se puede deshacer.",
 
-    appName: "Aplicación de intérprete",
-    loginIntro: "Inicia sesión o crea una cuenta para continuar.",
-    loginButton: "Inicia sesión o crea una cuenta",
-    skip: "Omitir",
 
     // Flashcards
     flashcards: "Tarjetas",

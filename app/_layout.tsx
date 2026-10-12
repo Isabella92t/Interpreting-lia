@@ -2,7 +2,6 @@ import { Stack } from "expo-router";
 import { SQLiteProvider } from "expo-sqlite";
 
 import { colors } from "@/constants/colors";
-import { AuthProvider } from "@/context/auth-context";
 import { UiLanguageProvider } from "@/context/ui-language-context";
 
 import { createTables } from "../database/database";
@@ -18,18 +17,16 @@ export default function RootLayout() {
       }}
     >
       <UiLanguageProvider>
-        <AuthProvider>
-          <Stack
-            screenOptions={{
-              // Varje sida ritar sin egen rubrik och sin egen
-              // tillbaka-pil, sa vi doljer den inbyggda listen.
-              headerShown: false,
-              contentStyle: {
-                backgroundColor: colors.background,
-              },
-            }}
-          />
-        </AuthProvider>
+        <Stack
+          screenOptions={{
+            // Varje sida ritar sin egen rubrik och sin egen
+            // tillbaka-pil, sa vi doljer den inbyggda listen.
+            headerShown: false,
+            contentStyle: {
+              backgroundColor: colors.background,
+            },
+          }}
+        />
       </UiLanguageProvider>
     </SQLiteProvider>
   );
