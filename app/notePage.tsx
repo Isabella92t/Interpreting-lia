@@ -12,8 +12,32 @@ import {
   View,
 } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { BackButton } from "@/components/back-button";
 import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
+
+// Höjden på varje skrivrad. Texten och linjerna använder samma värde,
+// annars hamnar texten mellan linjerna i stället för på dem.
+const LINE_HEIGHT = 28;
+
+// Hur många linjer vi ritar. Fler än man ser, och resten klipps bort.
+const LINE_COUNT = 40;
+
+// Hur många rader pappret är när det är tomt.
+const EMPTY_LINES = 14;
+
+// Ritar de blå linjerna på pappret, som i ett skrivblock.
+function PaperLines() {
+  return (
+    <View style={styles.lines} pointerEvents="none">
+      {Array.from({ length: LINE_COUNT }).map((_, index) => (
+        <View key={index} style={styles.line} />
+      ))}
+    </View>
+  );
+}
 
 type Note = {
   title: string;
@@ -187,33 +211,49 @@ export default function NotePage() {
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity onPress={goToNotes} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <BackButton onPress={goToNotes} />
 
-        <TextInput
-          style={styles.titleInput}
-          placeholder={t("noteTitle")}
-          value={title}
-          onChangeText={setTitle}
-        />
+        {/* Själva anteckningen: ett vitt papper man skriver på. */}
+        <View style={styles.paper}>
+          {/* Den röda marginallinjen längst till vänster. */}
+          <View style={styles.marginLine} pointerEvents="none" />
 
-        <TextInput
-          style={styles.textInput}
-          placeholder={t("noteText")}
-          value={text}
-          onChangeText={setText}
-          multiline
-          textAlignVertical="top"
-        />
+          <TextInput
+            style={styles.titleInput}
+            placeholder={t("noteTitle")}
+            placeholderTextColor="#94A3B8"
+            value={title}
+            onChangeText={setTitle}
+          />
+
+          <View style={styles.writingArea}>
+            <PaperLines />
+
+            {/* scrollEnabled = false gör att rutan växer med texten,
+                så att hela sidan skrollar i stället för bara rutan. */}
+            <TextInput
+              style={styles.textInput}
+              placeholder={t("noteText")}
+              placeholderTextColor="#94A3B8"
+              value={text}
+              onChangeText={setText}
+              multiline
+              scrollEnabled={false}
+              textAlignVertical="top"
+            />
+          </View>
+        </View>
 
         <TouchableOpacity style={styles.dateButton} onPress={openDatePicker}>
           <Text style={styles.calendarSymbol}>📅</Text>
 
           <Text style={styles.dateButtonText}>
-            {selectedDate ? formatDateOnly(selectedDate) : "Välj datum"}
+            {selectedDate ? formatDateOnly(selectedDate) : t("chooseDate")}
           </Text>
         </TouchableOpacity>
 
@@ -222,7 +262,7 @@ export default function NotePage() {
             style={styles.removeDateButton}
             onPress={() => setSelectedDate(null)}
           >
-            <Text style={styles.removeDateText}>Ta bort valt datum</Text>
+            <Text style={styles.removeDateText}>{t("removeDate")}</Text>
           </TouchableOpacity>
         )}
 
@@ -245,7 +285,7 @@ export default function NotePage() {
           </TouchableOpacity>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -256,53 +296,100 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    padding: 24,
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
 
-  backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f3f4f6",
-    marginBottom: 20,
+  /* Pappret */
+
+  paper: {
+    marginTop: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: colors.border,
+    // Papper har nästan raka hörn.
+    borderRadius: 4,
+    // Plats till vänster för marginallinjen.
+    paddingLeft: 40,
+    paddingRight: 18,
+    paddingTop: 14,
+    paddingBottom: 18,
+    overflow: "hidden",
+    // En liten skugga, som ett blad som ligger på bordet.
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
 
-  backButtonText: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#111827",
+  marginLine: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 28,
+    width: 1,
+    backgroundColor: "#F0BCBC",
   },
 
   titleInput: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.text,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
     borderBottomWidth: 1,
-    borderBottomColor: "#d1d5db",
-    paddingVertical: 10,
+    borderBottomColor: "#C7D7EA",
+    marginBottom: 6,
+  },
+
+  // Linjerna och texten ligger i samma ruta, så att de börjar på
+  // exakt samma höjd. Rutan klipper bort linjer som inte får plats.
+  writingArea: {
+    minHeight: LINE_HEIGHT * EMPTY_LINES,
+    overflow: "hidden",
+  },
+
+  lines: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+
+  line: {
+    height: LINE_HEIGHT,
+    borderBottomWidth: 1,
+    borderBottomColor: "#DFE8F2",
   },
 
   textInput: {
-    fontSize: 15,
-    color: "#111827",
-    lineHeight: 22,
-    minHeight: 220,
-    marginTop: 16,
+    minHeight: LINE_HEIGHT * EMPTY_LINES,
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: LINE_HEIGHT,
+    // Ingen inbyggd luft runt texten, annars hamnar den bredvid linjerna.
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingHorizontal: 0,
+    includeFontPadding: false,
+    backgroundColor: "transparent",
   },
+
+  /* Under pappret */
 
   dateButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginTop: 20,
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
   },
 
   calendarSymbol: {
@@ -312,7 +399,7 @@ const styles = StyleSheet.create({
 
   dateButtonText: {
     fontSize: 14,
-    color: "#111827",
+    color: colors.text,
   },
 
   removeDateButton: {
@@ -322,15 +409,15 @@ const styles = StyleSheet.create({
 
   removeDateText: {
     fontSize: 13,
-    color: "#6b7280",
+    color: colors.textSecondary,
   },
 
   saveButton: {
     backgroundColor: "#111827",
     padding: 14,
-    borderRadius: 8,
+    borderRadius: 14,
     alignItems: "center",
-    marginTop: 24,
+    marginTop: 20,
   },
 
   saveButtonText: {

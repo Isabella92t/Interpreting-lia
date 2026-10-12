@@ -12,7 +12,12 @@ import {
   View,
 } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { BackButton } from "@/components/back-button";
 import { LanguagePicker } from "@/components/language-picker";
+import { SearchBar } from "@/components/search-bar";
+import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 
 const languageNames: Record<string, string> = {
@@ -441,13 +446,14 @@ export default function FlashcardsPage() {
   const toLanguageName = languageNames[String(to ?? "").toLowerCase()];
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Samma topprad som pa de andra sidorna */}
         <View style={styles.topRow}>
-          <TouchableOpacity style={styles.backButton} onPress={goBack}>
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
+          <BackButton onPress={goBack} />
 
           <LanguagePicker />
         </View>
@@ -619,11 +625,10 @@ export default function FlashcardsPage() {
               </ScrollView>
             )}
 
-            <TextInput
-              style={styles.searchInput}
-              placeholder={t("searchPlaceholder")}
+            <SearchBar
               value={search}
               onChangeText={setSearch}
+              style={styles.search}
             />
 
             {/* Snabbval. "Slumpa 20" gor stora kategorier hanterbara. */}
@@ -831,19 +836,19 @@ export default function FlashcardsPage() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: colors.background,
   },
 
   scrollContent: {
     paddingHorizontal: 22,
-    paddingTop: 38,
+    paddingTop: 16,
     paddingBottom: 50,
   },
 
@@ -854,22 +859,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
 
-  backButtonText: {
-    fontSize: 21,
-    fontWeight: "400",
-    color: "#334155",
-  },
 
   sectionTitle: {
     fontSize: 19,
@@ -1014,15 +1004,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  searchInput: {
-    height: 46,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    paddingHorizontal: 15,
-    fontSize: 14,
-    color: "#0F172A",
+  search: {
     marginBottom: 12,
   },
 

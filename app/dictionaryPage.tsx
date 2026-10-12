@@ -3,6 +3,10 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { BackButton } from "@/components/back-button";
+import { SearchBar } from "@/components/search-bar";
 import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useEffect, useState } from "react";
@@ -41,7 +45,6 @@ export default function DictionaryPage() {
   }>();
 
   const [translations, setTranslations] = useState<Translation[]>([]);
-  const [searchVisible, setSearchVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
 
   const [editingWord, setEditingWord] = useState<Translation | null>(null);
@@ -254,33 +257,15 @@ export default function DictionaryPage() {
     );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.topRow}>
-        <TouchableOpacity
-          onPress={() =>
-            router.dismissTo({
-              pathname: "/secondPage",
-              params: { from, to },
-            })
-          }
-          style={styles.backButton}
-        >
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => {
-            setSearchVisible((visible) => !visible);
-
-            if (searchVisible) {
-              setSearchText("");
-            }
-          }}
-          style={styles.searchButton}
-        >
-          <FontAwesome name="search" size={28} color="#111827" />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <BackButton
+        onPress={() =>
+          router.dismissTo({
+            pathname: "/secondPage",
+            params: { from, to },
+          })
+        }
+      />
 
       <Text style={styles.title}>{category ? category : t("dictionary")}</Text>
 
@@ -290,34 +275,15 @@ export default function DictionaryPage() {
         {filteredTranslations.length} {t("words")}
       </Text>
 
-      {searchVisible && (
-        <View style={styles.searchContainer}>
-          <FontAwesome
-            name="search"
-            size={18}
-            color="#6b7280"
-            style={styles.searchIcon}
-          />
-
-          <TextInput
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder={t("searchPlaceholder")}
-            placeholderTextColor="#9ca3af"
-            autoFocus
-            style={styles.searchInput}
-          />
-
-          {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchText("")}>
-              <Text style={styles.clearButton}>×</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+      <SearchBar
+        value={searchText}
+        onChangeText={setSearchText}
+        style={styles.search}
+      />
 
       <FlatList
         data={filteredTranslations}
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => String(item.word_id)}
         renderItem={({ item }) => (
           <View style={styles.row}>
@@ -410,7 +376,7 @@ export default function DictionaryPage() {
                     fontWeight: "600",
                   }}
                 >
-                  Radera
+                  {t("delete")}
                 </Text>
               </TouchableOpacity>
 
@@ -430,14 +396,14 @@ export default function DictionaryPage() {
                     fontWeight: "600",
                   }}
                 >
-                  Spara
+                  {t("save")}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -445,36 +411,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: 24,
+    paddingHorizontal: 22,
+    paddingTop: 16,
   },
 
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  search: {
+    marginBottom: 16,
   },
 
-  backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f3f4f6",
-  },
 
-  backButtonText: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#111827",
-  },
 
-  searchButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+
 
   title: {
     fontSize: 20,
@@ -490,33 +437,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 12,
-    height: 48,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-  },
 
-  searchIcon: {
-    marginRight: 10,
-  },
 
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#111827",
-  },
 
-  clearButton: {
-    fontSize: 26,
-    color: "#6b7280",
-    paddingLeft: 8,
-  },
 
   listContent: {
     paddingBottom: 24,

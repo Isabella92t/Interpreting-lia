@@ -2,6 +2,13 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+
+import { BackButton } from "@/components/back-button";
+import { SearchBar } from "@/components/search-bar";
 import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useCallback, useState } from "react";
@@ -46,6 +53,10 @@ export default function NotesPage() {
   }>();
 
   const [notes, setNotes] = useState<Note[]>([]);
+  const [search, setSearch] = useState("");
+
+  // Hur mycket plats telefonens nederkant tar, t.ex. hemknappens streck.
+  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     useCallback(() => {
@@ -70,24 +81,33 @@ export default function NotesPage() {
     setNotes(result);
   }
 
+  // Sökningen letar i både rubrik och text.
+  const searchText = search.trim().toLowerCase();
+
+  const visibleNotes = notes.filter(
+    (note) =>
+      note.title.toLowerCase().includes(searchText) ||
+      note.text.toLowerCase().includes(searchText),
+  );
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <BackButton
         onPress={() =>
           router.dismissTo({
             pathname: "/secondPage",
             params: { from, to },
           })
         }
-        style={styles.backButton}
-      >
-        <Text style={styles.backButtonText}>←</Text>
-      </TouchableOpacity>
+      />
 
       <Text style={styles.title}>{t("myNotes")}</Text>
 
+      <SearchBar value={search} onChangeText={setSearch} style={styles.search} />
+
       <FlatList
-        data={notes}
+        data={visibleNotes}
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => String(item.id)}
         numColumns={2}
         columnWrapperStyle={styles.row}
@@ -137,7 +157,7 @@ export default function NotesPage() {
       />
 
       <TouchableOpacity
-        style={styles.addButton}
+        style={[styles.addButton, { bottom: 24 + insets.bottom }]}
         onPress={() =>
           router.push({
             pathname: "/notePage",
@@ -150,7 +170,7 @@ export default function NotesPage() {
       >
         <FontAwesome name="plus" size={24} color="#fff" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -158,22 +178,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: 24,
+    paddingHorizontal: 22,
+    paddingTop: 16,
   },
 
-  backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-  },
-
-  backButtonText: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#111827",
+  search: {
+    marginBottom: 16,
   },
 
   title: {
@@ -279,10 +289,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
+  // bottom satts i koden, sa att knappen hamnar ovanfor hemknappens streck.
   addButton: {
     position: "absolute",
     right: 24,
-    bottom: 24,
     width: 56,
     height: 56,
     borderRadius: 28,

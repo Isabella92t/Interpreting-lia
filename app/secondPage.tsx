@@ -1,10 +1,13 @@
+import { BackButton } from "@/components/back-button";
 import { LanguagePicker } from "@/components/language-picker";
+import { SearchBar } from "@/components/search-bar";
+import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -15,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type Category = {
   id: number;
@@ -135,9 +139,14 @@ export default function SecondPage() {
     loadCategoriesExpanded();
   }, []);
 
-  useEffect(() => {
-    loadAllTranslations();
-  }, [from, to]);
+  // Laddar om orden varje gång man kommer tillbaka till sidan.
+  // Annars söker man i en gammal lista, och ord man nyss lagt till
+  // eller ändrat i ordboken syns inte i sökningen.
+  useFocusEffect(
+    useCallback(() => {
+      loadAllTranslations();
+    }, [from, to]),
+  );
 
   async function loadCategories() {
     try {
@@ -558,7 +567,7 @@ export default function SecondPage() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -568,13 +577,7 @@ export default function SecondPage() {
         {/* HEADER */}
 
         <View style={styles.topRow}>
-          <TouchableOpacity
-            onPress={changeLanguages}
-            style={styles.backButton}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
+          <BackButton onPress={changeLanguages} />
 
           <LanguagePicker />
         </View>
@@ -595,17 +598,7 @@ export default function SecondPage() {
 
         {/* GLOBAL SÖKNING */}
 
-        <View style={styles.searchContainer}>
-          <FontAwesome name="search" size={16} color="#94A3B8" />
-
-          <TextInput
-            style={styles.searchInput}
-            placeholder={t("searchPlaceholder")}
-            placeholderTextColor="#94A3B8"
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
+        <SearchBar value={search} onChangeText={setSearch} />
 
         {searchText.length > 0 && !hasEnoughLetters && (
           <Text style={styles.searchHint}>{t("minThreeLetters")}</Text>
@@ -902,9 +895,7 @@ export default function SecondPage() {
               onChangeText={setNewCategoryEs}
             />
 
-            <Text style={styles.categoryHint}>
-              Fyll i minst två av de tre språken.
-            </Text>
+            <Text style={styles.categoryHint}>{t("fillTwoLanguages")}</Text>
 
             <TouchableOpacity
               style={styles.modalPrimaryButton}
@@ -1019,14 +1010,14 @@ export default function SecondPage() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: colors.background,
   },
 
   scrollView: {
@@ -1035,7 +1026,7 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 22,
-    paddingTop: 38,
+    paddingTop: 16,
     paddingBottom: 50,
   },
 
@@ -1048,22 +1039,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
 
-  backButtonText: {
-    fontSize: 21,
-    fontWeight: "400",
-    color: "#334155",
-  },
 
   languagePair: {
     alignSelf: "center",
@@ -1086,24 +1062,7 @@ const styles = StyleSheet.create({
 
   /* SÖK */
 
-  searchContainer: {
-    height: 54,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 14,
-  },
 
-  searchInput: {
-    flex: 1,
-    height: "100%",
-    marginLeft: 11,
-    fontSize: 16,
-    color: "#0F172A",
-  },
 
   searchHint: {
     fontSize: 13,

@@ -1,16 +1,14 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { BackButton } from "@/components/back-button";
+import { SearchBar } from "@/components/search-bar";
 import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useEffect, useState } from "react";
-import {
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 
 type Idiom = {
   idiom_id: number;
@@ -30,6 +28,7 @@ export default function IdiomsPage() {
   }>();
 
   const [idioms, setIdioms] = useState<Idiom[]>([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     loadIdioms();
@@ -76,21 +75,29 @@ export default function IdiomsPage() {
     setIdioms(result);
   }
 
+  // Sökningen letar på båda språken, var som helst i uttrycket.
+  const searchText = search.trim().toLowerCase();
+
+  const visibleIdioms = idioms.filter(
+    (item) =>
+      item.text_from.toLowerCase().includes(searchText) ||
+      item.text_to.toLowerCase().includes(searchText),
+  );
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <BackButton
         onPress={() =>
           router.dismissTo({ pathname: "/secondPage", params: { from, to } })
         }
-        style={styles.backButton}
-      >
-        <Text style={styles.backButtonText}>←</Text>
-      </TouchableOpacity>
+      />
 
       <Text style={styles.title}>{t("idioms")}</Text>
 
+      <SearchBar value={search} onChangeText={setSearch} style={styles.search} />
+
       <FlatList
-        data={idioms}
+        data={visibleIdioms}
         keyExtractor={(item) => String(item.idiom_id)}
         renderItem={({ item }) => (
           <View style={styles.row}>
@@ -101,8 +108,9 @@ export default function IdiomsPage() {
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={true}
+        keyboardShouldPersistTaps="handled"
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -110,22 +118,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: 24,
+    paddingHorizontal: 22,
+    paddingTop: 16,
   },
 
-  backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f3f4f6",
-  },
-
-  backButtonText: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#111827",
+  search: {
+    marginBottom: 16,
   },
 
   title: {

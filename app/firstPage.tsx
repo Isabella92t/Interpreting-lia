@@ -10,6 +10,9 @@ import {
   View,
 } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { BackButton } from "@/components/back-button";
 import { LanguagePicker } from "@/components/language-picker";
 import { useAuth } from "@/context/auth-context";
 import { useUiLanguage } from "@/context/ui-language-context";
@@ -117,18 +120,15 @@ export default function FirstPage() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity
+        <BackButton
           onPress={() => {
             signOut();
             router.replace("/login");
           }}
-          style={styles.backButton}
-        >
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
+        />
 
         <LanguagePicker />
       </View>
@@ -292,7 +292,7 @@ export default function FirstPage() {
           {canContinue && <Text style={styles.continueArrow}>→</Text>}
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -310,38 +310,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  // Headern ligger i vanligt flöde, inte absolut. Då trycker
+  // SafeAreaView ner den under telefonens statusrad, så att
+  // tillbaka-knappen alltid går att trycka på.
   header: {
-    position: "absolute",
-    top: 52,
-    left: 20,
-    right: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    zIndex: 10,
+    paddingTop: 16,
   },
 
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
 
-  backButtonText: {
-    fontSize: 21,
-    fontWeight: "500",
-    color: colors.text,
-  },
 
   content: {
     flex: 1,
     justifyContent: "center",
-    paddingTop: 35,
   },
 
   title: {

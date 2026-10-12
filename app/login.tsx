@@ -1,12 +1,9 @@
 import { Redirect, useRouter } from "expo-router";
-import {
-  ActivityIndicator,
-  Button,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Button, StyleSheet, Text } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { colors } from "@/constants/colors";
 import { useAuth } from "@/context/auth-context";
 import { useUiLanguage } from "@/context/ui-language-context";
 
@@ -18,7 +15,7 @@ export default function LoginScreen() {
   if (user) return <Redirect href="/firstPage" />;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <Text style={styles.title}>{t("appName")}</Text>
       <Text>{t("loginIntro")}</Text>
 
@@ -38,13 +35,14 @@ export default function LoginScreen() {
       <Button title={t("skip")} onPress={() => router.replace("/firstPage")} />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,

@@ -3,8 +3,8 @@
 // så att alla sidor ser likadana ut.
 
 export const colors = {
-  // Sidans bakgrund.
-  background: "#EAF6FF",
+  // Bakgrunden pa ALLA sidor. Andra den har sa andras alla sidor.
+  background: "#F8FAFC",
 
   // Blå accentfärg: knappar, ikoner och markerat läge.
   primary: "#2563EB",
