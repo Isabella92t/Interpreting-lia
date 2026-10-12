@@ -52,6 +52,12 @@ type Deck = {
   name: string;
 };
 
+// Det man valt i rullgardinen: alla ord, en kategori eller en egen lista.
+type Source =
+  | { kind: "all" }
+  | { kind: "category"; name: string }
+  | { kind: "deck"; deck: Deck };
+
 // Sidan har fyra steg. Ett steg i taget visas.
 type Step = "categories" | "words" | "practice" | "result";
 
@@ -69,6 +75,10 @@ export default function FlashcardsPage() {
 
   // Egna listor.
   const [decks, setDecks] = useState<Deck[]>([]);
+
+  // Det man valt att öva på, och hur många ord det innehåller.
+  const [source, setSource] = useState<Source>({ kind: "all" });
+  const [sourceCount, setSourceCount] = useState(0);
 
   // Redigerar vi en egen lista, eller bara en kategori?
   // editingDeckId = null betyder en ny lista som inte sparats an.
@@ -107,6 +117,12 @@ export default function FlashcardsPage() {
     loadCategories();
     loadDecks();
   }, []);
+
+  // Raknar orden i det man valt, sa att man ser hur stort det ar
+  // innan man borjar.
+  useEffect(() => {
+    countWords(source).then(setSourceCount);
+  }, [source, from, to]);
 
   async function loadCategories() {
     const result = await db.getAllAsync<Category>(
@@ -244,6 +260,9 @@ export default function FlashcardsPage() {
     }
 
     await loadDecks();
+
+    // Listan man nyss sparat blir vald, sa att man kan trycka Öva direkt.
+    setSource({ kind: "deck", deck: { id: deckId, name } });
     setStep("categories");
   }
 
@@ -260,8 +279,116 @@ export default function FlashcardsPage() {
     await db.runAsync("DELETE FROM decks WHERE id = ?", editingDeckId);
 
     await loadDecks();
+    setSource({ kind: "all" });
     setConfirmDelete(false);
     setStep("categories");
+  }
+
+  // Raknar orden i en kategori, i en egen lista, eller alla ord.
+  async function countWords(src: Source) {
+    const fromLanguage = languageNames[String(from ?? "").toLowerCase()];
+    const toLanguage = languageNames[String(to ?? "").toLowerCase()];
+
+    if (!fromLanguage || !toLanguage) {
+      return 0;
+    }
+
+    let join = "";
+    let filter = "";
+    const params: (string | number)[] = [fromLanguage, toLanguage];
+
+    if (src.kind === "category") {
+      join = `INNER JOIN word_tags
+                ON from_translation.word_id = word_tags.word_id
+              INNER JOIN tags
+                ON word_tags.tag_id = tags.id`;
+      filter = "AND tags.name = ?";
+      params.push(src.name);
+    }
+
+    if (src.kind === "deck") {
+      join = `INNER JOIN deck_words
+                ON from_translation.word_id = deck_words.word_id`;
+      filter = "AND deck_words.deck_id = ?";
+      params.push(src.deck.id);
+    }
+
+    const row = await db.getFirstAsync<{ count: number }>(
+      `
+      SELECT COUNT(DISTINCT from_translation.word_id) AS count
+      FROM translations AS from_translation
+      INNER JOIN translations AS to_translation
+        ON from_translation.word_id = to_translation.word_id
+      INNER JOIN languages AS from_language
+        ON from_translation.language_id = from_language.id
+      INNER JOIN languages AS to_language
+        ON to_translation.language_id = to_language.id
+      ${join}
+      WHERE from_language.name = ?
+        AND to_language.name = ?
+        ${filter}
+      `,
+      ...params,
+    );
+
+    return row?.count ?? 0;
+  }
+
+  // En unik nyckel for varje val, sa att vi kan se vilket som ar markerat.
+  function sourceKey(src: Source) {
+    if (src.kind === "deck") {
+      return `deck-${src.deck.id}`;
+    }
+
+    if (src.kind === "category") {
+      return `category-${src.name}`;
+    }
+
+    return "all";
+  }
+
+
+  function sourceLabel(src: Source) {
+    if (src.kind === "deck") {
+      return src.deck.name;
+    }
+
+    if (src.kind === "category") {
+      const category = categories.find((item) => item.name === src.name);
+
+      return category ? getCategoryName(category) : src.name;
+    }
+
+    return t("allWords");
+  }
+
+
+
+
+
+  // Namnet på den valda kategorin, eller null om man valt alla ord.
+  function chosenCategoryName() {
+    return source.kind === "category" ? source.name : null;
+  }
+
+  // Ett val som en knapp i form av en "chip". Det valda är blått.
+  function renderChip(option: Source) {
+    const isChosen = sourceKey(option) === sourceKey(source);
+
+    return (
+      <TouchableOpacity
+        key={sourceKey(option)}
+        style={isChosen ? styles.filterChipActive : styles.filterChip}
+        onPress={() => setSource(option)}
+        activeOpacity={0.8}
+      >
+        <Text
+          style={isChosen ? styles.filterChipTextActive : styles.filterChipText}
+        >
+          {sourceLabel(option)}
+        </Text>
+      </TouchableOpacity>
+    );
   }
 
   // Samma regel som pa andra sidan: visa kategorin pa appens sprak.
@@ -286,7 +413,14 @@ export default function FlashcardsPage() {
   // Fran kategorilistan. startNow = true betyder att man tryckte pa
   // kategorin och ovar direkt. startNow = false betyder att man tryckte
   // pa pennan och vill valja ord forst.
-  async function openCategory(categoryName: string | null, startNow: boolean) {
+  // Vad som ska hända när man öppnar en kategori:
+  // "all"    = öva på alla ord direkt
+  // "random" = öva på 20 slumpade ord direkt
+  // "pick"   = öppna ordlistan och välj ord själv
+  async function openCategory(
+    categoryName: string | null,
+    mode: "all" | "random" | "pick",
+  ) {
     const fromLanguage = languageNames[String(from ?? "").toLowerCase()];
     const toLanguage = languageNames[String(to ?? "").toLowerCase()];
 
@@ -337,13 +471,16 @@ export default function FlashcardsPage() {
     setFilterCategory(null);
     setChosenCategory(categoryName);
     setCategoryWords(words);
-    setSelectedIds(words.map((word) => word.word_id));
+    // Med "random" blir bara de 20 slumpade ikryssade, så att
+    // "Öva alla igen" efteråt övar på samma 20.
+    const chosen =
+      mode === "random" ? shuffle(words).slice(0, RANDOM_COUNT) : words;
 
-    // Vi skickar med orden direkt. State hinner inte uppdateras
-    // innan omgangen startar.
-    // Ar kategorin tom sa visar vi ordlistan, som sager att den ar tom.
-    if (startNow && words.length > 0) {
-      startRound(words);
+    setSelectedIds(chosen.map((word) => word.word_id));
+
+    // Är kategorin tom så visar vi ordlistan, som säger att den är tom.
+    if (mode !== "pick" && chosen.length > 0) {
+      startRound(chosen);
     } else {
       setStep("words");
     }
@@ -460,100 +597,114 @@ export default function FlashcardsPage() {
 
         <Text style={styles.sectionTitle}>{t("flashcards")}</Text>
 
-        {/* STEG 1: valj kategori eller en egen lista */}
+        {/* STEG 1: välj vad man vill öva på */}
         {step === "categories" && (
           <View>
-            <Text style={styles.listHeading}>{t("myLists")}</Text>
+            <Text style={styles.helpText}>{t("whatToPractise")}</Text>
 
-            {decks.length === 0 && (
-              <Text style={styles.helpText}>{t("noLists")}</Text>
-            )}
+            {/* Alla val syns direkt, som knappar man kan trycka på. */}
+            <Text style={styles.label}>{t("categories")}</Text>
 
-            {decks.map((deck) => (
+            <View style={styles.chipGrid}>
+              {renderChip({ kind: "all" })}
+
+              {categories.map((category) =>
+                renderChip({ kind: "category", name: category.name }),
+              )}
+            </View>
+
+            <Text style={styles.label}>{t("myLists")}</Text>
+
+            <Text style={styles.hintText}>{t("listsHint")}</Text>
+
+            <View style={styles.chipGrid}>
+              {decks.map((deck) => renderChip({ kind: "deck", deck }))}
+
               <TouchableOpacity
-                key={deck.id}
-                style={styles.featureCard}
-                onPress={() => openDeck(deck, true)}
+                style={styles.newListChip}
+                onPress={newDeck}
                 activeOpacity={0.8}
               >
-                <View style={styles.featureIcon}>
-                  <FontAwesome name="list-ul" size={20} color="#2563EB" />
-                </View>
-
-                <View style={styles.featureText}>
-                  <Text style={styles.featureTitle}>{deck.name}</Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={() => openDeck(deck, false)}
-                >
-                  <FontAwesome name="pencil" size={15} color="#64748B" />
-                </TouchableOpacity>
-
-                <Text style={styles.featureArrow}>›</Text>
+                <FontAwesome name="plus" size={12} color={colors.primary} />
+                <Text style={styles.newListChipText}>{t("newList")}</Text>
               </TouchableOpacity>
-            ))}
+            </View>
 
-            <TouchableOpacity style={styles.newListButton} onPress={newDeck}>
-              <FontAwesome name="plus" size={14} color="#2563EB" />
-              <Text style={styles.newListButtonText}>{t("newList")}</Text>
-            </TouchableOpacity>
+            {/* Kortet visar vad man valt, och vad man kan göra med det.
+                Knapparna säger exakt vad de gör. */}
+            <View style={styles.choiceCard}>
+              <Text style={styles.choiceTitle}>{sourceLabel(source)}</Text>
 
-            <Text style={styles.listHeading}>{t("chooseCategory")}</Text>
+              <Text style={styles.sourceCount}>
+                {sourceCount} {t("words")}
+              </Text>
 
-            <TouchableOpacity
-              style={styles.featureCard}
-              onPress={() => openCategory(null, true)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.featureIcon}>
-                <FontAwesome name="th-large" size={20} color="#2563EB" />
-              </View>
+              {source.kind === "deck" ? (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.fullPrimaryButton,
+                      sourceCount === 0 && styles.buttonDisabled,
+                    ]}
+                    onPress={() => openDeck(source.deck, true)}
+                    disabled={sourceCount === 0}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {t("practise")} ({sourceCount})
+                    </Text>
+                  </TouchableOpacity>
 
-              <View style={styles.featureText}>
-                <Text style={styles.featureTitle}>{t("allWords")}</Text>
-              </View>
+                  <TouchableOpacity
+                    style={styles.editSourceButton}
+                    onPress={() => openDeck(source.deck, false)}
+                  >
+                    <FontAwesome name="pencil" size={15} color="#334155" />
+                    <Text style={styles.secondaryButtonText}>
+                      {t("editList")}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.fullPrimaryButton,
+                      sourceCount === 0 && styles.buttonDisabled,
+                    ]}
+                    onPress={() => openCategory(chosenCategoryName(), "all")}
+                    disabled={sourceCount === 0}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {t("practiseEverything")} ({sourceCount})
+                    </Text>
+                  </TouchableOpacity>
 
-              {/* Pennan oppnar ordlistan istallet for att starta. */}
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => openCategory(null, false)}
-              >
-                <FontAwesome name="pencil" size={15} color="#64748B" />
-              </TouchableOpacity>
+                  {/* Bara när det finns fler än 20 ord att slumpa bland. */}
+                  {sourceCount > RANDOM_COUNT && (
+                    <TouchableOpacity
+                      style={styles.fullSecondaryButton}
+                      onPress={() =>
+                        openCategory(chosenCategoryName(), "random")
+                      }
+                    >
+                      <Text style={styles.secondaryButtonText}>
+                        {t("practiseRandom20")}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
 
-              <Text style={styles.featureArrow}>›</Text>
-            </TouchableOpacity>
-
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={styles.featureCard}
-                onPress={() => openCategory(category.name, true)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.featureIcon}>
-                  <FontAwesome name="clone" size={20} color="#2563EB" />
-                </View>
-
-                <View style={styles.featureText}>
-                  <Text style={styles.featureTitle}>
-                    {getCategoryName(category)}
-                  </Text>
-                </View>
-
-                {/* Pennan oppnar ordlistan istallet for att starta. */}
-                <TouchableOpacity
-                  style={styles.editButton}
-                  onPress={() => openCategory(category.name, false)}
-                >
-                  <FontAwesome name="pencil" size={15} color="#64748B" />
-                </TouchableOpacity>
-
-                <Text style={styles.featureArrow}>›</Text>
-              </TouchableOpacity>
-            ))}
+                  <TouchableOpacity
+                    style={styles.editSourceButton}
+                    onPress={() => openCategory(chosenCategoryName(), "pick")}
+                  >
+                    <FontAwesome name="pencil" size={15} color="#334155" />
+                    <Text style={styles.secondaryButtonText}>
+                      {t("chooseWordsYourself")}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
           </View>
         )}
 
@@ -859,8 +1010,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-
-
   sectionTitle: {
     fontSize: 19,
     fontWeight: "700",
@@ -876,81 +1025,90 @@ const styles = StyleSheet.create({
 
   /* Kategorilistan, samma kort som pa andra sidan */
 
-  featureCard: {
-    minHeight: 76,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 15,
+  /* Rullgardinen. Samma stil som språkvalet på första sidan. */
+
+  label: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    color: colors.textSecondary,
+    marginTop: 18,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+
+  sourceCount: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 3,
+  },
+
+  hintText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginLeft: 4,
     marginBottom: 10,
   },
 
-  featureIcon: {
-    width: 44,
-    height: 44,
+  // Chipsen radbryts, så att alla val syns utan att man skrollar i sidled.
+  chipGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  newListChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: 13,
     backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.primary,
+  },
+
+  newListChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+
+  choiceCard: {
+    marginTop: 24,
+    padding: 18,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  choiceTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.text,
+  },
+
+  buttonDisabled: {
+    backgroundColor: colors.disabled,
+  },
+
+  editSourceButton: {
+    height: 50,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 13,
-  },
-
-  featureText: {
-    flex: 1,
-  },
-
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#0F172A",
+    gap: 10,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 10,
   },
 
   // Pennknappen inuti kategorikortet.
-  editButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-  },
-
-  featureArrow: {
-    fontSize: 26,
-    fontWeight: "300",
-    color: "#94A3B8",
-    marginLeft: 8,
-  },
-
-  listHeading: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginTop: 18,
-    marginBottom: 10,
-  },
-
-  newListButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1,
-    borderColor: "#BFDBFE",
-  },
-
-  newListButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#2563EB",
-  },
 
   /* Kategorifiltret */
 

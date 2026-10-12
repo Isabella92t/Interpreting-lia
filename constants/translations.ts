@@ -11,6 +11,7 @@ export const translations = {
 
     // Första sidan
     chooseLanguages: "Choose languages",
+    chooseLanguage: "Choose language",
     from: "FROM",
     to: "TO",
     continue: "Continue",
@@ -68,13 +69,17 @@ export const translations = {
 
     // Flashcards
     flashcards: "Flashcards",
-    chooseCategory: "Choose a category",
     allWords: "All words",
     chooseWords: "Choose words",
+    editList: "Edit list",
+    whatToPractise: "What do you want to practise?",
+    practiseEverything: "Practise all",
+    practiseRandom20: "Practise 20 random",
+    chooseWordsYourself: "Choose words yourself",
+    listsHint: "Make your own list with words from all categories.",
     myLists: "My lists",
     newList: "New list",
     listName: "List name",
-    noLists: "You have no lists yet",
     deleteListTitle: "Delete this list?",
     selectAll: "All",
     selectNone: "None",
@@ -95,6 +100,7 @@ export const translations = {
     appLanguage: "Appens språk",
 
     chooseLanguages: "Välj språk",
+    chooseLanguage: "Välj språk",
     from: "FRÅN",
     to: "TILL",
     continue: "Fortsätt",
@@ -151,13 +157,17 @@ export const translations = {
 
     // Flashcards
     flashcards: "Flashcards",
-    chooseCategory: "Välj en kategori",
     allWords: "Alla ord",
     chooseWords: "Välj ord",
+    editList: "Redigera listan",
+    whatToPractise: "Vad vill du öva på?",
+    practiseEverything: "Öva på alla",
+    practiseRandom20: "Öva på 20 slumpade",
+    chooseWordsYourself: "Välj ord själv",
+    listsHint: "Gör en egen lista med ord från alla kategorier.",
     myLists: "Mina listor",
     newList: "Ny lista",
     listName: "Listans namn",
-    noLists: "Du har inga listor än",
     deleteListTitle: "Ta bort listan?",
     selectAll: "Alla",
     selectNone: "Inga",
@@ -178,6 +188,7 @@ export const translations = {
     appLanguage: "Idioma de la aplicación",
 
     chooseLanguages: "Elige idiomas",
+    chooseLanguage: "Elige un idioma",
     from: "DE",
     to: "A",
     continue: "Continuar",
@@ -232,13 +243,17 @@ export const translations = {
 
     // Flashcards
     flashcards: "Tarjetas",
-    chooseCategory: "Elige una categoría",
     allWords: "Todas las palabras",
     chooseWords: "Elige palabras",
+    editList: "Editar la lista",
+    whatToPractise: "¿Qué quieres practicar?",
+    practiseEverything: "Practicar todas",
+    practiseRandom20: "Practicar 20 al azar",
+    chooseWordsYourself: "Elegir palabras",
+    listsHint: "Crea tu propia lista con palabras de todas las categorías.",
     myLists: "Mis listas",
     newList: "Nueva lista",
     listName: "Nombre de la lista",
-    noLists: "Aún no tienes listas",
     deleteListTitle: "¿Eliminar esta lista?",
     selectAll: "Todas",
     selectNone: "Ninguna",

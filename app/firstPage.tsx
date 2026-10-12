@@ -150,7 +150,7 @@ export default function FirstPage() {
                 !fromLanguage && styles.placeholderText,
               ]}
             >
-              {from?.label || "Välj språk"}
+              {from?.label || t("chooseLanguage")}
             </Text>
           </View>
 
@@ -222,7 +222,7 @@ export default function FirstPage() {
                 !toLanguage && styles.placeholderText,
               ]}
             >
-              {to?.label || "Välj språk"}
+              {to?.label || t("chooseLanguage")}
             </Text>
           </View>
 
