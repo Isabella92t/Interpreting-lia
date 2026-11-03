@@ -17,9 +17,9 @@
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
-    "expo": "~54.0.34",
-    "expo-asset": "~12.0.13",
-    "expo-constants": "~18.0.13",
+    "expo": "~54.0.37",
+    "expo-asset": "~12.0.14",
+    "expo-constants": "~18.0.14",
     "expo-dev-client": "~6.0.21",
     "expo-file-system": "~19.0.24",
     "expo-font": "~14.0.11",
@@ -45,7 +45,6 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
-    "eas-cli": "^23.0.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"

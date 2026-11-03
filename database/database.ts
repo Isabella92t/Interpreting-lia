@@ -9,7 +9,8 @@ export async function createTables(db: SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS words (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE
+      name TEXT NOT NULL UNIQUE,
+      information TEXT
     );
 
     CREATE TABLE IF NOT EXISTS translations (
@@ -62,6 +63,14 @@ export async function createTables(db: SQLiteDatabase) {
       FOREIGN KEY (language_id) REFERENCES languages(id)
     );
   `);
+
+  // Befintliga installationer: lägg till information utan att radera ord.
+  const wordColumns = await db.getAllAsync<{ name: string }>(
+    "PRAGMA table_info(words)",
+  );
+  if (!wordColumns.some((column) => column.name === "information")) {
+    await db.runAsync("ALTER TABLE words ADD COLUMN information TEXT");
+  }
 
   // Lägg till selected_date om databasen redan finns.
   // Detta påverkar inte kalenderfunktionen.

@@ -13,12 +13,24 @@ import { useEffect, useState } from "react";
 import {
   FlatList,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+
+const MIN_SEARCH_LENGTH = 3;
+const MAX_RESULTS = 3;
+
+function startsWithSearch(text: string, query: string) {
+  const normalizedText = text.toLowerCase().trim().replace(/\s+/g, " ");
+  const normalizedQuery = query.toLowerCase().trim().replace(/\s+/g, " ");
+  if (!normalizedQuery) return false;
+  if (normalizedQuery.includes(" ")) return normalizedText.includes(normalizedQuery);
+  return normalizedText.split(/[\s/,()!?;:]+/).some((word) => word.startsWith(normalizedQuery));
+}
 
 const languageNames: Record<string, string> = {
   sv: "Svenska",
@@ -30,6 +42,7 @@ type Translation = {
   word_id: number;
   text_from: string;
   text_to: string;
+  information: string | null;
 };
 
 export default function DictionaryPage() {
@@ -46,10 +59,12 @@ export default function DictionaryPage() {
 
   const [translations, setTranslations] = useState<Translation[]>([]);
   const [searchText, setSearchText] = useState("");
+  const [selectedInformation, setSelectedInformation] = useState<{ wordId: number; location: "results" | "list" } | null>(null);
 
   const [editingWord, setEditingWord] = useState<Translation | null>(null);
   const [editTextFrom, setEditTextFrom] = useState("");
   const [editTextTo, setEditTextTo] = useState("");
+  const [editInformation, setEditInformation] = useState("");
 
   useEffect(() => {
     loadTranslations();
@@ -74,8 +89,10 @@ export default function DictionaryPage() {
         SELECT DISTINCT
           from_translation.text AS text_from,
           to_translation.text AS text_to,
-          from_translation.word_id
+          from_translation.word_id,
+          words.information AS information
         FROM translations AS from_translation
+        INNER JOIN words ON words.id = from_translation.word_id
         INNER JOIN translations AS to_translation
           ON from_translation.word_id = to_translation.word_id
         INNER JOIN languages AS from_language
@@ -101,8 +118,10 @@ export default function DictionaryPage() {
         SELECT DISTINCT
           from_translation.text AS text_from,
           to_translation.text AS text_to,
-          from_translation.word_id
+          from_translation.word_id,
+          words.information AS information
         FROM translations AS from_translation
+        INNER JOIN words ON words.id = from_translation.word_id
         INNER JOIN translations AS to_translation
           ON to_translation.word_id = from_translation.word_id
         INNER JOIN languages AS from_language
@@ -125,12 +144,14 @@ export default function DictionaryPage() {
     setEditingWord(item);
     setEditTextFrom(item.text_from);
     setEditTextTo(item.text_to);
+    setEditInformation(item.information ?? "");
   }
 
   function closeEditWord() {
     setEditingWord(null);
     setEditTextFrom("");
     setEditTextTo("");
+    setEditInformation("");
   }
 
   async function saveEditedWord() {
@@ -196,7 +217,13 @@ export default function DictionaryPage() {
       toLanguageRow.id,
     );
 
-    setEditingWord(null);
+    await db.runAsync(
+      `UPDATE words SET information = ? WHERE id = ?`,
+      editInformation.trim() || null,
+      editingWord.word_id,
+    );
+
+    closeEditWord();
 
     await loadTranslations();
   }
@@ -234,6 +261,7 @@ export default function DictionaryPage() {
       setEditingWord(null);
       setEditTextFrom("");
       setEditTextTo("");
+      setEditInformation("");
 
       await loadTranslations();
     } catch (error) {
@@ -241,23 +269,76 @@ export default function DictionaryPage() {
     }
   }
 
-  const filteredTranslations = translations
-    .filter((item) => {
-      const search = searchText.trim().toLowerCase();
+  const normalizedSearch = searchText.trim().toLowerCase();
+  const hasEnoughLetters = normalizedSearch.length >= MIN_SEARCH_LENGTH;
 
-      return (
-        item.text_from.toLowerCase().includes(search) ||
-        item.text_to.toLowerCase().includes(search)
-      );
-    })
-    .sort((a, b) =>
-      a.text_from.localeCompare(b.text_from, "sv", {
-        sensitivity: "base",
-      }),
+  // Samma söklogik som på secondPage, även för sökning på översättningen.
+  const searchResults = hasEnoughLetters
+    ? translations
+        .filter(
+          (item) =>
+            startsWithSearch(item.text_from, normalizedSearch) ||
+            startsWithSearch(item.text_to, normalizedSearch),
+        )
+        .map((item) => {
+          const fromMatches = startsWithSearch(item.text_from, normalizedSearch);
+          const toMatches = startsWithSearch(item.text_to, normalizedSearch);
+          return toMatches && !fromMatches
+            ? { ...item, text_from: item.text_to, text_to: item.text_from }
+            : item;
+        })
+    : [];
+
+  const filteredTranslations = hasEnoughLetters
+    ? searchResults
+    : translations
+        .filter(() => normalizedSearch.length === 0)
+        .sort((a, b) =>
+          a.text_from.localeCompare(b.text_from, "sv", { sensitivity: "base" }),
+        );
+
+  function renderInfoPopup(item: Translation, location: "results" | "list") {
+    if (selectedInformation?.wordId !== item.word_id || selectedInformation.location !== location) {
+      return null;
+    }
+
+    return (
+      <View style={styles.inlineInfoPopup} onTouchEnd={(event) => event.stopPropagation()}>
+        <ScrollView
+          style={styles.inlineInfoScroll}
+          contentContainerStyle={styles.inlineInfoScrollContent}
+          nestedScrollEnabled
+        >
+          <Text style={styles.informationBody}>{item.information}</Text>
+        </ScrollView>
+      </View>
     );
+  }
+
+  function renderInfoButton(item: Translation, location: "results" | "list") {
+    if (!item.information?.trim()) return null;
+    return (
+      <TouchableOpacity
+        style={styles.infoButton}
+        onTouchEnd={(event) => event.stopPropagation()}
+        onPress={() =>
+          setSelectedInformation((current) =>
+            current?.wordId === item.word_id && current.location === location
+              ? null
+              : { wordId: item.word_id, location },
+          )
+        }
+        accessibilityRole="button"
+        accessibilityLabel={`Visa information om ${item.text_from}`}
+        hitSlop={6}
+      >
+        <FontAwesome name="info-circle" size={15} color="#2563EB" />
+      </TouchableOpacity>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]} onTouchEnd={() => { if (selectedInformation) setSelectedInformation(null); }}>
       <BackButton
         onPress={() =>
           router.dismissTo({
@@ -277,18 +358,63 @@ export default function DictionaryPage() {
 
       <SearchBar
         value={searchText}
-        onChangeText={setSearchText}
+        onChangeText={(value) => {
+          setSearchText(value);
+          setSelectedInformation(null);
+        }}
         style={styles.search}
       />
 
+      {searchText.trim().length > 0 && !hasEnoughLetters && (
+        <Text style={styles.searchHint}>{t("minThreeLetters")}</Text>
+      )}
+
+      {hasEnoughLetters && (
+        <View style={styles.searchResults}>
+          {searchResults.length === 0 ? (
+            <Text style={styles.empty}>{t("noMatches")}</Text>
+          ) : (
+            <>
+              {searchResults.slice(0, MAX_RESULTS).map((item) => (
+                <View key={item.word_id}>
+                  <View style={styles.searchResultRow}>
+                    <View style={styles.searchResultText}>
+                      <Text style={styles.word}>{item.text_from}</Text>
+                      <Text style={styles.translation}>{item.text_to}</Text>
+                    </View>
+                    {renderInfoButton(item, "results")}
+                    <TouchableOpacity
+                      onPress={() => openEditWord(item)}
+                      style={styles.editButton}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Redigera ${item.text_from}`}
+                    >
+                      <FontAwesome name="pencil" size={12} color="#9ca3af" />
+                    </TouchableOpacity>
+                  </View>
+                  {renderInfoPopup(item, "results")}
+                </View>
+              ))}
+              {searchResults.length > MAX_RESULTS && (
+                <Text style={styles.moreResults}>
+                  + {searchResults.length - MAX_RESULTS} fler träffar
+                </Text>
+              )}
+            </>
+          )}
+        </View>
+      )}
+
       <FlatList
-        data={filteredTranslations}
+        data={hasEnoughLetters ? searchResults.slice(MAX_RESULTS) : filteredTranslations}
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => String(item.word_id)}
         renderItem={({ item }) => (
           <View style={styles.row}>
             <View style={styles.wordRow}>
               <Text style={styles.word}>{item.text_from}</Text>
+              {renderInfoButton(item, "list")}
 
               <TouchableOpacity
                 onPress={() => openEditWord(item)}
@@ -300,11 +426,16 @@ export default function DictionaryPage() {
             </View>
 
             <Text style={styles.translation}>{item.text_to}</Text>
+            {renderInfoPopup(item, "list")}
           </View>
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={true}
-        ListEmptyComponent={<Text style={styles.empty}>{t("noWordsYet")}</Text>}
+        ListEmptyComponent={
+          !hasEnoughLetters && !searchText.trim()
+            ? <Text style={styles.empty}>{t("noWordsYet")}</Text>
+            : null
+        }
       />
 
       {/* REDIGERA-MODAL */}
@@ -348,6 +479,20 @@ export default function DictionaryPage() {
               style={styles.editInput}
               autoCapitalize="none"
               autoCorrect={false}
+            />
+
+            <Text style={styles.editLabel}>Information (valfritt)</Text>
+
+            <TextInput
+              value={editInformation}
+              onChangeText={setEditInformation}
+              style={[styles.editInput, styles.editInformationInput]}
+              multiline
+              textAlignVertical="top"
+              autoCapitalize="sentences"
+              autoCorrect={false}
+              placeholder="Lägg till information om ordet..."
+              placeholderTextColor="#94A3B8"
             />
 
             {/* RADERA + SPARA */}
@@ -440,6 +585,76 @@ const styles = StyleSheet.create({
 
 
 
+
+  searchHint: {
+    fontSize: 13,
+    color: "#94A3B8",
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+
+  searchResults: {
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+    marginBottom: 12,
+  },
+
+  searchResultRow: {
+    minHeight: 62,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  searchResultText: {
+    flex: 1,
+  },
+
+  moreResults: {
+    fontSize: 12,
+    color: "#94A3B8",
+    padding: 12,
+    textAlign: "center",
+  },
+
+  infoButton: {
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 22,
+  },
+
+  inlineInfoPopup: {
+    marginHorizontal: 12,
+    marginTop: 4,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#F8FAFC",
+    borderColor: "#BFDBFE",
+    borderWidth: 1,
+    borderRadius: 10,
+  },
+
+  inlineInfoScroll: {
+    maxHeight: 130,
+  },
+
+  inlineInfoScrollContent: {
+    paddingRight: 24,
+  },
+
+  informationBody: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#64748B",
+  },
 
   listContent: {
     paddingBottom: 24,
@@ -543,6 +758,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#111827",
     marginBottom: 14,
+  },
+
+  editInformationInput: {
+    height: 90,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
 
   modalButtons: {

@@ -7,7 +7,7 @@ import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -32,6 +32,7 @@ type Translation = {
   word_id: number;
   text_from: string;
   text_to: string;
+  information: string | null;
 };
 
 const CATEGORIES_PER_PAGE = 3;
@@ -124,6 +125,8 @@ export default function SecondPage() {
 
   const [word, setWord] = useState("");
   const [translation, setTranslation] = useState("");
+  const [wordInformation, setWordInformation] = useState("");
+  const [selectedInformation, setSelectedInformation] = useState<Translation | null>(null);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
@@ -240,9 +243,12 @@ export default function SecondPage() {
           SELECT DISTINCT
             from_translation.word_id,
             from_translation.text AS text_from,
-            to_translation.text AS text_to
+            to_translation.text AS text_to,
+            words.information AS information
 
           FROM translations AS from_translation
+
+          INNER JOIN words ON words.id = from_translation.word_id
 
           INNER JOIN translations AS to_translation
             ON from_translation.word_id = to_translation.word_id
@@ -453,6 +459,15 @@ export default function SecondPage() {
       );
     }
 
+    // Spara frivillig information utan att skriva över befintlig text med ett tomt fält.
+    if (wordInformation.trim()) {
+      await db.runAsync(
+        "UPDATE words SET information = ? WHERE id = ?",
+        wordInformation.trim(),
+        wordResult.id,
+      );
+    }
+
     if (selectedCategories.length === 0) {
       const otherCategory = await db.getFirstAsync<{ id: number }>(
         "SELECT id FROM tags WHERE name = ?",
@@ -495,6 +510,7 @@ export default function SecondPage() {
 
     setWord("");
     setTranslation("");
+    setWordInformation("");
     setSelectedCategories([]);
     setShowAddWord(false);
 
@@ -573,6 +589,9 @@ export default function SecondPage() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onTouchEnd={() => {
+          if (selectedInformation) setSelectedInformation(null);
+        }}
       >
         {/* HEADER */}
 
@@ -598,7 +617,13 @@ export default function SecondPage() {
 
         {/* GLOBAL SÖKNING */}
 
-        <SearchBar value={search} onChangeText={setSearch} />
+        <SearchBar
+          value={search}
+          onChangeText={(value) => {
+            setSearch(value);
+            setSelectedInformation(null);
+          }}
+        />
 
         {searchText.length > 0 && !hasEnoughLetters && (
           <Text style={styles.searchHint}>{t("minThreeLetters")}</Text>
@@ -611,17 +636,45 @@ export default function SecondPage() {
             ) : (
               <>
                 {visibleResults.map((item) => (
-                  <View key={item.word_id} style={styles.searchRow}>
-                    <View style={styles.searchTextContainer}>
-                      <Text style={styles.searchWord}>{item.text_from}</Text>
+                  <Fragment key={item.word_id}>
+                    <View style={styles.searchRow}>
+                      <View style={styles.searchTextContainer}>
+                        <Text style={styles.searchWord}>{item.text_from}</Text>
+                        <Text style={styles.searchTranslation}>{item.text_to}</Text>
+                      </View>
 
-                      <Text style={styles.searchTranslation}>
-                        {item.text_to}
-                      </Text>
+                      {!!item.information?.trim() && (
+                        <TouchableOpacity
+                          onTouchEnd={(event) => event.stopPropagation()}
+                          onPress={() =>
+                            setSelectedInformation((current) =>
+                              current?.word_id === item.word_id ? null : item,
+                            )
+                          }
+                          accessibilityRole="button"
+                          accessibilityLabel={`Visa information om ${item.text_from}`}
+                          style={styles.infoButton}
+                        >
+                          <FontAwesome name="info-circle" size={15} color="#2563EB" />
+                        </TouchableOpacity>
+                      )}
                     </View>
 
-                    <Text style={styles.searchArrow}>→</Text>
-                  </View>
+                    {selectedInformation?.word_id === item.word_id && (
+                      <View
+                        style={styles.inlineInfoPopup}
+                        onTouchEnd={(event) => event.stopPropagation()}
+                      >
+                        <ScrollView
+                          style={styles.inlineInfoScroll}
+                          contentContainerStyle={styles.inlineInfoScrollContent}
+                          nestedScrollEnabled
+                        >
+                          <Text style={styles.informationBody}>{item.information}</Text>
+                        </ScrollView>
+                      </View>
+                    )}
+                  </Fragment>
                 ))}
 
                 {searchResults.length > MAX_RESULTS && (
@@ -957,6 +1010,17 @@ export default function SecondPage() {
               onChangeText={setTranslation}
             />
 
+            <Text style={styles.informationLabel}>Information (frivilligt)</Text>
+            <TextInput
+              style={[styles.input, styles.informationInput]}
+              placeholder="Skriv en förklaring eller anteckning om ordet..."
+              placeholderTextColor="#94A3B8"
+              value={wordInformation}
+              onChangeText={setWordInformation}
+              multiline
+              textAlignVertical="top"
+            />
+
             <Text style={styles.categoryTitle}>{t("category")}</Text>
 
             <Text style={styles.optionalText}>{t("categoryOptional")}</Text>
@@ -1107,10 +1171,51 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
-  searchArrow: {
-    fontSize: 18,
-    color: "#2563EB",
+  infoButton: {
     marginLeft: 12,
+    padding: 8,
+  },
+
+  inlineInfoPopup: {
+    marginHorizontal: 12,
+    marginTop: 4,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#F8FAFC",
+    borderColor: "#BFDBFE",
+    borderWidth: 1,
+    borderRadius: 10,
+  },
+
+  inlineInfoScroll: {
+    maxHeight: 130,
+  },
+
+  inlineInfoScrollContent: {
+    paddingRight: 24,
+  },
+
+  informationLabel: {
+    marginTop: 14,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#334155",
+  },
+
+  informationInput: {
+    minHeight: 85,
+  },
+
+  informationScroll: {
+    maxHeight: 260,
+    marginTop: 16,
+  },
+
+  informationBody: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#64748B",
   },
 
   noResults: {
