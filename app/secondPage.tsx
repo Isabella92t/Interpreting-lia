@@ -954,21 +954,6 @@ export default function SecondPage() {
 
           <Text style={styles.featureArrow}>›</Text>
         </TouchableOpacity>
-
-        {/* LÄGG TILL ORD */}
-
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => {
-            setWordError("");
-            setShowAddWord(true);
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.secondaryButtonPlus}>+</Text>
-
-          <Text style={styles.secondaryButtonText}>{t("addWord")}</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* MODAL: LÄGG TILL KATEGORI */}
@@ -1462,33 +1447,6 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     color: "#94A3B8",
     marginLeft: 8,
-  },
-
-  secondaryButton: {
-    width: 170,
-    height: 50,
-    alignSelf: "center",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#DBEAFE",
-    backgroundColor: "#EFF6FF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 12,
-  },
-
-  secondaryButtonPlus: {
-    fontSize: 20,
-    color: "#2563EB",
-    marginRight: 8,
-    fontWeight: "500",
-  },
-
-  secondaryButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#2563EB",
   },
 
   modalBackground: {

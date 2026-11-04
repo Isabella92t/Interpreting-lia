@@ -1,3 +1,4 @@
+
 import { FontAwesome } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
@@ -55,7 +56,7 @@ export default function NotesPage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [search, setSearch] = useState("");
 
-  // Hur mycket plats telefonens nederkant tar, t.ex. hemknappens streck.
+  // Tar hänsyn till telefonens nederkant.
   const insets = useSafeAreaInsets();
 
   useFocusEffect(
@@ -103,7 +104,11 @@ export default function NotesPage() {
 
       <Text style={styles.title}>{t("myNotes")}</Text>
 
-      <SearchBar value={search} onChangeText={setSearch} style={styles.search} />
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        style={styles.search}
+      />
 
       <FlatList
         data={visibleNotes}
@@ -131,13 +136,17 @@ export default function NotesPage() {
             <View style={styles.marginLine} pointerEvents="none" />
 
             {item.selected_date && (
-              <Text style={styles.selectedDate}>{item.selected_date}</Text>
+              <Text style={styles.selectedDate}>
+                {item.selected_date}
+              </Text>
             )}
 
             <Text
               style={[
                 styles.paperTitle,
-                item.selected_date ? styles.paperTitleWithDate : undefined,
+                item.selected_date
+                  ? styles.paperTitleWithDate
+                  : undefined,
               ]}
               numberOfLines={1}
             >
@@ -153,9 +162,12 @@ export default function NotesPage() {
             </Text>
           </TouchableOpacity>
         )}
-        ListEmptyComponent={<Text style={styles.empty}>{t("noNotesYet")}</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>{t("noNotesYet")}</Text>
+        }
       />
 
+      {/* Liten ljusblå plusknapp längst ner till höger */}
       <TouchableOpacity
         style={[styles.addButton, { bottom: 24 + insets.bottom }]}
         onPress={() =>
@@ -167,8 +179,10 @@ export default function NotesPage() {
             },
           })
         }
+        accessibilityRole="button"
+        accessibilityLabel={t("add")}
       >
-        <FontAwesome name="plus" size={24} color="#fff" />
+        <FontAwesome name="plus" size={16} color="#2563EB" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -289,14 +303,16 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // bottom satts i koden, sa att knappen hamnar ovanfor hemknappens streck.
+  // Liten ljusblå knapp med samma placering som tidigare.
   addButton: {
     position: "absolute",
     right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#111827",
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
     alignItems: "center",
     justifyContent: "center",
   },
