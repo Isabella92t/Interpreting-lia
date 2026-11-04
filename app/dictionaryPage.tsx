@@ -1,4 +1,3 @@
-
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
@@ -11,6 +10,7 @@ import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useEffect, useState } from "react";
 import {
+  Alert,
   FlatList,
   Modal,
   ScrollView,
@@ -28,14 +28,25 @@ function startsWithSearch(text: string, query: string) {
   const normalizedText = text.toLowerCase().trim().replace(/\s+/g, " ");
   const normalizedQuery = query.toLowerCase().trim().replace(/\s+/g, " ");
   if (!normalizedQuery) return false;
-  if (normalizedQuery.includes(" ")) return normalizedText.includes(normalizedQuery);
-  return normalizedText.split(/[\s/,()!?;:]+/).some((word) => word.startsWith(normalizedQuery));
+  if (normalizedQuery.includes(" "))
+    return normalizedText.includes(normalizedQuery);
+  return normalizedText
+    .split(/[\s/,()!?;:]+/)
+    .some((word) => word.startsWith(normalizedQuery));
 }
 
 const languageNames: Record<string, string> = {
   sv: "Svenska",
   en: "English",
   es: "Español",
+};
+
+type WordCategory = {
+  id: number;
+  name: string;
+  name_sv: string | null;
+  name_en: string | null;
+  name_es: string | null;
 };
 
 type Translation = {
@@ -58,17 +69,77 @@ export default function DictionaryPage() {
   }>();
 
   const [translations, setTranslations] = useState<Translation[]>([]);
+  const [displayMode, setDisplayMode] = useState<"stacked" | "side">("stacked");
+  const [displayReady, setDisplayReady] = useState(false);
+  const displayKey = `dictionary:${String(from ?? "").toLowerCase()}:${String(to ?? "").toLowerCase()}:${category ?? "__all__"}`;
   const [searchText, setSearchText] = useState("");
-  const [selectedInformation, setSelectedInformation] = useState<{ wordId: number; location: "results" | "list" } | null>(null);
+  const [selectedInformation, setSelectedInformation] = useState<{
+    wordId: number;
+    location: "results" | "list";
+  } | null>(null);
 
   const [editingWord, setEditingWord] = useState<Translation | null>(null);
   const [editTextFrom, setEditTextFrom] = useState("");
   const [editTextTo, setEditTextTo] = useState("");
   const [editInformation, setEditInformation] = useState("");
+  const [editError, setEditError] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingWord, setDeletingWord] = useState(false);
+
+  const [showAddWord, setShowAddWord] = useState(false);
+  const [newWord, setNewWord] = useState("");
+  const [newTranslation, setNewTranslation] = useState("");
+  const [newInformation, setNewInformation] = useState("");
+  const [wordCategories, setWordCategories] = useState<WordCategory[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [addError, setAddError] = useState("");
+  const [addingWord, setAddingWord] = useState(false);
 
   useEffect(() => {
     loadTranslations();
   }, [from, to, category]);
+
+  useEffect(() => {
+    let active = true;
+    setDisplayReady(false);
+    setDisplayMode("stacked");
+    (async () => {
+      try {
+        await db.execAsync(`CREATE TABLE IF NOT EXISTS display_preferences (
+          page_key TEXT PRIMARY KEY,
+          display_mode TEXT NOT NULL
+        )`);
+        const row = await db.getFirstAsync<{ display_mode: string }>(
+          "SELECT display_mode FROM display_preferences WHERE page_key = ?",
+          displayKey,
+        );
+        if (active)
+          setDisplayMode(row?.display_mode === "side" ? "side" : "stacked");
+      } catch (error) {
+        console.error("Kunde inte läsa visningsinställningen:", error);
+      } finally {
+        if (active) setDisplayReady(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [db, displayKey]);
+
+  async function toggleDisplayMode() {
+    if (!displayReady) return;
+    const next = displayMode === "stacked" ? "side" : "stacked";
+    setDisplayMode(next);
+    try {
+      await db.runAsync(
+        "INSERT OR REPLACE INTO display_preferences (page_key, display_mode) VALUES (?, ?)",
+        displayKey,
+        next,
+      );
+    } catch (error) {
+      console.error("Kunde inte spara visningsinställningen:", error);
+    }
+  }
 
   async function loadTranslations() {
     const selectedFrom = String(from ?? "").toLowerCase();
@@ -140,7 +211,122 @@ export default function DictionaryPage() {
     setTranslations(result);
   }
 
+  async function openAddWord() {
+    setNewWord("");
+    setNewTranslation("");
+    setNewInformation("");
+    setAddError("");
+    setSelectedCategoryIds([]);
+    setShowAddWord(true);
+    try {
+      const fromName = languageNames[String(from ?? "").toLowerCase()];
+      const toName = languageNames[String(to ?? "").toLowerCase()];
+      const result = await db.getAllAsync<WordCategory>(
+        `SELECT tags.id, tags.name, tags.name_sv, tags.name_en, tags.name_es
+         FROM tags
+         INNER JOIN languages AS fl ON fl.id = tags.from_language_id
+         INNER JOIN languages AS tl ON tl.id = tags.to_language_id
+         WHERE fl.name = ? AND tl.name = ?
+         ORDER BY LOWER(tags.name)`,
+        fromName,
+        toName,
+      );
+      setWordCategories(result);
+      const currentCategory = result.find((item) => item.name === category);
+      if (currentCategory) setSelectedCategoryIds([currentCategory.id]);
+    } catch (error) {
+      console.error("Failed to load categories:", error);
+      setAddError("Kunde inte hämta kategorierna.");
+    }
+  }
+
+  function closeAddWord() {
+    if (addingWord) return;
+    setShowAddWord(false);
+    setAddError("");
+  }
+
+  async function addWord() {
+    if (addingWord) return;
+    if (!newWord.trim() || !newTranslation.trim()) {
+      setAddError("Fyll i både ord och översättning.");
+      return;
+    }
+    setAddingWord(true);
+    setAddError("");
+    try {
+      const fromName = languageNames[String(from ?? "").toLowerCase()];
+      const toName = languageNames[String(to ?? "").toLowerCase()];
+      if (!fromName || !toName) {
+        setAddError("Språken kunde inte hittas.");
+        return;
+      }
+      const fromRow = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM languages WHERE name = ?",
+        fromName,
+      );
+      const toRow = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM languages WHERE name = ?",
+        toName,
+      );
+      if (!fromRow || !toRow) {
+        setAddError("Språken kunde inte hittas.");
+        return;
+      }
+      await db.withTransactionAsync(async () => {
+        await db.runAsync(
+          "INSERT OR IGNORE INTO words (name) VALUES (?)",
+          newWord.trim(),
+        );
+        const wordRow = await db.getFirstAsync<{ id: number }>(
+          "SELECT id FROM words WHERE name = ?",
+          newWord.trim(),
+        );
+        if (!wordRow) throw new Error("Word could not be found after insert");
+        await db.runAsync(
+          "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+          wordRow.id,
+          fromRow.id,
+          newWord.trim(),
+        );
+        await db.runAsync(
+          "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+          wordRow.id,
+          toRow.id,
+          newTranslation.trim(),
+        );
+        if (newInformation.trim()) {
+          await db.runAsync(
+            "UPDATE words SET information = ? WHERE id = ?",
+            newInformation.trim(),
+            wordRow.id,
+          );
+        }
+        let ids = selectedCategoryIds;
+        if (ids.length === 0) {
+          const other = wordCategories.find((item) => item.name === "Övrigt");
+          if (other) ids = [other.id];
+        }
+        for (const tagId of ids) {
+          await db.runAsync(
+            "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
+            wordRow.id,
+            tagId,
+          );
+        }
+      });
+      setShowAddWord(false);
+      await loadTranslations();
+    } catch (error) {
+      console.error("Failed to add word:", error);
+      setAddError("Kunde inte lägga till ordet. Försök igen.");
+    } finally {
+      setAddingWord(false);
+    }
+  }
+
   function openEditWord(item: Translation) {
+    setEditError("");
     setEditingWord(item);
     setEditTextFrom(item.text_from);
     setEditTextTo(item.text_to);
@@ -149,123 +335,104 @@ export default function DictionaryPage() {
 
   function closeEditWord() {
     setEditingWord(null);
+    setEditError("");
     setEditTextFrom("");
     setEditTextTo("");
     setEditInformation("");
   }
 
   async function saveEditedWord() {
-    if (!editingWord) return;
-
-    const selectedFrom = String(from ?? "").toLowerCase();
-    const selectedTo = String(to ?? "").toLowerCase();
-
-    const fromLanguage = languageNames[selectedFrom];
-    const toLanguage = languageNames[selectedTo];
-
+    if (!editingWord || savingEdit || deletingWord) return;
+    const fromLanguage = languageNames[String(from ?? "").toLowerCase()];
+    const toLanguage = languageNames[String(to ?? "").toLowerCase()];
     if (!fromLanguage || !toLanguage) {
+      setEditError("Språken kunde inte hittas.");
       return;
     }
-
-    const fromLanguageRow = await db.getFirstAsync<{ id: number }>(
-      `
-      SELECT id
-      FROM languages
-      WHERE name = ?
-      `,
-      fromLanguage,
-    );
-
-    const toLanguageRow = await db.getFirstAsync<{ id: number }>(
-      `
-      SELECT id
-      FROM languages
-      WHERE name = ?
-      `,
-      toLanguage,
-    );
-
-    if (!fromLanguageRow || !toLanguageRow) {
-      return;
-    }
-
     if (!editTextFrom.trim() || !editTextTo.trim()) {
+      setEditError("Fyll i både ord och översättning.");
       return;
     }
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      const fromLanguageRow = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM languages WHERE name = ?",
+        fromLanguage,
+      );
+      const toLanguageRow = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM languages WHERE name = ?",
+        toLanguage,
+      );
+      if (!fromLanguageRow || !toLanguageRow) {
+        setEditError("Språken kunde inte hittas.");
+        return;
+      }
+      await db.withTransactionAsync(async () => {
+        await db.runAsync(
+          "UPDATE translations SET text = ? WHERE word_id = ? AND language_id = ?",
+          editTextFrom.trim(),
+          editingWord.word_id,
+          fromLanguageRow.id,
+        );
+        await db.runAsync(
+          "UPDATE translations SET text = ? WHERE word_id = ? AND language_id = ?",
+          editTextTo.trim(),
+          editingWord.word_id,
+          toLanguageRow.id,
+        );
+        await db.runAsync(
+          "UPDATE words SET information = ? WHERE id = ?",
+          editInformation.trim() || null,
+          editingWord.word_id,
+        );
+      });
+      closeEditWord();
+      await loadTranslations();
+    } catch (error) {
+      console.error("Failed to save word:", error);
+      setEditError("Kunde inte spara ändringarna. Försök igen.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
-    await db.runAsync(
-      `
-      UPDATE translations
-      SET text = ?
-      WHERE word_id = ?
-        AND language_id = ?
-      `,
-      editTextFrom.trim(),
-      editingWord.word_id,
-      fromLanguageRow.id,
+  function confirmDeleteWord() {
+    if (!editingWord || savingEdit || deletingWord) return;
+    Alert.alert(
+      "Radera ord?",
+      `Vill du verkligen radera ”${editingWord.text_from}”?`,
+      [
+        { text: "Avbryt", style: "cancel" },
+        {
+          text: "Radera",
+          style: "destructive",
+          onPress: () => {
+            void deleteWord();
+          },
+        },
+      ],
     );
-
-    await db.runAsync(
-      `
-      UPDATE translations
-      SET text = ?
-      WHERE word_id = ?
-        AND language_id = ?
-      `,
-      editTextTo.trim(),
-      editingWord.word_id,
-      toLanguageRow.id,
-    );
-
-    await db.runAsync(
-      `UPDATE words SET information = ? WHERE id = ?`,
-      editInformation.trim() || null,
-      editingWord.word_id,
-    );
-
-    closeEditWord();
-
-    await loadTranslations();
   }
 
   async function deleteWord() {
-    if (!editingWord) return;
-
+    if (!editingWord || savingEdit || deletingWord) return;
     const wordId = editingWord.word_id;
-
+    setDeletingWord(true);
+    setEditError("");
     try {
-      await db.runAsync(
-        `
-        DELETE FROM word_tags
-        WHERE word_id = ?
-        `,
-        wordId,
-      );
-
-      await db.runAsync(
-        `
-        DELETE FROM translations
-        WHERE word_id = ?
-        `,
-        wordId,
-      );
-
-      await db.runAsync(
-        `
-        DELETE FROM words
-        WHERE id = ?
-        `,
-        wordId,
-      );
-
-      setEditingWord(null);
-      setEditTextFrom("");
-      setEditTextTo("");
-      setEditInformation("");
-
+      await db.withTransactionAsync(async () => {
+        await db.runAsync("DELETE FROM word_tags WHERE word_id = ?", wordId);
+        await db.runAsync("DELETE FROM translations WHERE word_id = ?", wordId);
+        await db.runAsync("DELETE FROM words WHERE id = ?", wordId);
+      });
+      closeEditWord();
       await loadTranslations();
     } catch (error) {
       console.error("Failed to delete word:", error);
+      setEditError("Kunde inte radera ordet. Försök igen.");
+    } finally {
+      setDeletingWord(false);
     }
   }
 
@@ -281,7 +448,10 @@ export default function DictionaryPage() {
             startsWithSearch(item.text_to, normalizedSearch),
         )
         .map((item) => {
-          const fromMatches = startsWithSearch(item.text_from, normalizedSearch);
+          const fromMatches = startsWithSearch(
+            item.text_from,
+            normalizedSearch,
+          );
           const toMatches = startsWithSearch(item.text_to, normalizedSearch);
           return toMatches && !fromMatches
             ? { ...item, text_from: item.text_to, text_to: item.text_from }
@@ -298,12 +468,18 @@ export default function DictionaryPage() {
         );
 
   function renderInfoPopup(item: Translation, location: "results" | "list") {
-    if (selectedInformation?.wordId !== item.word_id || selectedInformation.location !== location) {
+    if (
+      selectedInformation?.wordId !== item.word_id ||
+      selectedInformation.location !== location
+    ) {
       return null;
     }
 
     return (
-      <View style={styles.inlineInfoPopup} onTouchEnd={(event) => event.stopPropagation()}>
+      <View
+        style={styles.inlineInfoPopup}
+        onTouchEnd={(event) => event.stopPropagation()}
+      >
         <ScrollView
           style={styles.inlineInfoScroll}
           contentContainerStyle={styles.inlineInfoScrollContent}
@@ -338,7 +514,13 @@ export default function DictionaryPage() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]} onTouchEnd={() => { if (selectedInformation) setSelectedInformation(null); }}>
+    <SafeAreaView
+      style={styles.container}
+      edges={["top", "bottom"]}
+      onTouchEnd={() => {
+        if (selectedInformation) setSelectedInformation(null);
+      }}
+    >
       <BackButton
         onPress={() =>
           router.dismissTo({
@@ -355,6 +537,31 @@ export default function DictionaryPage() {
         {languageNames[String(to ?? "").toLowerCase()]} ·{" "}
         {filteredTranslations.length} {t("words")}
       </Text>
+
+      <View style={styles.displayModeBar}>
+        <TouchableOpacity
+          style={styles.displayModeButton}
+          onPress={() => {
+            void toggleDisplayMode();
+          }}
+          disabled={!displayReady}
+          accessibilityRole="button"
+          accessibilityLabel={
+            displayMode === "stacked"
+              ? "Visa ord bredvid varandra"
+              : "Visa ord under varandra"
+          }
+        >
+          <FontAwesome
+            name={displayMode === "stacked" ? "columns" : "bars"}
+            size={14}
+            color="#64748B"
+          />
+          <Text style={styles.displayModeLabel}>
+            {displayMode === "stacked" ? "Bredvid varandra" : "Under varandra"}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <SearchBar
         value={searchText}
@@ -378,9 +585,29 @@ export default function DictionaryPage() {
               {searchResults.slice(0, MAX_RESULTS).map((item) => (
                 <View key={item.word_id}>
                   <View style={styles.searchResultRow}>
-                    <View style={styles.searchResultText}>
-                      <Text style={styles.word}>{item.text_from}</Text>
-                      <Text style={styles.translation}>{item.text_to}</Text>
+                    <View
+                      style={[
+                        styles.searchResultText,
+                        displayMode === "side" && styles.sideTextRow,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.word,
+                          displayMode === "side" && styles.sideColumn,
+                        ]}
+                      >
+                        {item.text_from}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.translation,
+                          displayMode === "side" &&
+                            styles.sideColumnTranslation,
+                        ]}
+                      >
+                        {item.text_to}
+                      </Text>
                     </View>
                     {renderInfoButton(item, "results")}
                     <TouchableOpacity
@@ -407,36 +634,188 @@ export default function DictionaryPage() {
       )}
 
       <FlatList
-        data={hasEnoughLetters ? searchResults.slice(MAX_RESULTS) : filteredTranslations}
+        data={
+          hasEnoughLetters
+            ? searchResults.slice(MAX_RESULTS)
+            : filteredTranslations
+        }
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => String(item.word_id)}
         renderItem={({ item }) => (
           <View style={styles.row}>
-            <View style={styles.wordRow}>
-              <Text style={styles.word}>{item.text_from}</Text>
-              {renderInfoButton(item, "list")}
-
-              <TouchableOpacity
-                onPress={() => openEditWord(item)}
-                style={styles.editButton}
-                hitSlop={6}
-              >
-                <FontAwesome name="pencil" size={12} color="#9ca3af" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.translation}>{item.text_to}</Text>
+            {displayMode === "side" ? (
+              <View style={styles.wordRow}>
+                <Text style={[styles.word, styles.sideColumn]}>
+                  {item.text_from}
+                </Text>
+                <Text
+                  style={[styles.translation, styles.sideColumnTranslation]}
+                >
+                  {item.text_to}
+                </Text>
+                {renderInfoButton(item, "list")}
+                <TouchableOpacity
+                  onPress={() => openEditWord(item)}
+                  style={styles.editButton}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Redigera ${item.text_from}`}
+                >
+                  <FontAwesome name="pencil" size={12} color="#9ca3af" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={styles.wordRow}>
+                  <Text style={styles.word}>{item.text_from}</Text>
+                  {renderInfoButton(item, "list")}
+                  <TouchableOpacity
+                    onPress={() => openEditWord(item)}
+                    style={styles.editButton}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Redigera ${item.text_from}`}
+                  >
+                    <FontAwesome name="pencil" size={12} color="#9ca3af" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.translation}>{item.text_to}</Text>
+              </>
+            )}
             {renderInfoPopup(item, "list")}
           </View>
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={true}
         ListEmptyComponent={
-          !hasEnoughLetters && !searchText.trim()
-            ? <Text style={styles.empty}>{t("noWordsYet")}</Text>
-            : null
+          !hasEnoughLetters && !searchText.trim() ? (
+            <Text style={styles.empty}>{t("noWordsYet")}</Text>
+          ) : null
         }
       />
+
+      <TouchableOpacity
+        style={styles.addWordPlusButton}
+        onPress={() => {
+          void openAddWord();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Lägg till ord"
+        activeOpacity={0.8}
+      >
+        <Text style={styles.addWordPlusText}>+</Text>
+      </TouchableOpacity>
+
+      <Modal
+        visible={showAddWord}
+        transparent
+        animationType="fade"
+        onRequestClose={closeAddWord}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editModal}>
+            <TouchableOpacity
+              onPress={closeAddWord}
+              style={styles.closeModalButton}
+            >
+              <Text style={styles.closeModalText}>×</Text>
+            </TouchableOpacity>
+            <Text style={styles.editTitle}>Lägg till ord</Text>
+            <Text style={styles.editLabel}>
+              {languageNames[String(from ?? "").toLowerCase()]}
+            </Text>
+            <TextInput
+              style={styles.editInput}
+              value={newWord}
+              onChangeText={(value) => {
+                setNewWord(value);
+                setAddError("");
+              }}
+              placeholder="Ord"
+              placeholderTextColor="#94A3B8"
+              autoCapitalize="none"
+            />
+            <Text style={styles.editLabel}>
+              {languageNames[String(to ?? "").toLowerCase()]}
+            </Text>
+            <TextInput
+              style={styles.editInput}
+              value={newTranslation}
+              onChangeText={(value) => {
+                setNewTranslation(value);
+                setAddError("");
+              }}
+              placeholder="Översättning"
+              placeholderTextColor="#94A3B8"
+              autoCapitalize="none"
+            />
+            <Text style={styles.editLabel}>Information (valfritt)</Text>
+            <TextInput
+              style={[styles.editInput, styles.editInformationInput]}
+              value={newInformation}
+              onChangeText={(value) => {
+                setNewInformation(value);
+                setAddError("");
+              }}
+              placeholder="Lägg till information om ordet..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              textAlignVertical="top"
+            />
+            <Text style={styles.editLabel}>Kategori (valfritt)</Text>
+            <ScrollView
+              style={styles.addCategoriesScroll}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+            >
+              {wordCategories
+                .filter((item) => item.name !== "Övrigt")
+                .map((item) => {
+                  const selected = selectedCategoryIds.includes(item.id);
+                  const code = String(from ?? "").toLowerCase();
+                  const name =
+                    (code === "sv"
+                      ? item.name_sv
+                      : code === "en"
+                        ? item.name_en
+                        : item.name_es) || item.name;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        styles.addCategoryChoice,
+                        selected && styles.addCategoryChoiceSelected,
+                      ]}
+                      onPress={() => {
+                        setSelectedCategoryIds((current) =>
+                          selected
+                            ? current.filter((id) => id !== item.id)
+                            : [...current, item.id],
+                        );
+                        setAddError("");
+                      }}
+                    >
+                      <Text style={styles.addCategoryChoiceText}>
+                        {selected ? "✓  " : ""}
+                        {name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+            </ScrollView>
+            {!!addError && <Text style={styles.editError}>{addError}</Text>}
+            <TouchableOpacity
+              style={styles.addSaveButton}
+              onPress={() => {
+                void addWord();
+              }}
+              disabled={addingWord}
+            >
+              <Text style={styles.addSaveButtonText}>{t("add")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* REDIGERA-MODAL */}
       <Modal
@@ -463,7 +842,10 @@ export default function DictionaryPage() {
 
             <TextInput
               value={editTextFrom}
-              onChangeText={setEditTextFrom}
+              onChangeText={(value) => {
+                setEditTextFrom(value);
+                setEditError("");
+              }}
               style={styles.editInput}
               autoCapitalize="none"
               autoCorrect={false}
@@ -475,7 +857,10 @@ export default function DictionaryPage() {
 
             <TextInput
               value={editTextTo}
-              onChangeText={setEditTextTo}
+              onChangeText={(value) => {
+                setEditTextTo(value);
+                setEditError("");
+              }}
               style={styles.editInput}
               autoCapitalize="none"
               autoCorrect={false}
@@ -485,7 +870,10 @@ export default function DictionaryPage() {
 
             <TextInput
               value={editInformation}
-              onChangeText={setEditInformation}
+              onChangeText={(value) => {
+                setEditInformation(value);
+                setEditError("");
+              }}
               style={[styles.editInput, styles.editInformationInput]}
               multiline
               textAlignVertical="top"
@@ -494,6 +882,8 @@ export default function DictionaryPage() {
               placeholder="Lägg till information om ordet..."
               placeholderTextColor="#94A3B8"
             />
+
+            {!!editError && <Text style={styles.editError}>{editError}</Text>}
 
             {/* RADERA + SPARA */}
             <View
@@ -506,7 +896,8 @@ export default function DictionaryPage() {
               }}
             >
               <TouchableOpacity
-                onPress={deleteWord}
+                onPress={confirmDeleteWord}
+                disabled={savingEdit || deletingWord}
                 style={{
                   backgroundColor: "#fee2e2",
                   borderRadius: 10,
@@ -527,6 +918,7 @@ export default function DictionaryPage() {
 
               <TouchableOpacity
                 onPress={saveEditedWord}
+                disabled={savingEdit || deletingWord}
                 style={{
                   backgroundColor: "#e0e7ff",
                   borderRadius: 10,
@@ -564,9 +956,40 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-
-
-
+  displayModeBar: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 8,
+  },
+  displayModeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
+  },
+  displayModeLabel: {
+    fontSize: 11,
+    color: "#64748B",
+  },
+  sideTextRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  sideColumn: {
+    flex: 1,
+    paddingRight: 0,
+  },
+  sideColumnTranslation: {
+    flex: 1,
+    marginTop: 0,
+    paddingRight: 4,
+  },
 
   title: {
     fontSize: 20,
@@ -581,10 +1004,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
-
-
-
-
 
   searchHint: {
     fontSize: 13,
@@ -701,6 +1120,47 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
 
+  addWordPlusButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignSelf: "flex-end",
+    marginBottom: 12,
+    marginRight: 2,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addWordPlusText: {
+    fontSize: 21,
+    lineHeight: 23,
+    color: "#2563EB",
+    fontWeight: "500",
+  },
+  addCategoriesScroll: { maxHeight: 135, marginBottom: 12 },
+  addCategoryChoice: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 6,
+  },
+  addCategoryChoiceSelected: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#BFDBFE",
+  },
+  addCategoryChoiceText: { color: "#334155", fontSize: 13 },
+  addSaveButton: {
+    backgroundColor: "#E0E7FF",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  addSaveButtonText: { color: "#4338CA", fontWeight: "600", fontSize: 14 },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
@@ -764,6 +1224,13 @@ const styles = StyleSheet.create({
     height: 90,
     paddingTop: 10,
     paddingBottom: 10,
+  },
+
+  editError: {
+    color: "#9A5B22",
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 10,
   },
 
   modalButtons: {

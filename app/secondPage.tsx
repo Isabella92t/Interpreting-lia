@@ -9,7 +9,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -42,15 +41,18 @@ const CATEGORY_EXPANDED_KEY = "categoriesExpanded";
 const MIN_SEARCH_LENGTH = 3;
 const MAX_RESULTS = 3;
 
+const languageNames: Record<string, string> = {
+  sv: "Svenska",
+  en: "English",
+  es: "Español",
+};
+
 function sortByRecentlyUsed(categories: Category[], recentNames: string[]) {
   const recent: Category[] = [];
 
   for (const name of recentNames) {
     const category = categories.find((item) => item.name === name);
-
-    if (category) {
-      recent.push(category);
-    }
+    if (category) recent.push(category);
   }
 
   const rest = categories.filter((item) => !recentNames.includes(item.name));
@@ -68,39 +70,26 @@ function splitIntoPages(categories: Category[]) {
   return pages;
 }
 
-/* ÄNDRAD: klarar både ord och hela fraser/meningar med mellanslag */
+// Söker på både ord och hela fraser.
 function startsWithSearch(text: string, searchText: string) {
   const normalizedText = text.toLowerCase().trim().replace(/\s+/g, " ");
 
   const normalizedSearch = searchText.toLowerCase().trim().replace(/\s+/g, " ");
 
-  if (!normalizedSearch) {
-    return false;
-  }
+  if (!normalizedSearch) return false;
 
-  /* Om man söker på flera ord, t.ex. "god morgon",
-     sök efter hela frasen i texten. */
   if (normalizedSearch.includes(" ")) {
     return normalizedText.includes(normalizedSearch);
   }
 
-  /* Om man söker på ett ord, t.ex. "god",
-     ska "god", "goda", "goddag" osv kunna hittas. */
   const words = normalizedText.split(/[\s/,()!?;:]+/);
 
   return words.some((word) => word.startsWith(normalizedSearch));
 }
 
-const languageNames: Record<string, string> = {
-  sv: "Svenska",
-  en: "English",
-  es: "Español",
-};
-
 export default function SecondPage() {
   const router = useRouter();
   const db = useSQLiteContext();
-
   const { t, language } = useUiLanguage();
 
   const { from, to } = useLocalSearchParams<{
@@ -109,11 +98,12 @@ export default function SecondPage() {
   }>();
 
   const [categories, setCategories] = useState<Category[]>([]);
+
   const [allTranslations, setAllTranslations] = useState<Translation[]>([]);
 
   const [search, setSearch] = useState("");
-
   const [recentCategories, setRecentCategories] = useState<string[]>([]);
+
   const [page, setPage] = useState(0);
   const [carouselWidth, setCarouselWidth] = useState(0);
 
@@ -125,16 +115,29 @@ export default function SecondPage() {
 
   const [word, setWord] = useState("");
   const [translation, setTranslation] = useState("");
+
   const [wordInformation, setWordInformation] = useState("");
-  const [selectedInformation, setSelectedInformation] = useState<Translation | null>(null);
+
+  const [selectedInformation, setSelectedInformation] =
+    useState<Translation | null>(null);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const [showAddCategory, setShowAddCategory] = useState(false);
 
   const [newCategorySv, setNewCategorySv] = useState("");
+
   const [newCategoryEn, setNewCategoryEn] = useState("");
+
   const [newCategoryEs, setNewCategoryEs] = useState("");
+
+  // Diskreta felmeddelanden.
+  const [wordError, setWordError] = useState("");
+  const [categoryError, setCategoryError] = useState("");
+
+  const [savingWord, setSavingWord] = useState(false);
+
+  const [savingCategory, setSavingCategory] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -142,9 +145,6 @@ export default function SecondPage() {
     loadCategoriesExpanded();
   }, []);
 
-  // Laddar om orden varje gång man kommer tillbaka till sidan.
-  // Annars söker man i en gammal lista, och ord man nyss lagt till
-  // eller ändrat i ordboken syns inte i sökningen.
   useFocusEffect(
     useCallback(() => {
       loadAllTranslations();
@@ -155,14 +155,14 @@ export default function SecondPage() {
     try {
       const result = await db.getAllAsync<Category>(
         `
-          SELECT
-            id,
-            name,
-            name_sv,
-            name_en,
-            name_es
-          FROM tags
-          ORDER BY name ASC
+        SELECT
+          id,
+          name,
+          name_sv,
+          name_en,
+          name_es
+        FROM tags
+        ORDER BY name ASC
         `,
       );
 
@@ -198,7 +198,6 @@ export default function SecondPage() {
 
   async function toggleCategoriesExpanded() {
     const newValue = !categoriesExpanded;
-
     setCategoriesExpanded(newValue);
 
     try {
@@ -230,6 +229,7 @@ export default function SecondPage() {
 
   async function loadAllTranslations() {
     const fromLanguage = languageNames[String(from).toLowerCase()];
+
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
@@ -248,22 +248,26 @@ export default function SecondPage() {
 
           FROM translations AS from_translation
 
-          INNER JOIN words ON words.id = from_translation.word_id
+          INNER JOIN words
+            ON words.id = from_translation.word_id
 
           INNER JOIN translations AS to_translation
-            ON from_translation.word_id = to_translation.word_id
+            ON from_translation.word_id =
+               to_translation.word_id
 
           INNER JOIN languages AS from_language
-            ON from_translation.language_id = from_language.id
+            ON from_translation.language_id =
+               from_language.id
 
           INNER JOIN languages AS to_language
-            ON to_translation.language_id = to_language.id
+            ON to_translation.language_id =
+               to_language.id
 
           WHERE from_language.name = ?
             AND to_language.name = ?
 
           ORDER BY LOWER(from_translation.text) ASC
-        `,
+          `,
         fromLanguage,
         toLanguage,
       );
@@ -283,7 +287,9 @@ export default function SecondPage() {
     const currentLanguage = String(language).toLowerCase();
 
     const svenska = category.name_sv?.trim() || "";
+
     const engelska = category.name_en?.trim() || "";
+
     const spanska = category.name_es?.trim() || "";
 
     if (currentLanguage === "sv") {
@@ -301,7 +307,30 @@ export default function SecondPage() {
     return svenska || engelska || spanska || category.name;
   }
 
+  function closeAddCategory() {
+    if (savingCategory) return;
+
+    setNewCategorySv("");
+    setNewCategoryEn("");
+    setNewCategoryEs("");
+    setCategoryError("");
+    setShowAddCategory(false);
+  }
+
+  function closeAddWord() {
+    if (savingWord) return;
+
+    setWord("");
+    setTranslation("");
+    setWordInformation("");
+    setSelectedCategories([]);
+    setWordError("");
+    setShowAddWord(false);
+  }
+
   async function addCategory() {
+    if (savingCategory) return;
+
     const categorySv = newCategorySv.trim();
     const categoryEn = newCategoryEn.trim();
     const categoryEs = newCategoryEs.trim();
@@ -311,18 +340,21 @@ export default function SecondPage() {
     ).length;
 
     if (filledLanguages < 2) {
-      Alert.alert(t("fillTwoLanguages"), t("fillTwoLanguagesHelp"));
-
+      setCategoryError(t("fillTwoLanguagesHelp"));
       return;
     }
 
     const fromLanguage = languageNames[String(from).toLowerCase()];
+
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
-      Alert.alert(t("languagesNotFound"));
+      setCategoryError(t("languagesNotFound"));
       return;
     }
+
+    setSavingCategory(true);
+    setCategoryError("");
 
     try {
       const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
@@ -336,7 +368,7 @@ export default function SecondPage() {
       );
 
       if (!fromLanguageResult || !toLanguageResult) {
-        Alert.alert(t("languagesNotFound"));
+        setCategoryError(t("languagesNotFound"));
         return;
       }
 
@@ -349,28 +381,28 @@ export default function SecondPage() {
           WHERE LOWER(name) = LOWER(?)
             AND from_language_id = ?
             AND to_language_id = ?
-        `,
+          `,
         internalName,
         fromLanguageResult.id,
         toLanguageResult.id,
       );
 
       if (existingCategory) {
-        Alert.alert(t("categoryExists"));
+        setCategoryError(t("categoryExists"));
         return;
       }
 
       await db.runAsync(
         `
-          INSERT INTO tags (
-            name,
-            name_sv,
-            name_en,
-            name_es,
-            from_language_id,
-            to_language_id
-          )
-          VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO tags (
+          name,
+          name_sv,
+          name_en,
+          name_es,
+          from_language_id,
+          to_language_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
         `,
         internalName,
         categorySv,
@@ -380,141 +412,160 @@ export default function SecondPage() {
         toLanguageResult.id,
       );
 
-      setNewCategorySv("");
-      setNewCategoryEn("");
-      setNewCategoryEs("");
-      setShowAddCategory(false);
-
       await loadCategories();
-
-      Alert.alert(t("categoryAdded"));
+      closeCategoryAfterSave();
     } catch (error) {
       console.error("Kunde inte spara kategori:", error);
 
-      Alert.alert(t("categorySaveFailed"), t("categorySaveFailedHelp"));
+      setCategoryError(t("categorySaveFailedHelp"));
+    } finally {
+      setSavingCategory(false);
     }
   }
 
+  function closeCategoryAfterSave() {
+    setNewCategorySv("");
+    setNewCategoryEn("");
+    setNewCategoryEs("");
+    setCategoryError("");
+    setShowAddCategory(false);
+  }
+
   async function addWord() {
+    if (savingWord) return;
+
     if (!word.trim() || !translation.trim()) {
-      Alert.alert(t("fillAllFields"));
+      setWordError(t("fillAllFields"));
       return;
     }
 
     const fromLanguage = languageNames[String(from).toLowerCase()];
+
     const toLanguage = languageNames[String(to).toLowerCase()];
 
     if (!fromLanguage || !toLanguage) {
-      Alert.alert(t("languagesNotFound"));
+      setWordError(t("languagesNotFound"));
       return;
     }
 
-    await db.runAsync(
-      "INSERT OR IGNORE INTO words (name) VALUES (?)",
-      word.trim(),
-    );
+    setSavingWord(true);
+    setWordError("");
 
-    const wordResult = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM words WHERE name = ?",
-      word.trim(),
-    );
+    try {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO words (name) VALUES (?)",
+        word.trim(),
+      );
 
-    if (!wordResult) {
-      return;
-    }
+      const wordResult = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM words WHERE name = ?",
+        word.trim(),
+      );
 
-    const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM languages WHERE name = ?",
-      fromLanguage,
-    );
+      if (!wordResult) {
+        setWordError("Kunde inte spara ordet. Försök igen.");
+        return;
+      }
 
-    const toLanguageResult = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM languages WHERE name = ?",
-      toLanguage,
-    );
+      const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM languages WHERE name = ?",
+        fromLanguage,
+      );
 
-    if (fromLanguageResult) {
+      const toLanguageResult = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM languages WHERE name = ?",
+        toLanguage,
+      );
+
+      if (!fromLanguageResult || !toLanguageResult) {
+        setWordError(t("languagesNotFound"));
+        return;
+      }
+
       await db.runAsync(
         `
-          INSERT OR IGNORE INTO translations
-            (word_id, language_id, text)
-            VALUES (?, ?, ?)
+        INSERT OR IGNORE INTO translations
+          (word_id, language_id, text)
+        VALUES (?, ?, ?)
         `,
         wordResult.id,
         fromLanguageResult.id,
         word.trim(),
       );
-    }
 
-    if (toLanguageResult) {
       await db.runAsync(
         `
-          INSERT OR IGNORE INTO translations
-            (word_id, language_id, text)
-            VALUES (?, ?, ?)
+        INSERT OR IGNORE INTO translations
+          (word_id, language_id, text)
+        VALUES (?, ?, ?)
         `,
         wordResult.id,
         toLanguageResult.id,
         translation.trim(),
       );
-    }
 
-    // Spara frivillig information utan att skriva över befintlig text med ett tomt fält.
-    if (wordInformation.trim()) {
-      await db.runAsync(
-        "UPDATE words SET information = ? WHERE id = ?",
-        wordInformation.trim(),
-        wordResult.id,
-      );
-    }
-
-    if (selectedCategories.length === 0) {
-      const otherCategory = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM tags WHERE name = ?",
-        "Övrigt",
-      );
-
-      if (otherCategory) {
+      // Frivillig information.
+      if (wordInformation.trim()) {
         await db.runAsync(
-          `
-            INSERT OR IGNORE INTO word_tags
-              (word_id, tag_id)
-              VALUES (?, ?)
-          `,
+          "UPDATE words SET information = ? WHERE id = ?",
+          wordInformation.trim(),
           wordResult.id,
-          otherCategory.id,
         );
       }
-    } else {
-      for (const categoryName of selectedCategories) {
-        const categoryResult = await db.getFirstAsync<{ id: number }>(
+
+      if (selectedCategories.length === 0) {
+        const otherCategory = await db.getFirstAsync<{ id: number }>(
           "SELECT id FROM tags WHERE name = ?",
-          categoryName,
+          "Övrigt",
         );
 
-        if (categoryResult) {
+        if (otherCategory) {
           await db.runAsync(
             `
-              INSERT OR IGNORE INTO word_tags
-                (word_id, tag_id)
-                VALUES (?, ?)
+            INSERT OR IGNORE INTO word_tags
+              (word_id, tag_id)
+            VALUES (?, ?)
             `,
             wordResult.id,
-            categoryResult.id,
+            otherCategory.id,
           );
         }
+      } else {
+        for (const categoryName of selectedCategories) {
+          const categoryResult = await db.getFirstAsync<{ id: number }>(
+            "SELECT id FROM tags WHERE name = ?",
+            categoryName,
+          );
+
+          if (categoryResult) {
+            await db.runAsync(
+              `
+              INSERT OR IGNORE INTO word_tags
+                (word_id, tag_id)
+              VALUES (?, ?)
+              `,
+              wordResult.id,
+              categoryResult.id,
+            );
+          }
+        }
       }
+
+      await loadAllTranslations();
+
+      setWord("");
+      setTranslation("");
+      setWordInformation("");
+      setSelectedCategories([]);
+      setWordError("");
+      setShowAddWord(false);
+    } catch (error) {
+      console.error("Kunde inte spara ord:", error);
+
+      setWordError("Kunde inte spara ordet. Försök igen.");
+    } finally {
+      setSavingWord(false);
     }
-
-    await loadAllTranslations();
-
-    setWord("");
-    setTranslation("");
-    setWordInformation("");
-    setSelectedCategories([]);
-    setShowAddWord(false);
-
-    Alert.alert(t("wordAdded"));
   }
 
   function toggleCategory(categoryName: string) {
@@ -528,10 +579,9 @@ export default function SecondPage() {
   }
 
   const searchText = search.trim().toLowerCase();
+
   const hasEnoughLetters = searchText.length >= MIN_SEARCH_LENGTH;
 
-  /* ÄNDRAD: söker i både text_from och text_to och vänder resultatet
-     om det är text_to som matchar. */
   const searchResults = hasEnoughLetters
     ? allTranslations
         .filter(
@@ -541,6 +591,7 @@ export default function SecondPage() {
         )
         .map((item) => {
           const fromMatches = startsWithSearch(item.text_from, searchText);
+
           const toMatches = startsWithSearch(item.text_to, searchText);
 
           if (toMatches && !fromMatches) {
@@ -590,7 +641,9 @@ export default function SecondPage() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         onTouchEnd={() => {
-          if (selectedInformation) setSelectedInformation(null);
+          if (selectedInformation) {
+            setSelectedInformation(null);
+          }
         }}
       >
         {/* HEADER */}
@@ -615,7 +668,7 @@ export default function SecondPage() {
           </Text>
         </View>
 
-        {/* GLOBAL SÖKNING */}
+        {/* SÖKNING */}
 
         <SearchBar
           value={search}
@@ -640,7 +693,10 @@ export default function SecondPage() {
                     <View style={styles.searchRow}>
                       <View style={styles.searchTextContainer}>
                         <Text style={styles.searchWord}>{item.text_from}</Text>
-                        <Text style={styles.searchTranslation}>{item.text_to}</Text>
+
+                        <Text style={styles.searchTranslation}>
+                          {item.text_to}
+                        </Text>
                       </View>
 
                       {!!item.information?.trim() && (
@@ -655,7 +711,11 @@ export default function SecondPage() {
                           accessibilityLabel={`Visa information om ${item.text_from}`}
                           style={styles.infoButton}
                         >
-                          <FontAwesome name="info-circle" size={15} color="#2563EB" />
+                          <FontAwesome
+                            name="info-circle"
+                            size={15}
+                            color="#2563EB"
+                          />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -670,7 +730,9 @@ export default function SecondPage() {
                           contentContainerStyle={styles.inlineInfoScrollContent}
                           nestedScrollEnabled
                         >
-                          <Text style={styles.informationBody}>{item.information}</Text>
+                          <Text style={styles.informationBody}>
+                            {item.information}
+                          </Text>
                         </ScrollView>
                       </View>
                     )}
@@ -708,7 +770,10 @@ export default function SecondPage() {
 
           <TouchableOpacity
             style={styles.addCategoryButton}
-            onPress={() => setShowAddCategory(true)}
+            onPress={() => {
+              setCategoryError("");
+              setShowAddCategory(true);
+            }}
             activeOpacity={0.8}
           >
             <Text style={styles.addCategoryText}>+</Text>
@@ -756,12 +821,22 @@ export default function SecondPage() {
                   categoryPages.map((categoriesOnPage, pageIndex) => (
                     <View
                       key={pageIndex}
-                      style={[styles.carouselPage, { width: carouselWidth }]}
+                      style={[
+                        styles.carouselPage,
+                        {
+                          width: carouselWidth,
+                        },
+                      ]}
                     >
                       {categoriesOnPage.map((category) => (
                         <TouchableOpacity
                           key={category.id}
-                          style={[styles.categoryCard, { width: boxWidth }]}
+                          style={[
+                            styles.categoryCard,
+                            {
+                              width: boxWidth,
+                            },
+                          ]}
                           onPress={() => openCategory(category.name)}
                           activeOpacity={0.8}
                         >
@@ -790,7 +865,7 @@ export default function SecondPage() {
           </View>
         )}
 
-        {/* HUVUDFUNKTIONER */}
+        {/* ORDBOK OCH ÖVRIGA VYER */}
 
         <View style={styles.sectionHeaderSimple}>
           <Text style={styles.sectionTitle}>Ord & uttryck</Text>
@@ -801,10 +876,7 @@ export default function SecondPage() {
           onPress={() =>
             router.push({
               pathname: "/dictionaryPage",
-              params: {
-                from,
-                to,
-              },
+              params: { from, to },
             })
           }
           activeOpacity={0.8}
@@ -825,10 +897,7 @@ export default function SecondPage() {
           onPress={() =>
             router.push({
               pathname: "/idiomsPage",
-              params: {
-                from,
-                to,
-              },
+              params: { from, to },
             })
           }
           activeOpacity={0.8}
@@ -849,10 +918,7 @@ export default function SecondPage() {
           onPress={() =>
             router.push({
               pathname: "/notesPage",
-              params: {
-                from,
-                to,
-              },
+              params: { from, to },
             })
           }
           activeOpacity={0.8}
@@ -873,10 +939,7 @@ export default function SecondPage() {
           onPress={() =>
             router.push({
               pathname: "/flashcardsPage",
-              params: {
-                from,
-                to,
-              },
+              params: { from, to },
             })
           }
           activeOpacity={0.8}
@@ -896,7 +959,10 @@ export default function SecondPage() {
 
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => setShowAddWord(true)}
+          onPress={() => {
+            setWordError("");
+            setShowAddWord(true);
+          }}
           activeOpacity={0.8}
         >
           <Text style={styles.secondaryButtonPlus}>+</Text>
@@ -905,13 +971,13 @@ export default function SecondPage() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* LÄGG TILL KATEGORI */}
+      {/* MODAL: LÄGG TILL KATEGORI */}
 
       <Modal
         visible={showAddCategory}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowAddCategory(false)}
+        onRequestClose={closeAddCategory}
       >
         <View style={styles.modalBackground}>
           <View style={styles.categoryModal}>
@@ -924,7 +990,10 @@ export default function SecondPage() {
               placeholder={t("categoryNameSv")}
               placeholderTextColor="#94A3B8"
               value={newCategorySv}
-              onChangeText={setNewCategorySv}
+              onChangeText={(value) => {
+                setNewCategorySv(value);
+                setCategoryError("");
+              }}
               autoFocus
             />
 
@@ -935,7 +1004,10 @@ export default function SecondPage() {
               placeholder={t("categoryNameEn")}
               placeholderTextColor="#94A3B8"
               value={newCategoryEn}
-              onChangeText={setNewCategoryEn}
+              onChangeText={(value) => {
+                setNewCategoryEn(value);
+                setCategoryError("");
+              }}
             />
 
             <Text style={styles.languageLabel}>Español</Text>
@@ -945,27 +1017,36 @@ export default function SecondPage() {
               placeholder={t("categoryNameEs")}
               placeholderTextColor="#94A3B8"
               value={newCategoryEs}
-              onChangeText={setNewCategoryEs}
+              onChangeText={(value) => {
+                setNewCategoryEs(value);
+                setCategoryError("");
+              }}
             />
 
             <Text style={styles.categoryHint}>{t("fillTwoLanguages")}</Text>
 
+            {!!categoryError && (
+              <Text style={styles.formError}>{categoryError}</Text>
+            )}
+
             <TouchableOpacity
-              style={styles.modalPrimaryButton}
+              style={[
+                styles.modalPrimaryButton,
+                savingCategory && styles.disabledButton,
+              ]}
               onPress={addCategory}
+              disabled={savingCategory}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalPrimaryButtonText}>{t("add")}</Text>
+              <Text style={styles.modalPrimaryButtonText}>
+                {savingCategory ? "Sparar..." : t("add")}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.modalCancelButton}
-              onPress={() => {
-                setNewCategorySv("");
-                setNewCategoryEn("");
-                setNewCategoryEs("");
-                setShowAddCategory(false);
-              }}
+              onPress={closeAddCategory}
+              disabled={savingCategory}
               activeOpacity={0.8}
             >
               <Text style={styles.modalCancelText}>{t("cancel")}</Text>
@@ -974,104 +1055,128 @@ export default function SecondPage() {
         </View>
       </Modal>
 
-      {/* LÄGG TILL ORD */}
+      {/* MODAL: LÄGG TILL ORD */}
 
       <Modal
         visible={showAddWord}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowAddWord(false)}
+        onRequestClose={closeAddWord}
       >
         <View style={styles.modalBackground}>
-          <View style={styles.categoryModal}>
-            <Text style={styles.modalTitle}>{t("addWord")}</Text>
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.categoryModal}>
+              <Text style={styles.modalTitle}>{t("addWord")}</Text>
 
-            <View style={styles.modalLanguagePair}>
-              <Text style={styles.modalLanguageText}>{from}</Text>
+              <View style={styles.modalLanguagePair}>
+                <Text style={styles.modalLanguageText}>{from}</Text>
 
-              <Text style={styles.modalLanguageArrow}>→</Text>
+                <Text style={styles.modalLanguageArrow}>→</Text>
 
-              <Text style={styles.modalLanguageText}>{to}</Text>
-            </View>
+                <Text style={styles.modalLanguageText}>{to}</Text>
+              </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder={t("word")}
-              placeholderTextColor="#94A3B8"
-              value={word}
-              onChangeText={setWord}
-            />
+              <TextInput
+                style={styles.input}
+                placeholder={t("word")}
+                placeholderTextColor="#94A3B8"
+                value={word}
+                onChangeText={(value) => {
+                  setWord(value);
+                  setWordError("");
+                }}
+              />
 
-            <TextInput
-              style={styles.input}
-              placeholder={t("translation")}
-              placeholderTextColor="#94A3B8"
-              value={translation}
-              onChangeText={setTranslation}
-            />
+              <TextInput
+                style={styles.input}
+                placeholder={t("translation")}
+                placeholderTextColor="#94A3B8"
+                value={translation}
+                onChangeText={(value) => {
+                  setTranslation(value);
+                  setWordError("");
+                }}
+              />
 
-            <Text style={styles.informationLabel}>Information (frivilligt)</Text>
-            <TextInput
-              style={[styles.input, styles.informationInput]}
-              placeholder="Skriv en förklaring eller anteckning om ordet..."
-              placeholderTextColor="#94A3B8"
-              value={wordInformation}
-              onChangeText={setWordInformation}
-              multiline
-              textAlignVertical="top"
-            />
+              <Text style={styles.informationLabel}>
+                Information (frivilligt)
+              </Text>
 
-            <Text style={styles.categoryTitle}>{t("category")}</Text>
+              <TextInput
+                style={[styles.input, styles.informationInput]}
+                placeholder="Skriv en förklaring eller anteckning om ordet..."
+                placeholderTextColor="#94A3B8"
+                value={wordInformation}
+                onChangeText={(value) => {
+                  setWordInformation(value);
+                  setWordError("");
+                }}
+                multiline
+                textAlignVertical="top"
+              />
 
-            <Text style={styles.optionalText}>{t("categoryOptional")}</Text>
+              <Text style={styles.categoryTitle}>{t("category")}</Text>
 
-            {categories
-              .filter((category) => category.name !== "Övrigt")
-              .map((category) => {
-                const isSelected = selectedCategories.includes(category.name);
+              <Text style={styles.optionalText}>{t("categoryOptional")}</Text>
 
-                return (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={
-                      isSelected ? styles.selectedCategory : styles.category
-                    }
-                    onPress={() => toggleCategory(category.name)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
+              {categories
+                .filter((category) => category.name !== "Övrigt")
+                .map((category) => {
+                  const isSelected = selectedCategories.includes(category.name);
+
+                  return (
+                    <TouchableOpacity
+                      key={category.id}
                       style={
-                        isSelected
-                          ? styles.selectedCategoryText
-                          : styles.categoryOptionText
+                        isSelected ? styles.selectedCategory : styles.category
                       }
+                      onPress={() => toggleCategory(category.name)}
+                      activeOpacity={0.8}
                     >
-                      {isSelected ? "✓  " : ""}
-                      {getCategoryName(category)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                      <Text
+                        style={
+                          isSelected
+                            ? styles.selectedCategoryText
+                            : styles.categoryOptionText
+                        }
+                      >
+                        {isSelected ? "✓  " : ""}
+                        {getCategoryName(category)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
 
-            <TouchableOpacity
-              style={styles.modalPrimaryButton}
-              onPress={addWord}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalPrimaryButtonText}>{t("add")}</Text>
-            </TouchableOpacity>
+              {!!wordError && <Text style={styles.formError}>{wordError}</Text>}
 
-            <TouchableOpacity
-              style={styles.modalCancelButton}
-              onPress={() => {
-                setSelectedCategories([]);
-                setShowAddWord(false);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalCancelText}>{t("cancel")}</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[
+                  styles.modalPrimaryButton,
+                  savingWord && styles.disabledButton,
+                ]}
+                onPress={addWord}
+                disabled={savingWord}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalPrimaryButtonText}>
+                  {savingWord ? "Sparar..." : t("add")}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={closeAddWord}
+                disabled={savingWord}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalCancelText}>{t("cancel")}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1094,16 +1199,12 @@ const styles = StyleSheet.create({
     paddingBottom: 50,
   },
 
-  /* HEADER */
-
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 16,
   },
-
-
 
   languagePair: {
     alignSelf: "center",
@@ -1123,10 +1224,6 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
     marginHorizontal: 10,
   },
-
-  /* SÖK */
-
-
 
   searchHint: {
     fontSize: 13,
@@ -1207,11 +1304,6 @@ const styles = StyleSheet.create({
     minHeight: 85,
   },
 
-  informationScroll: {
-    maxHeight: 260,
-    marginTop: 16,
-  },
-
   informationBody: {
     fontSize: 12,
     lineHeight: 18,
@@ -1230,8 +1322,6 @@ const styles = StyleSheet.create({
     padding: 12,
     textAlign: "center",
   },
-
-  /* SEKTIONER */
 
   sectionHeader: {
     flexDirection: "row",
@@ -1281,8 +1371,6 @@ const styles = StyleSheet.create({
     color: "#2563EB",
     fontWeight: "500",
   },
-
-  /* KATEGORIER */
 
   carouselRow: {
     flexDirection: "row",
@@ -1337,8 +1425,6 @@ const styles = StyleSheet.create({
     color: "#334155",
   },
 
-  /* HUVUDFUNKTIONER */
-
   featureCard: {
     minHeight: 76,
     borderRadius: 16,
@@ -1378,8 +1464,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  /* LÄGG TILL ORD */
-
   secondaryButton: {
     width: 170,
     height: 50,
@@ -1407,8 +1491,6 @@ const styles = StyleSheet.create({
     color: "#2563EB",
   },
 
-  /* MODAL */
-
   modalBackground: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.30)",
@@ -1417,26 +1499,16 @@ const styles = StyleSheet.create({
     padding: 20,
   },
 
+  modalScroll: {
+    width: "100%",
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+
   modalScrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 24,
-  },
-
-  modal: {
-    width: "100%",
-    maxWidth: 500,
-    backgroundColor: "#FFFFFF",
-    padding: 24,
-    borderRadius: 22,
-    shadowColor: "#000000",
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 8,
+    alignItems: "center",
   },
 
   categoryModal: {
@@ -1445,7 +1517,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     padding: 24,
     borderRadius: 22,
-    marginHorizontal: 24,
     shadowColor: "#000000",
     shadowOffset: {
       width: 0,
@@ -1563,6 +1634,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 
+  disabledButton: {
+    opacity: 0.6,
+  },
+
   modalPrimaryButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
@@ -1586,5 +1661,12 @@ const styles = StyleSheet.create({
     color: "#334155",
     fontSize: 15,
     fontWeight: "600",
+  },
+
+  formError: {
+    color: "#9A5B22",
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 10,
   },
 });
