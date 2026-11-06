@@ -1,4 +1,3 @@
-
 import { FontAwesome } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
@@ -31,6 +30,12 @@ type Note = {
   created_at: string;
   selected_date: string | null;
 };
+
+// Gör sökningen oberoende av stora/små bokstäver
+// och extra mellanslag.
+function normalizeSearchText(value: string) {
+  return value.toLowerCase().trim().replace(/\s+/g, " ");
+}
 
 function PaperLines() {
   return (
@@ -82,14 +87,18 @@ export default function NotesPage() {
     setNotes(result);
   }
 
-  // Sökningen letar i både rubrik och text.
-  const searchText = search.trim().toLowerCase();
+  // Söker i både rubrik och anteckningstext.
+  // Fungerar med ett ord, flera ord eller hela meningar.
+  const searchText = normalizeSearchText(search);
 
-  const visibleNotes = notes.filter(
-    (note) =>
-      note.title.toLowerCase().includes(searchText) ||
-      note.text.toLowerCase().includes(searchText),
-  );
+  const visibleNotes = notes.filter((note) => {
+    if (!searchText) return true;
+
+    const title = normalizeSearchText(note.title ?? "");
+    const text = normalizeSearchText(note.text ?? "");
+
+    return title.includes(searchText) || text.includes(searchText);
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -136,17 +145,13 @@ export default function NotesPage() {
             <View style={styles.marginLine} pointerEvents="none" />
 
             {item.selected_date && (
-              <Text style={styles.selectedDate}>
-                {item.selected_date}
-              </Text>
+              <Text style={styles.selectedDate}>{item.selected_date}</Text>
             )}
 
             <Text
               style={[
                 styles.paperTitle,
-                item.selected_date
-                  ? styles.paperTitleWithDate
-                  : undefined,
+                item.selected_date ? styles.paperTitleWithDate : undefined,
               ]}
               numberOfLines={1}
             >
@@ -162,9 +167,7 @@ export default function NotesPage() {
             </Text>
           </TouchableOpacity>
         )}
-        ListEmptyComponent={
-          <Text style={styles.empty}>{t("noNotesYet")}</Text>
-        }
+        ListEmptyComponent={<Text style={styles.empty}>{t("noNotesYet")}</Text>}
       />
 
       {/* Liten ljusblå plusknapp längst ner till höger */}

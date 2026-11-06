@@ -219,17 +219,10 @@ export default function DictionaryPage() {
     setSelectedCategoryIds([]);
     setShowAddWord(true);
     try {
-      const fromName = languageNames[String(from ?? "").toLowerCase()];
-      const toName = languageNames[String(to ?? "").toLowerCase()];
       const result = await db.getAllAsync<WordCategory>(
-        `SELECT tags.id, tags.name, tags.name_sv, tags.name_en, tags.name_es
+        `SELECT id, name, name_sv, name_en, name_es
          FROM tags
-         INNER JOIN languages AS fl ON fl.id = tags.from_language_id
-         INNER JOIN languages AS tl ON tl.id = tags.to_language_id
-         WHERE fl.name = ? AND tl.name = ?
-         ORDER BY LOWER(tags.name)`,
-        fromName,
-        toName,
+         ORDER BY LOWER(name)`,
       );
       setWordCategories(result);
       const currentCategory = result.find((item) => item.name === category);
@@ -731,8 +724,6 @@ export default function DictionaryPage() {
                 setNewWord(value);
                 setAddError("");
               }}
-              placeholder="Ord"
-              placeholderTextColor="#94A3B8"
               autoCapitalize="none"
             />
             <Text style={styles.editLabel}>
@@ -745,8 +736,6 @@ export default function DictionaryPage() {
                 setNewTranslation(value);
                 setAddError("");
               }}
-              placeholder="Översättning"
-              placeholderTextColor="#94A3B8"
               autoCapitalize="none"
             />
             <Text style={styles.editLabel}>Information (valfritt)</Text>
@@ -757,8 +746,6 @@ export default function DictionaryPage() {
                 setNewInformation(value);
                 setAddError("");
               }}
-              placeholder="Lägg till information om ordet..."
-              placeholderTextColor="#94A3B8"
               multiline
               textAlignVertical="top"
             />
@@ -879,8 +866,6 @@ export default function DictionaryPage() {
               textAlignVertical="top"
               autoCapitalize="sentences"
               autoCorrect={false}
-              placeholder="Lägg till information om ordet..."
-              placeholderTextColor="#94A3B8"
             />
 
             {!!editError && <Text style={styles.editError}>{editError}</Text>}
@@ -1264,3 +1249,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+

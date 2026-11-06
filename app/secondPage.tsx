@@ -972,8 +972,6 @@ export default function SecondPage() {
 
             <TextInput
               style={styles.input}
-              placeholder={t("categoryNameSv")}
-              placeholderTextColor="#94A3B8"
               value={newCategorySv}
               onChangeText={(value) => {
                 setNewCategorySv(value);
@@ -986,8 +984,6 @@ export default function SecondPage() {
 
             <TextInput
               style={styles.input}
-              placeholder={t("categoryNameEn")}
-              placeholderTextColor="#94A3B8"
               value={newCategoryEn}
               onChangeText={(value) => {
                 setNewCategoryEn(value);
@@ -999,8 +995,6 @@ export default function SecondPage() {
 
             <TextInput
               style={styles.input}
-              placeholder={t("categoryNameEs")}
-              placeholderTextColor="#94A3B8"
               value={newCategoryEs}
               onChangeText={(value) => {
                 setNewCategoryEs(value);
@@ -1067,8 +1061,6 @@ export default function SecondPage() {
 
               <TextInput
                 style={styles.input}
-                placeholder={t("word")}
-                placeholderTextColor="#94A3B8"
                 value={word}
                 onChangeText={(value) => {
                   setWord(value);
@@ -1078,8 +1070,6 @@ export default function SecondPage() {
 
               <TextInput
                 style={styles.input}
-                placeholder={t("translation")}
-                placeholderTextColor="#94A3B8"
                 value={translation}
                 onChangeText={(value) => {
                   setTranslation(value);
@@ -1093,8 +1083,6 @@ export default function SecondPage() {
 
               <TextInput
                 style={[styles.input, styles.informationInput]}
-                placeholder="Skriv en förklaring eller anteckning om ordet..."
-                placeholderTextColor="#94A3B8"
                 value={wordInformation}
                 onChangeText={(value) => {
                   setWordInformation(value);

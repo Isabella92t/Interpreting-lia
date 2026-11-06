@@ -8,7 +8,6 @@ import {
 } from "react-native";
 
 import { colors } from "@/constants/colors";
-import { useUiLanguage } from "@/context/ui-language-context";
 
 type Props = {
   value: string;
@@ -18,18 +17,15 @@ type Props = {
 
 // Samma sökruta på alla sidor.
 export function SearchBar({ value, onChangeText, style }: Props) {
-  const { t } = useUiLanguage();
-
   return (
     <View style={[styles.container, style]}>
       <FontAwesome name="search" size={16} color="#94A3B8" />
 
       <TextInput
         style={styles.input}
-        placeholder={t("searchPlaceholder")}
-        placeholderTextColor="#94A3B8"
         value={value}
         onChangeText={onChangeText}
+        accessibilityLabel="Sök"
         // Telefonen ska inte rätta eller ändra orden man söker på.
         // Annars kan till exempel ett spanskt ord bytas mot ett
         // engelskt, och då hittar sökningen ingenting.
