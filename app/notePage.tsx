@@ -11,30 +11,51 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "@/components/back-button";
-import { colors } from "@/constants/colors";
+import { LanguagePicker } from "@/components/language-picker";
 import { useUiLanguage } from "@/context/ui-language-context";
 
-// Höjden på varje skrivrad. Texten och linjerna använder samma värde,
-// annars hamnar texten mellan linjerna i stället för på dem.
 const LINE_HEIGHT = 28;
-
-// Hur många linjer vi ritar. Fler än man ser, och resten klipps bort.
 const LINE_COUNT = 40;
-
-// Hur många rader pappret är när det är tomt.
 const EMPTY_LINES = 14;
 
-// Ritar de blå linjerna på pappret, som i ett skrivblock.
 function PaperLines() {
   return (
     <View style={styles.lines} pointerEvents="none">
       {Array.from({ length: LINE_COUNT }).map((_, index) => (
         <View key={index} style={styles.line} />
       ))}
+    </View>
+  );
+}
+
+// Samma diskreta symbol som på övriga TolkAppen-sidor.
+function InterpreterWatermark() {
+  return (
+    <View
+      pointerEvents="none"
+      style={styles.watermark}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <View style={[styles.person, styles.personLeft]}>
+        <View style={[styles.personHead, { backgroundColor: "#A8CBE7" }]} />
+        <View style={[styles.personBody, { backgroundColor: "#A8CBE7" }]} />
+      </View>
+      <View style={[styles.person, styles.personCenter]}>
+        <View style={[styles.personHead, { backgroundColor: "#285F9D" }]} />
+        <View style={[styles.personBody, { backgroundColor: "#285F9D" }]} />
+        <View style={styles.badgeCord} />
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>TolkAppen</Text>
+        </View>
+      </View>
+      <View style={[styles.person, styles.personRight]}>
+        <View style={[styles.personHead, { backgroundColor: "#A8CBE7" }]} />
+        <View style={[styles.personBody, { backgroundColor: "#A8CBE7" }]} />
+      </View>
     </View>
   );
 }
@@ -50,7 +71,6 @@ export default function NotePage() {
   const router = useRouter();
   const db = useSQLiteContext();
   const { t } = useUiLanguage();
-
   const { id, from, to } = useLocalSearchParams<{
     id?: string;
     from?: string;
@@ -58,45 +78,28 @@ export default function NotePage() {
   }>();
 
   function goToNotes() {
-    router.dismissTo({
-      pathname: "/notesPage",
-      params: { from, to },
-    });
+    router.dismissTo({ pathname: "/notesPage", params: { from, to } });
   }
 
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
-
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      loadNote();
-    }
+    if (id) void loadNote();
   }, [id]);
 
   async function loadNote() {
     const note = await db.getFirstAsync<Note>(
-      `
-      SELECT
-        title,
-        text,
-        created_at,
-        selected_date
-      FROM notes
-      WHERE id = ?
-      `,
+      `SELECT title, text, created_at, selected_date FROM notes WHERE id = ?`,
       Number(id),
     );
-
     if (note) {
       setTitle(note.title);
       setText(note.text);
-
       if (note.selected_date) {
         const [year, month, day] = note.selected_date.split("-").map(Number);
-
         setSelectedDate(new Date(year, month - 1, day));
       }
     }
@@ -108,21 +111,14 @@ export default function NotePage() {
 
   function handleDateChange(event: any, date?: Date) {
     setShowDatePicker(false);
-
-    if (!date) {
-      return;
-    }
-
+    if (!date) return;
     setSelectedDate(date);
   }
 
   function formatDateOnly(date: Date) {
     const year = date.getFullYear();
-
     const month = String(date.getMonth() + 1).padStart(2, "0");
-
     const day = String(date.getDate()).padStart(2, "0");
-
     return `${year}-${month}-${day}`;
   }
 
@@ -131,33 +127,13 @@ export default function NotePage() {
       Alert.alert(t("writeSomethingFirst"));
       return;
     }
-
     const noteTitle = title.trim() || t("untitled");
-
-    /*
-     * Det valda datumet sparas som:
-     *
-     * YYYY-MM-DD
-     *
-     * Exempel:
-     * 2026-09-28
-     *
-     * Ingen tid sparas.
-     */
     const selectedDateValue = selectedDate
       ? formatDateOnly(selectedDate)
       : null;
-
     if (id) {
       await db.runAsync(
-        `
-        UPDATE notes
-        SET
-          title = ?,
-          text = ?,
-          selected_date = ?
-        WHERE id = ?
-        `,
+        `UPDATE notes SET title = ?, text = ?, selected_date = ? WHERE id = ?`,
         noteTitle,
         text.trim(),
         selectedDateValue,
@@ -165,45 +141,24 @@ export default function NotePage() {
       );
     } else {
       await db.runAsync(
-        `
-        INSERT INTO notes
-        (
-          title,
-          text,
-          created_at,
-          selected_date
-        )
-        VALUES (?, ?, ?, ?)
-        `,
+        `INSERT INTO notes (title, text, created_at, selected_date) VALUES (?, ?, ?, ?)`,
         noteTitle,
         text.trim(),
-
-        /*
-         * created_at är den automatiska
-         * skapandetiden och ska fortfarande
-         * innehålla datum + tid.
-         */
         new Date().toISOString(),
-
         selectedDateValue,
       );
     }
-
     goToNotes();
   }
 
   function deleteNote() {
     Alert.alert(t("deleteNoteTitle"), t("deleteNoteMessage"), [
-      {
-        text: t("cancel"),
-        style: "cancel",
-      },
+      { text: t("cancel"), style: "cancel" },
       {
         text: t("delete"),
         style: "destructive",
         onPress: async () => {
           await db.runAsync("DELETE FROM notes WHERE id = ?", Number(id));
-
           goToNotes();
         },
       },
@@ -212,34 +167,32 @@ export default function NotePage() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <InterpreterWatermark />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <BackButton onPress={goToNotes} />
+        <View style={styles.header}>
+          <BackButton onPress={goToNotes} />
+          <LanguagePicker />
+        </View>
 
-        {/* Själva anteckningen: ett vitt papper man skriver på. */}
+        {/* Behåll skrivpapprets linjer, marginal och växande textfält. */}
         <View style={styles.paper}>
-          {/* Den röda marginallinjen längst till vänster. */}
           <View style={styles.marginLine} pointerEvents="none" />
-
           <TextInput
             style={styles.titleInput}
             placeholder={t("noteTitle")}
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor="#91A5B9"
             value={title}
             onChangeText={setTitle}
           />
-
           <View style={styles.writingArea}>
             <PaperLines />
-
-            {/* scrollEnabled = false gör att rutan växer med texten,
-                så att hela sidan skrollar i stället för bara rutan. */}
             <TextInput
               style={styles.textInput}
               placeholder={t("noteText")}
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor="#91A5B9"
               value={text}
               onChangeText={setText}
               multiline
@@ -251,7 +204,6 @@ export default function NotePage() {
 
         <TouchableOpacity style={styles.dateButton} onPress={openDatePicker}>
           <Text style={styles.calendarSymbol}>📅</Text>
-
           <Text style={styles.dateButtonText}>
             {selectedDate ? formatDateOnly(selectedDate) : t("chooseDate")}
           </Text>
@@ -290,40 +242,31 @@ export default function NotePage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+  container: { flex: 1, backgroundColor: "#F5F9FD" },
+  content: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 40 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    minHeight: 42,
   },
-
-  content: {
-    paddingHorizontal: 22,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-
-  /* Pappret */
-
   paper: {
     marginTop: 16,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: colors.border,
-    // Papper har nästan raka hörn.
+    borderColor: "#DFE8F1",
     borderRadius: 4,
-    // Plats till vänster för marginallinjen.
     paddingLeft: 40,
     paddingRight: 18,
     paddingTop: 14,
     paddingBottom: 18,
     overflow: "hidden",
-    // En liten skugga, som ett blad som ligger på bordet.
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
+    shadowColor: "#203B59",
+    shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
+    elevation: 2,
   },
-
   marginLine: {
     position: "absolute",
     top: 0,
@@ -332,108 +275,103 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: "#F0BCBC",
   },
-
   titleInput: {
     fontSize: 20,
     fontWeight: "700",
-    color: colors.text,
+    color: "#203B59",
     paddingVertical: 8,
     paddingHorizontal: 0,
     borderBottomWidth: 1,
     borderBottomColor: "#C7D7EA",
     marginBottom: 6,
   },
-
-  // Linjerna och texten ligger i samma ruta, så att de börjar på
-  // exakt samma höjd. Rutan klipper bort linjer som inte får plats.
-  writingArea: {
-    minHeight: LINE_HEIGHT * EMPTY_LINES,
-    overflow: "hidden",
-  },
-
-  lines: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-
+  writingArea: { minHeight: LINE_HEIGHT * EMPTY_LINES, overflow: "hidden" },
+  lines: { position: "absolute", top: 0, left: 0, right: 0 },
   line: {
     height: LINE_HEIGHT,
     borderBottomWidth: 1,
     borderBottomColor: "#DFE8F2",
   },
-
   textInput: {
     minHeight: LINE_HEIGHT * EMPTY_LINES,
     fontSize: 16,
-    color: colors.text,
+    color: "#203B59",
     lineHeight: LINE_HEIGHT,
-    // Ingen inbyggd luft runt texten, annars hamnar den bredvid linjerna.
     paddingTop: 0,
     paddingBottom: 0,
     paddingHorizontal: 0,
     includeFontPadding: false,
     backgroundColor: "transparent",
   },
-
-  /* Under pappret */
-
   dateButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#DFE8F1",
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginTop: 20,
-    backgroundColor: colors.surface,
+    backgroundColor: "#FFFFFF",
   },
-
-  calendarSymbol: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-
-  dateButtonText: {
-    fontSize: 14,
-    color: colors.text,
-  },
-
-  removeDateButton: {
-    alignItems: "center",
-    marginTop: 8,
-  },
-
-  removeDateText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-
+  calendarSymbol: { fontSize: 16, marginRight: 8 },
+  dateButtonText: { fontSize: 14, color: "#203B59" },
+  removeDateButton: { alignItems: "center", marginTop: 8 },
+  removeDateText: { fontSize: 13, color: "#61758A" },
   saveButton: {
-    backgroundColor: "#111827",
+    backgroundColor: "#285F9D",
     padding: 14,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 20,
   },
-
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
+  saveButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
+  deleteButton: { padding: 14, alignItems: "center", marginTop: 8 },
+  deleteButtonText: { color: "#DC2626", fontSize: 15 },
+  watermark: {
+    position: "absolute",
+    left: "50%",
+    top: "34%",
+    marginLeft: -150,
+    width: 300,
+    height: 260,
+    opacity: 0.055,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "center",
   },
-
-  deleteButton: {
-    padding: 14,
+  person: {
+    width: 92,
+    height: 210,
     alignItems: "center",
-    marginTop: 8,
+    position: "relative",
   },
-
-  deleteButtonText: {
-    color: "#dc2626",
-    fontSize: 15,
+  personLeft: { transform: [{ translateX: 12 }, { scale: 0.83 }] },
+  personCenter: { zIndex: 2, transform: [{ scale: 1.07 }] },
+  personRight: { transform: [{ translateX: -12 }, { scale: 0.83 }] },
+  personHead: { width: 61, height: 61, borderRadius: 31 },
+  personBody: {
+    width: 88,
+    height: 135,
+    borderTopLeftRadius: 38,
+    borderTopRightRadius: 38,
+    marginTop: 10,
   },
+  badgeCord: {
+    position: "absolute",
+    top: 86,
+    height: 47,
+    width: 2,
+    backgroundColor: "#FFFFFF",
+  },
+  badge: {
+    position: "absolute",
+    top: 127,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 3,
+  },
+  badgeText: { color: "#285F9D", fontSize: 7, fontWeight: "700" },
 });

@@ -4,8 +4,8 @@ import { useSQLiteContext } from "expo-sqlite";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "@/components/back-button";
+import { LanguagePicker } from "@/components/language-picker";
 import { SearchBar } from "@/components/search-bar";
-import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useEffect, useState } from "react";
 import {
@@ -26,6 +26,7 @@ type Idiom = {
   idiom_id: number;
   text_from: string;
   text_to: string;
+  info: string | null;
 };
 
 const languageNames: Record<string, string> = {
@@ -33,6 +34,35 @@ const languageNames: Record<string, string> = {
   en: "English",
   es: "Español",
 };
+
+// Diskret vattenstämpel – tre personer, placerad bakom innehållet.
+function InterpreterWatermark() {
+  return (
+    <View
+      pointerEvents="none"
+      style={styles.watermark}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <View style={[styles.person, styles.personLeft]}>
+        <View style={[styles.personHead, { backgroundColor: "#A8CBE7" }]} />
+        <View style={[styles.personBody, { backgroundColor: "#A8CBE7" }]} />
+      </View>
+      <View style={[styles.person, styles.personCenter]}>
+        <View style={[styles.personHead, { backgroundColor: "#285F9D" }]} />
+        <View style={[styles.personBody, { backgroundColor: "#285F9D" }]} />
+        <View style={styles.badgeCord} />
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>TolkAppen</Text>
+        </View>
+      </View>
+      <View style={[styles.person, styles.personRight]}>
+        <View style={[styles.personHead, { backgroundColor: "#A8CBE7" }]} />
+        <View style={[styles.personBody, { backgroundColor: "#A8CBE7" }]} />
+      </View>
+    </View>
+  );
+}
 
 export default function IdiomsPage() {
   const router = useRouter();
@@ -54,6 +84,7 @@ export default function IdiomsPage() {
   const [showAddIdiom, setShowAddIdiom] = useState(false);
   const [newIdiom, setNewIdiom] = useState("");
   const [newTranslation, setNewTranslation] = useState("");
+  const [newInfo, setNewInfo] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -61,6 +92,8 @@ export default function IdiomsPage() {
   const [editingIdiom, setEditingIdiom] = useState<Idiom | null>(null);
   const [editIdiomText, setEditIdiomText] = useState("");
   const [editTranslationText, setEditTranslationText] = useState("");
+  const [editInfo, setEditInfo] = useState("");
+  const [showInfo, setShowInfo] = useState<string | null>(null);
   const [editError, setEditError] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingIdiom, setDeletingIdiom] = useState(false);
@@ -70,7 +103,7 @@ export default function IdiomsPage() {
   const toLanguage = languageNames[String(to ?? "").toLowerCase()];
 
   useEffect(() => {
-    loadIdioms();
+    void loadIdioms();
   }, [from, to]);
 
   useEffect(() => {
@@ -115,17 +148,30 @@ export default function IdiomsPage() {
     }
   }
 
+  // Säkerställ att äldre databaser också kan lagra frivillig idiominformation.
+  async function ensureIdiomInfoColumn() {
+    const columns = await db.getAllAsync<{ name: string }>(
+      "PRAGMA table_info(idioms)",
+    );
+    if (!columns.some((column) => column.name === "info")) {
+      await db.execAsync("ALTER TABLE idioms ADD COLUMN info TEXT");
+    }
+  }
+
   async function loadIdioms() {
     if (!fromLanguage || !toLanguage) return;
 
     try {
+      await ensureIdiomInfoColumn();
       const result = await db.getAllAsync<Idiom>(
         `
         SELECT
           from_translation.idiom_id,
           from_translation.text AS text_from,
-          to_translation.text AS text_to
+          to_translation.text AS text_to,
+          idioms.info AS info
         FROM idiom_translations AS from_translation
+        INNER JOIN idioms ON idioms.id = from_translation.idiom_id
         INNER JOIN idiom_translations AS to_translation
           ON from_translation.idiom_id = to_translation.idiom_id
         INNER JOIN languages AS from_language
@@ -176,6 +222,7 @@ export default function IdiomsPage() {
 
     setNewIdiom("");
     setNewTranslation("");
+    setNewInfo("");
     setFormError("");
     setShowAddIdiom(false);
   }
@@ -185,6 +232,7 @@ export default function IdiomsPage() {
 
     const idiomText = newIdiom.trim();
     const translationText = newTranslation.trim();
+    const infoText = newInfo.trim();
 
     if (!idiomText || !translationText) {
       setFormError("Fyll i idiomet och översättningen.");
@@ -195,6 +243,7 @@ export default function IdiomsPage() {
     setFormError("");
 
     try {
+      await ensureIdiomInfoColumn();
       const languages = await getLanguageIds();
 
       if (!languages) {
@@ -214,8 +263,9 @@ export default function IdiomsPage() {
 
       await db.withTransactionAsync(async () => {
         const inserted = await db.runAsync(
-          "INSERT INTO idioms (name) VALUES (?)",
+          "INSERT INTO idioms (name, info) VALUES (?, ?)",
           idiomText,
+          infoText || null,
         );
 
         const idiomId = inserted.lastInsertRowId;
@@ -241,6 +291,7 @@ export default function IdiomsPage() {
 
       setNewIdiom("");
       setNewTranslation("");
+      setNewInfo("");
       setShowAddIdiom(false);
 
       await loadIdioms();
@@ -258,6 +309,7 @@ export default function IdiomsPage() {
     setEditingIdiom(item);
     setEditIdiomText(item.text_from);
     setEditTranslationText(item.text_to);
+    setEditInfo(item.info ?? "");
     setEditError("");
   }
 
@@ -267,6 +319,7 @@ export default function IdiomsPage() {
     setEditingIdiom(null);
     setEditIdiomText("");
     setEditTranslationText("");
+    setEditInfo("");
     setEditError("");
   }
 
@@ -275,6 +328,7 @@ export default function IdiomsPage() {
 
     const idiomText = editIdiomText.trim();
     const translationText = editTranslationText.trim();
+    const infoText = editInfo.trim();
 
     if (!idiomText || !translationText) {
       setEditError("Fyll i idiomet och översättningen.");
@@ -285,6 +339,7 @@ export default function IdiomsPage() {
     setEditError("");
 
     try {
+      await ensureIdiomInfoColumn();
       const languages = await getLanguageIds();
 
       if (!languages) {
@@ -314,10 +369,11 @@ export default function IdiomsPage() {
         await db.runAsync(
           `
           UPDATE idioms
-          SET name = ?
+          SET name = ?, info = ?
           WHERE id = ?
           `,
           idiomText,
+          infoText || null,
           editingIdiom.idiom_id,
         );
 
@@ -428,14 +484,18 @@ export default function IdiomsPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <BackButton
-        onPress={() =>
-          router.dismissTo({
-            pathname: "/secondPage",
-            params: { from, to },
-          })
-        }
-      />
+      <InterpreterWatermark />
+      <View style={styles.topRow}>
+        <BackButton
+          onPress={() =>
+            router.dismissTo({
+              pathname: "/secondPage",
+              params: { from, to },
+            })
+          }
+        />
+        <LanguagePicker />
+      </View>
 
       <Text style={styles.title}>{t("idioms")}</Text>
 
@@ -456,7 +516,7 @@ export default function IdiomsPage() {
           <FontAwesome
             name={displayMode === "stacked" ? "columns" : "bars"}
             size={14}
-            color="#64748B"
+            color="#71859B"
           />
           <Text style={styles.displayModeLabel}>
             {displayMode === "stacked" ? "Bredvid varandra" : "Under varandra"}
@@ -502,6 +562,18 @@ export default function IdiomsPage() {
               </Text>
             </View>
 
+            {!!item.info?.trim() && (
+              <TouchableOpacity
+                onPress={() => setShowInfo(item.info)}
+                style={styles.infoButton}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Visa info om ${item.text_from}`}
+              >
+                <FontAwesome name="info-circle" size={15} color="#285F9D" />
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               onPress={() => openEditIdiom(item)}
               style={styles.editButton}
@@ -509,7 +581,7 @@ export default function IdiomsPage() {
               accessibilityRole="button"
               accessibilityLabel={`Redigera ${item.text_from}`}
             >
-              <FontAwesome name="pencil" size={13} color="#9CA3AF" />
+              <FontAwesome name="pencil" size={13} color="#8194A9" />
             </TouchableOpacity>
           </View>
         )}
@@ -533,6 +605,29 @@ export default function IdiomsPage() {
         <Text style={styles.addIdiomPlus}>+</Text>
       </TouchableOpacity>
 
+      {/* Visa sparad information för idiomet. */}
+      <Modal
+        visible={showInfo !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInfo(null)}
+      >
+        <View style={[styles.modalBackground, styles.infoModalBackground]}>
+          <View style={styles.categoryModal}>
+            <Text style={styles.modalTitle}>Info</Text>
+            <Text style={styles.infoText}>{showInfo}</Text>
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowInfo(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Stäng information"
+            >
+              <Text style={styles.modalCancelText}>Stäng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* LÄGG TILL IDIOM */}
 
       <Modal
@@ -553,20 +648,9 @@ export default function IdiomsPage() {
             <View style={styles.categoryModal}>
               <Text style={styles.modalTitle}>Lägg till idiom</Text>
 
-              <View style={styles.modalLanguagePair}>
-                <Text style={styles.modalLanguageText}>
-                  {fromLanguage ?? from}
-                </Text>
-
-                <Text style={styles.modalLanguageArrow}>→</Text>
-
-                <Text style={styles.modalLanguageText}>{toLanguage ?? to}</Text>
-              </View>
-
+              <Text style={styles.addFieldLabel}>{fromLanguage ?? from}</Text>
               <TextInput
                 style={[styles.input, styles.idiomInput]}
-                placeholder="Skriv idiomet eller uttrycket..."
-                placeholderTextColor="#94A3B8"
                 value={newIdiom}
                 onChangeText={(value) => {
                   setNewIdiom(value);
@@ -577,10 +661,10 @@ export default function IdiomsPage() {
                 autoCapitalize="sentences"
               />
 
+              <Text style={styles.addFieldLabel}>{toLanguage ?? to}</Text>
+
               <TextInput
                 style={[styles.input, styles.idiomInput]}
-                placeholder="Skriv översättningen..."
-                placeholderTextColor="#94A3B8"
                 value={newTranslation}
                 onChangeText={(value) => {
                   setNewTranslation(value);
@@ -589,6 +673,16 @@ export default function IdiomsPage() {
                 multiline
                 textAlignVertical="top"
                 autoCapitalize="sentences"
+              />
+
+              <Text style={styles.addFieldLabel}>Information (valfritt)</Text>
+
+              <TextInput
+                style={[styles.input, styles.idiomInput]}
+                value={newInfo}
+                onChangeText={setNewInfo}
+                multiline
+                textAlignVertical="top"
               />
 
               {!!formError && <Text style={styles.formError}>{formError}</Text>}
@@ -687,6 +781,16 @@ export default function IdiomsPage() {
                 autoCapitalize="sentences"
               />
 
+              <TextInput
+                style={[styles.input, styles.idiomInput]}
+                placeholder="Info (valfritt)"
+                placeholderTextColor="#94A3B8"
+                value={editInfo}
+                onChangeText={setEditInfo}
+                multiline
+                textAlignVertical="top"
+              />
+
               {!!editError && <Text style={styles.formError}>{editError}</Text>}
 
               <View style={styles.editActions}>
@@ -722,14 +826,62 @@ export default function IdiomsPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#F5F9FD",
     paddingHorizontal: 22,
     paddingTop: 16,
   },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+    zIndex: 1,
+  },
+  watermark: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: "34%",
+    height: 230,
+    opacity: 0.055,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  person: { width: 100, alignItems: "center", justifyContent: "flex-end" },
+  personLeft: { transform: [{ translateX: 17 }, { translateY: 17 }] },
+  personCenter: { zIndex: 2, transform: [{ translateY: -6 }] },
+  personRight: { transform: [{ translateX: -17 }, { translateY: 17 }] },
+  personHead: { width: 52, height: 52, borderRadius: 26, marginBottom: 7 },
+  personBody: {
+    width: 92,
+    height: 114,
+    borderTopLeftRadius: 46,
+    borderTopRightRadius: 46,
+  },
+  badgeCord: {
+    position: "absolute",
+    top: 73,
+    width: 2,
+    height: 32,
+    backgroundColor: "#FFFFFF",
+  },
+  badge: {
+    position: "absolute",
+    top: 101,
+    width: 67,
+    height: 28,
+    borderRadius: 7,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: { fontSize: 10, fontWeight: "700", color: "#285F9D" },
 
   title: {
     fontSize: 20,
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "#203B59",
     marginBottom: 20,
     textAlign: "center",
   },
@@ -749,14 +901,14 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    backgroundColor: "#F8FAFC",
-    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DFE8F1",
     borderWidth: 1,
     borderRadius: 10,
   },
   displayModeLabel: {
     fontSize: 12,
-    color: "#64748B",
+    color: "#71859B",
   },
   idiomContentSide: {
     flexDirection: "row",
@@ -784,7 +936,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#E8EDF3",
+    borderBottomColor: "#DFE8F1",
   },
 
   idiomContent: {
@@ -795,15 +947,35 @@ const styles = StyleSheet.create({
   idiomText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
+    color: "#203B59",
     lineHeight: 24,
     marginBottom: 9,
   },
 
   translationText: {
     fontSize: 14,
-    color: "#64748B",
+    color: "#71859B",
     lineHeight: 22,
+  },
+
+  infoButton: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+
+  infoModalBackground: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+
+  infoText: {
+    fontSize: 15,
+    color: "#334155",
+    lineHeight: 23,
   },
 
   editButton: {
@@ -817,23 +989,23 @@ const styles = StyleSheet.create({
   // PLUSKNAPP
 
   addIdiomButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignSelf: "flex-end",
-    marginBottom: 12,
+    marginBottom: 16,
     marginRight: 2,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "#E9F3FB",
     borderWidth: 1,
-    borderColor: "#DBEAFE",
+    borderColor: "#DCEBF7",
     alignItems: "center",
     justifyContent: "center",
   },
 
   addIdiomPlus: {
-    fontSize: 21,
-    lineHeight: 23,
-    color: "#2563EB",
+    fontSize: 26,
+    lineHeight: 29,
+    color: "#285F9D",
     fontWeight: "500",
   },
 
@@ -897,6 +1069,12 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
 
+  addFieldLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginBottom: 5,
+  },
+
   modalLanguagePair: {
     flexDirection: "row",
     alignItems: "center",
@@ -917,8 +1095,8 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    backgroundColor: "#F8FAFC",
+    borderColor: "#DFE8F1",
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     paddingHorizontal: 13,
     paddingVertical: 11,
@@ -937,9 +1115,9 @@ const styles = StyleSheet.create({
     height: 46,
     alignSelf: "center",
     borderRadius: 12,
-    backgroundColor: "#2563EB",
+    backgroundColor: "#285F9D",
     borderWidth: 1,
-    borderColor: "#2563EB",
+    borderColor: "#285F9D",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
@@ -969,7 +1147,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#DFE8F1",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 10,
@@ -1004,14 +1182,14 @@ const styles = StyleSheet.create({
   },
 
   saveButton: {
-    backgroundColor: "#E0E7FF",
+    backgroundColor: "#E9F3FB",
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
 
   saveButtonText: {
-    color: "#4338CA",
+    color: "#285F9D",
     fontSize: 14,
     fontWeight: "600",
   },

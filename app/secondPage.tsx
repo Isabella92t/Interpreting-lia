@@ -1,7 +1,6 @@
 import { BackButton } from "@/components/back-button";
 import { LanguagePicker } from "@/components/language-picker";
 import { SearchBar } from "@/components/search-bar";
-import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -85,6 +84,37 @@ function startsWithSearch(text: string, searchText: string) {
   const words = normalizedText.split(/[\s/,()!?;:]+/);
 
   return words.some((word) => word.startsWith(normalizedSearch));
+}
+
+/** Liten diskret symbol: två deltagare och en tolk med namnbricka. */
+function InterpreterLogo() {
+  return (
+    <View
+      style={styles.logo}
+      accessibilityLabel="TolkAppen – tre personer och tolk med namnbricka"
+    >
+      <View style={[styles.logoPerson, styles.logoSideLeft]}>
+        <View style={styles.logoSideHead} />
+        <View style={styles.logoSideBody} />
+      </View>
+      <View style={[styles.logoPerson, styles.logoSideRight]}>
+        <View style={styles.logoSideHead} />
+        <View style={styles.logoSideBody} />
+      </View>
+      <View style={styles.logoCenter}>
+        <View style={styles.logoCenterHead} />
+        <View style={styles.logoCenterBody} />
+        <View style={styles.logoStrapLeft} />
+        <View style={styles.logoStrapRight} />
+        <View style={styles.logoBadge}>
+          <Text style={styles.logoBadgeText} numberOfLines={1}>
+            TolkAppen
+          </Text>
+          <View style={styles.logoBadgeTail} />
+        </View>
+      </View>
+    </View>
+  );
 }
 
 export default function SecondPage() {
@@ -635,6 +665,15 @@ export default function SecondPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <View
+        pointerEvents="none"
+        accessible={false}
+        style={styles.watermarkLayer}
+      >
+        <View style={styles.watermarkScale}>
+          <InterpreterLogo />
+        </View>
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -714,7 +753,7 @@ export default function SecondPage() {
                           <FontAwesome
                             name="info-circle"
                             size={15}
-                            color="#2563EB"
+                            color="#285F9D"
                           />
                         </TouchableOpacity>
                       )}
@@ -763,7 +802,7 @@ export default function SecondPage() {
               <FontAwesome
                 name={categoriesExpanded ? "chevron-up" : "chevron-down"}
                 size={15}
-                color="#64748B"
+                color="#71859B"
               />
             </TouchableOpacity>
           </View>
@@ -867,12 +906,8 @@ export default function SecondPage() {
 
         {/* ORDBOK OCH ÖVRIGA VYER */}
 
-        <View style={styles.sectionHeaderSimple}>
-          <Text style={styles.sectionTitle}>Ord & uttryck</Text>
-        </View>
-
         <TouchableOpacity
-          style={styles.featureCard}
+          style={[styles.featureCard, { marginTop: 30 }]}
           onPress={() =>
             router.push({
               pathname: "/dictionaryPage",
@@ -882,7 +917,7 @@ export default function SecondPage() {
           activeOpacity={0.8}
         >
           <View style={styles.featureIcon}>
-            <FontAwesome name="book" size={20} color="#2563EB" />
+            <FontAwesome name="book" size={20} color="#285F9D" />
           </View>
 
           <View style={styles.featureText}>
@@ -903,7 +938,7 @@ export default function SecondPage() {
           activeOpacity={0.8}
         >
           <View style={styles.featureIcon}>
-            <FontAwesome name="comments-o" size={20} color="#2563EB" />
+            <FontAwesome name="comments-o" size={20} color="#285F9D" />
           </View>
 
           <View style={styles.featureText}>
@@ -924,7 +959,7 @@ export default function SecondPage() {
           activeOpacity={0.8}
         >
           <View style={styles.featureIcon}>
-            <FontAwesome name="file-text-o" size={20} color="#2563EB" />
+            <FontAwesome name="file-text-o" size={20} color="#285F9D" />
           </View>
 
           <View style={styles.featureText}>
@@ -945,7 +980,7 @@ export default function SecondPage() {
           activeOpacity={0.8}
         >
           <View style={styles.featureIcon}>
-            <FontAwesome name="clone" size={20} color="#2563EB" />
+            <FontAwesome name="clone" size={20} color="#285F9D" />
           </View>
 
           <View style={styles.featureText}>
@@ -1157,13 +1192,132 @@ export default function SecondPage() {
 }
 
 const styles = StyleSheet.create({
+  // Samma tre personer som på startsidan, som mycket svag vattenstämpel.
+  // pointerEvents="none" gör att den aldrig blockerar tryck eller scrollning.
+  watermarkLayer: {
+    position: "absolute",
+    top: "24%",
+    left: 0,
+    right: 0,
+    height: 240,
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.055,
+  },
+  watermarkScale: {
+    width: 106,
+    height: 83,
+    transform: [{ scale: 2.8 }],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logo: {
+    width: 106,
+    height: 90,
+    alignSelf: "center",
+    marginBottom: 34,
+    position: "relative",
+    transform: [{ scale: 1.6 }],
+  },
+  logoPerson: {
+    position: "absolute",
+    top: 12,
+    width: 38,
+    height: 55,
+    alignItems: "center",
+  },
+  logoSideLeft: { left: 2 },
+  logoSideRight: { right: 2 },
+  logoSideHead: {
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    backgroundColor: "#91B7DA",
+  },
+  logoSideBody: {
+    width: 35,
+    height: 29,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: "#91B7DA",
+    marginTop: 3,
+  },
+  logoCenter: {
+    position: "absolute",
+    top: 0,
+    left: 29,
+    width: 48,
+    height: 70,
+    alignItems: "center",
+  },
+  logoCenterHead: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#234C7A",
+    zIndex: 2,
+  },
+  logoCenterBody: {
+    position: "absolute",
+    top: 27,
+    width: 48,
+    height: 41,
+    borderTopLeftRadius: 23,
+    borderTopRightRadius: 23,
+    borderBottomLeftRadius: 5,
+    borderBottomRightRadius: 5,
+    backgroundColor: "#234C7A",
+  },
+  logoStrapLeft: {
+    position: "absolute",
+    top: 28,
+    left: 16,
+    width: 3,
+    height: 24,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "-28deg" }],
+    zIndex: 3,
+  },
+  logoStrapRight: {
+    position: "absolute",
+    top: 28,
+    right: 16,
+    width: 3,
+    height: 24,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "28deg" }],
+    zIndex: 3,
+  },
+  logoBadge: {
+    position: "absolute",
+    top: 43,
+    width: 53,
+    height: 19,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 4,
+  },
+  logoBadgeText: { fontSize: 8, fontWeight: "700", color: "#234C7A" },
+  logoBadgeTail: {
+    position: "absolute",
+    bottom: -3,
+    left: 10,
+    width: 7,
+    height: 7,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "45deg" }],
+  },
+
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#F5F9FD",
   },
 
   scrollView: {
     flex: 1,
+    zIndex: 1,
   },
 
   scrollContent: {
@@ -1189,18 +1343,18 @@ const styles = StyleSheet.create({
   languagePairText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#334155",
+    color: "#304C69",
   },
 
   languagePairArrow: {
     fontSize: 16,
-    color: "#94A3B8",
+    color: "#8299AF",
     marginHorizontal: 10,
   },
 
   searchHint: {
     fontSize: 13,
-    color: "#94A3B8",
+    color: "#8299AF",
     marginTop: 8,
     marginLeft: 4,
   },
@@ -1209,7 +1363,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#DFE8F1",
     borderRadius: 14,
     backgroundColor: "#FFFFFF",
     overflow: "hidden",
@@ -1232,12 +1386,12 @@ const styles = StyleSheet.create({
   searchWord: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#0F172A",
+    color: "#203B59",
   },
 
   searchTranslation: {
     fontSize: 14,
-    color: "#64748B",
+    color: "#71859B",
     marginTop: 3,
   },
 
@@ -1252,8 +1406,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: "#F8FAFC",
-    borderColor: "#BFDBFE",
+    backgroundColor: "#F5F9FD",
+    borderColor: "#C9DEEE",
     borderWidth: 1,
     borderRadius: 10,
   },
@@ -1270,7 +1424,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     fontSize: 14,
     fontWeight: "600",
-    color: "#334155",
+    color: "#304C69",
   },
 
   informationInput: {
@@ -1280,18 +1434,18 @@ const styles = StyleSheet.create({
   informationBody: {
     fontSize: 12,
     lineHeight: 18,
-    color: "#64748B",
+    color: "#71859B",
   },
 
   noResults: {
     fontSize: 14,
-    color: "#94A3B8",
+    color: "#8299AF",
     padding: 16,
   },
 
   moreResults: {
     fontSize: 12,
-    color: "#94A3B8",
+    color: "#8299AF",
     padding: 12,
     textAlign: "center",
   },
@@ -1323,7 +1477,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 19,
     fontWeight: "700",
-    color: "#0F172A",
+    color: "#203B59",
   },
 
   addCategoryButton: {
@@ -1331,9 +1485,9 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     marginLeft: 8,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "#E9F3FB",
     borderWidth: 1,
-    borderColor: "#DBEAFE",
+    borderColor: "#DCEBF7",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1341,7 +1495,7 @@ const styles = StyleSheet.create({
   addCategoryText: {
     fontSize: 21,
     lineHeight: 23,
-    color: "#2563EB",
+    color: "#285F9D",
     fontWeight: "500",
   },
 
@@ -1382,7 +1536,7 @@ const styles = StyleSheet.create({
     minHeight: 64,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#DFE8F1",
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -1395,7 +1549,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "600",
-    color: "#334155",
+    color: "#304C69",
   },
 
   featureCard: {
@@ -1403,7 +1557,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#DFE8F1",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 15,
@@ -1414,7 +1568,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 13,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "#E9F3FB",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 13,
@@ -1427,13 +1581,13 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#0F172A",
+    color: "#203B59",
   },
 
   featureArrow: {
     fontSize: 26,
     fontWeight: "300",
-    color: "#94A3B8",
+    color: "#8299AF",
     marginLeft: 8,
   },
 
@@ -1476,7 +1630,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#0F172A",
+    color: "#203B59",
     marginBottom: 18,
   },
 
@@ -1489,25 +1643,25 @@ const styles = StyleSheet.create({
   modalLanguageText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#334155",
+    color: "#304C69",
   },
 
   modalLanguageArrow: {
-    color: "#94A3B8",
+    color: "#8299AF",
     marginHorizontal: 8,
   },
 
   languageLabel: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#334155",
+    color: "#304C69",
     marginTop: 10,
     marginBottom: 5,
   },
 
   categoryHint: {
     fontSize: 12,
-    color: "#94A3B8",
+    color: "#8299AF",
     marginTop: 10,
     lineHeight: 17,
   },
@@ -1515,12 +1669,12 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    backgroundColor: "#F8FAFC",
+    borderColor: "#DFE8F1",
+    backgroundColor: "#F5F9FD",
     borderRadius: 12,
     paddingHorizontal: 13,
     paddingVertical: 11,
-    color: "#0F172A",
+    color: "#203B59",
     marginTop: 5,
     fontSize: 15,
   },
@@ -1529,18 +1683,18 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 5,
     fontWeight: "700",
-    color: "#0F172A",
+    color: "#203B59",
   },
 
   optionalText: {
     fontSize: 12,
-    color: "#94A3B8",
+    color: "#8299AF",
     marginBottom: 10,
   },
 
   category: {
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#DFE8F1",
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 12,
@@ -1549,20 +1703,20 @@ const styles = StyleSheet.create({
 
   selectedCategory: {
     borderWidth: 1.5,
-    borderColor: "#2563EB",
-    backgroundColor: "#EFF6FF",
+    borderColor: "#285F9D",
+    backgroundColor: "#E9F3FB",
     borderRadius: 12,
     padding: 11,
     marginBottom: 7,
   },
 
   categoryOptionText: {
-    color: "#334155",
+    color: "#304C69",
     fontSize: 14,
   },
 
   selectedCategoryText: {
-    color: "#2563EB",
+    color: "#285F9D",
     fontSize: 14,
     fontWeight: "600",
   },
@@ -1572,9 +1726,9 @@ const styles = StyleSheet.create({
     height: 46,
     alignSelf: "center",
     borderRadius: 12,
-    backgroundColor: "#2563EB",
+    backgroundColor: "#285F9D",
     borderWidth: 1,
-    borderColor: "#2563EB",
+    borderColor: "#285F9D",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
@@ -1597,14 +1751,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#DFE8F1",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 10,
   },
 
   modalCancelText: {
-    color: "#334155",
+    color: "#304C69",
     fontSize: 15,
     fontWeight: "600",
   },

@@ -1,15 +1,14 @@
 import { FontAwesome } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 import { BackButton } from "@/components/back-button";
+import { LanguagePicker } from "@/components/language-picker";
 import { SearchBar } from "@/components/search-bar";
-import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useCallback, useState } from "react";
 import {
@@ -31,8 +30,6 @@ type Note = {
   selected_date: string | null;
 };
 
-// Gör sökningen oberoende av stora/små bokstäver
-// och extra mellanslag.
 function normalizeSearchText(value: string) {
   return value.toLowerCase().trim().replace(/\s+/g, " ");
 }
@@ -47,72 +44,79 @@ function PaperLines() {
   );
 }
 
+// Samma mycket svaga symbol med tre personer som på de övriga sidorna.
+function InterpreterWatermark() {
+  return (
+    <View
+      pointerEvents="none"
+      style={styles.watermark}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <View style={[styles.person, styles.personLeft]}>
+        <View style={[styles.personHead, { backgroundColor: "#A8CBE7" }]} />
+        <View style={[styles.personBody, { backgroundColor: "#A8CBE7" }]} />
+      </View>
+      <View style={[styles.person, styles.personCenter]}>
+        <View style={[styles.personHead, { backgroundColor: "#285F9D" }]} />
+        <View style={[styles.personBody, { backgroundColor: "#285F9D" }]} />
+        <View style={styles.badgeCord} />
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>TolkAppen</Text>
+        </View>
+      </View>
+      <View style={[styles.person, styles.personRight]}>
+        <View style={[styles.personHead, { backgroundColor: "#A8CBE7" }]} />
+        <View style={[styles.personBody, { backgroundColor: "#A8CBE7" }]} />
+      </View>
+    </View>
+  );
+}
+
 export default function NotesPage() {
   const router = useRouter();
   const db = useSQLiteContext();
-
   const { t } = useUiLanguage();
-
-  const { from, to } = useLocalSearchParams<{
-    from?: string;
-    to?: string;
-  }>();
-
+  const { from, to } = useLocalSearchParams<{ from?: string; to?: string }>();
   const [notes, setNotes] = useState<Note[]>([]);
   const [search, setSearch] = useState("");
-
-  // Tar hänsyn till telefonens nederkant.
   const insets = useSafeAreaInsets();
 
   useFocusEffect(
     useCallback(() => {
-      loadNotes();
-    }, []),
+      void loadNotes();
+    }, [db]),
   );
 
   async function loadNotes() {
     const result = await db.getAllAsync<Note>(
-      `
-      SELECT
-        id,
-        title,
-        text,
-        created_at,
-        selected_date
-      FROM notes
-      ORDER BY created_at DESC
-      `,
+      `SELECT id, title, text, created_at, selected_date
+       FROM notes ORDER BY created_at DESC`,
     );
-
     setNotes(result);
   }
 
-  // Söker i både rubrik och anteckningstext.
-  // Fungerar med ett ord, flera ord eller hela meningar.
   const searchText = normalizeSearchText(search);
-
   const visibleNotes = notes.filter((note) => {
     if (!searchText) return true;
-
     const title = normalizeSearchText(note.title ?? "");
     const text = normalizeSearchText(note.text ?? "");
-
     return title.includes(searchText) || text.includes(searchText);
   });
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <BackButton
-        onPress={() =>
-          router.dismissTo({
-            pathname: "/secondPage",
-            params: { from, to },
-          })
-        }
-      />
+      <InterpreterWatermark />
+      <View style={styles.header}>
+        <BackButton
+          onPress={() =>
+            router.dismissTo({ pathname: "/secondPage", params: { from, to } })
+          }
+        />
+        <LanguagePicker />
+      </View>
 
       <Text style={styles.title}>{t("myNotes")}</Text>
-
       <SearchBar
         value={search}
         onChangeText={setSearch}
@@ -120,6 +124,7 @@ export default function NotesPage() {
       />
 
       <FlatList
+        style={styles.list}
         data={visibleNotes}
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => String(item.id)}
@@ -132,22 +137,15 @@ export default function NotesPage() {
             onPress={() =>
               router.push({
                 pathname: "/notePage",
-                params: {
-                  id: String(item.id),
-                  from,
-                  to,
-                },
+                params: { id: String(item.id), from, to },
               })
             }
           >
             <PaperLines />
-
             <View style={styles.marginLine} pointerEvents="none" />
-
             {item.selected_date && (
               <Text style={styles.selectedDate}>{item.selected_date}</Text>
             )}
-
             <Text
               style={[
                 styles.paperTitle,
@@ -157,11 +155,9 @@ export default function NotesPage() {
             >
               {item.title}
             </Text>
-
             <Text style={styles.paperText} numberOfLines={5}>
               {item.text}
             </Text>
-
             <Text style={styles.createdDate}>
               {new Date(item.created_at).toLocaleString("sv-SE")}
             </Text>
@@ -170,22 +166,15 @@ export default function NotesPage() {
         ListEmptyComponent={<Text style={styles.empty}>{t("noNotesYet")}</Text>}
       />
 
-      {/* Liten ljusblå plusknapp längst ner till höger */}
       <TouchableOpacity
         style={[styles.addButton, { bottom: 24 + insets.bottom }]}
         onPress={() =>
-          router.push({
-            pathname: "/notePage",
-            params: {
-              from,
-              to,
-            },
-          })
+          router.push({ pathname: "/notePage", params: { from, to } })
         }
         accessibilityRole="button"
         accessibilityLabel={t("add")}
       >
-        <FontAwesome name="plus" size={16} color="#2563EB" />
+        <FontAwesome name="plus" size={16} color="#285F9D" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -194,129 +183,147 @@ export default function NotesPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#F5F9FD",
     paddingHorizontal: 22,
     paddingTop: 16,
   },
-
-  search: {
-    marginBottom: 16,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    zIndex: 2,
   },
-
   title: {
     fontSize: 20,
     fontWeight: "600",
+    color: "#203B59",
     marginTop: 12,
     marginBottom: 20,
     textAlign: "center",
   },
-
-  listContent: {
-    paddingBottom: 90,
-  },
-
-  row: {
-    gap: 12,
-  },
-
+  search: { marginBottom: 16 },
+  list: { zIndex: 1 },
+  listContent: { paddingBottom: 90 },
+  row: { gap: 12 },
   paper: {
     width: "48%",
     minHeight: LINE_HEIGHT * LINE_COUNT + 20,
-    backgroundColor: "#fffdf7",
+    backgroundColor: "#FFFDF8",
     borderWidth: 1,
-    borderColor: "#e8e2d4",
-    borderRadius: 2,
+    borderColor: "#E1E8ED",
+    borderRadius: 4,
     paddingTop: 10,
     paddingBottom: 10,
     paddingRight: 10,
     paddingLeft: 22,
     marginBottom: 12,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    elevation: 3,
+    shadowColor: "#203B59",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-
-  lines: {
-    position: "absolute",
-    top: 10,
-    left: 22,
-    right: 10,
-  },
-
+  lines: { position: "absolute", top: 10, left: 22, right: 10 },
   line: {
     height: LINE_HEIGHT,
     borderBottomWidth: 1,
-    borderBottomColor: "#dfe8f2",
+    borderBottomColor: "#DFEAF4",
   },
-
   marginLine: {
     position: "absolute",
     top: 0,
     bottom: 0,
     left: 14,
     width: 1,
-    backgroundColor: "#f0bcbc",
+    backgroundColor: "#F0BCBC",
   },
-
   selectedDate: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#111827",
+    color: "#203B59",
     textAlign: "center",
     marginBottom: 4,
   },
-
   paperTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#111827",
+    color: "#203B59",
     lineHeight: LINE_HEIGHT,
   },
-
-  paperTitleWithDate: {
-    marginTop: 2,
-  },
-
-  paperText: {
-    fontSize: 12,
-    color: "#4b5563",
-    lineHeight: LINE_HEIGHT,
-  },
-
+  paperTitleWithDate: { marginTop: 2 },
+  paperText: { fontSize: 12, color: "#4C6074", lineHeight: LINE_HEIGHT },
   createdDate: {
     position: "absolute",
     bottom: 6,
     right: 8,
     fontSize: 8,
-    color: "#6b7280",
-    opacity: 0.55,
+    color: "#61758A",
+    opacity: 0.65,
   },
-
   empty: {
     fontSize: 14,
-    color: "#6b7280",
+    color: "#61758A",
     textAlign: "center",
     paddingVertical: 40,
     lineHeight: 22,
   },
-
-  // Liten ljusblå knapp med samma placering som tidigare.
   addButton: {
     position: "absolute",
     right: 24,
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "#E9F3FB",
     borderWidth: 1,
-    borderColor: "#DBEAFE",
+    borderColor: "#DCEBF7",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 3,
   },
+  watermark: {
+    position: "absolute",
+    left: "50%",
+    top: "34%",
+    marginLeft: -150,
+    width: 300,
+    height: 260,
+    opacity: 0.055,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  person: {
+    width: 92,
+    height: 210,
+    alignItems: "center",
+    position: "relative",
+  },
+  personLeft: { transform: [{ translateX: 12 }, { scale: 0.83 }] },
+  personCenter: { zIndex: 2, transform: [{ scale: 1.07 }] },
+  personRight: { transform: [{ translateX: -12 }, { scale: 0.83 }] },
+  personHead: { width: 61, height: 61, borderRadius: 31 },
+  personBody: {
+    width: 88,
+    height: 135,
+    borderTopLeftRadius: 38,
+    borderTopRightRadius: 38,
+    marginTop: 10,
+  },
+  badgeCord: {
+    position: "absolute",
+    top: 86,
+    height: 47,
+    width: 2,
+    backgroundColor: "#FFFFFF",
+  },
+  badge: {
+    position: "absolute",
+    top: 127,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 3,
+  },
+  badgeText: { color: "#285F9D", fontSize: 7, fontWeight: "700" },
 });

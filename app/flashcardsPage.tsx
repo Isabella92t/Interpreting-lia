@@ -1,7 +1,7 @@
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Modal,
   ScrollView,
@@ -25,9 +25,6 @@ const languageNames: Record<string, string> = {
   en: "English",
   es: "Español",
 };
-
-// Hur manga kort "Slumpa 20" valjer.
-const RANDOM_COUNT = 20;
 
 type Category = {
   id: number;
@@ -64,6 +61,9 @@ type Step = "categories" | "words" | "practice" | "result";
 export default function FlashcardsPage() {
   const router = useRouter();
   const db = useSQLiteContext();
+  const mainScrollRef = useRef<ScrollView>(null);
+  const [scrollHeight, setScrollHeight] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
 
   const { t, language } = useUiLanguage();
 
@@ -72,6 +72,9 @@ export default function FlashcardsPage() {
   const [step, setStep] = useState<Step>("categories");
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryPage, setCategoryPage] = useState(0);
+  const [categoryCarouselWidth, setCategoryCarouselWidth] = useState(0);
+  const categoryCarouselRef = useRef<ScrollView>(null);
 
   // Egna listor.
   const [decks, setDecks] = useState<Deck[]>([]);
@@ -96,6 +99,11 @@ export default function FlashcardsPage() {
   // Egen fraga innan man tar bort en lista.
   // Vi anvander inte Alert, for den gor ingenting pa webben.
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showRandomPicker, setShowRandomPicker] = useState(false);
+  const [randomPickerMode, setRandomPickerMode] = useState<
+    "practice" | "selection"
+  >("selection");
+  const [randomAmount, setRandomAmount] = useState("");
 
   // Kategorins riktiga namn i databasen. null betyder alla ord.
   const [chosenCategory, setChosenCategory] = useState<string | null>(null);
@@ -347,7 +355,6 @@ export default function FlashcardsPage() {
     return "all";
   }
 
-
   function sourceLabel(src: Source) {
     if (src.kind === "deck") {
       return src.deck.name;
@@ -362,10 +369,6 @@ export default function FlashcardsPage() {
     return t("allWords");
   }
 
-
-
-
-
   // Namnet på den valda kategorin, eller null om man valt alla ord.
   function chosenCategoryName() {
     return source.kind === "category" ? source.name : null;
@@ -378,7 +381,7 @@ export default function FlashcardsPage() {
     return (
       <TouchableOpacity
         key={sourceKey(option)}
-        style={isChosen ? styles.filterChipActive : styles.filterChip}
+        style={isChosen ? styles.categoryBoxActive : styles.categoryBox}
         onPress={() => setSource(option)}
         activeOpacity={0.8}
       >
@@ -415,11 +418,12 @@ export default function FlashcardsPage() {
   // pa pennan och vill valja ord forst.
   // Vad som ska hända när man öppnar en kategori:
   // "all"    = öva på alla ord direkt
-  // "random" = öva på 20 slumpade ord direkt
+  // "random" = öva på valfritt antal slumpade ord direkt
   // "pick"   = öppna ordlistan och välj ord själv
   async function openCategory(
     categoryName: string | null,
     mode: "all" | "random" | "pick",
+    randomCount = 1,
   ) {
     const fromLanguage = languageNames[String(from ?? "").toLowerCase()];
     const toLanguage = languageNames[String(to ?? "").toLowerCase()];
@@ -471,10 +475,10 @@ export default function FlashcardsPage() {
     setFilterCategory(null);
     setChosenCategory(categoryName);
     setCategoryWords(words);
-    // Med "random" blir bara de 20 slumpade ikryssade, så att
-    // "Öva alla igen" efteråt övar på samma 20.
+    // Med "random" blir bara de slumpade orden ikryssade, så att
+    // "Öva alla igen" efteråt övar på samma urval.
     const chosen =
-      mode === "random" ? shuffle(words).slice(0, RANDOM_COUNT) : words;
+      mode === "random" ? shuffle(words).slice(0, randomCount) : words;
 
     setSelectedIds(chosen.map((word) => word.word_id));
 
@@ -495,9 +499,19 @@ export default function FlashcardsPage() {
   }
 
   function selectRandom() {
+    const amount = Number(randomAmount);
+    const maxAmount =
+      randomPickerMode === "practice" ? sourceCount : visibleWords.length;
+    if (!Number.isInteger(amount) || amount < 1 || amount > maxAmount) {
+      return;
+    }
+    setShowRandomPicker(false);
+    if (randomPickerMode === "practice") {
+      openCategory(chosenCategoryName(), "random", amount);
+      return;
+    }
     const shuffled = shuffle(visibleWords);
-
-    setSelectedIds(shuffled.slice(0, RANDOM_COUNT).map((word) => word.word_id));
+    setSelectedIds(shuffled.slice(0, amount).map((word) => word.word_id));
   }
 
   // Blandar korten sa att ordningen inte blir likadan varje gang.
@@ -579,14 +593,39 @@ export default function FlashcardsPage() {
     return matchesCategory && matchesSearch;
   });
 
+  // Tre kategorier per sida, precis som på föregående sida.
+  const categoryPages: Category[][] = [];
+  for (let i = 0; i < categories.length; i += 3) {
+    categoryPages.push(categories.slice(i, i + 3));
+  }
+  const categoryGap = 8;
+  const categoryBoxWidth =
+    categoryCarouselWidth > 0
+      ? (categoryCarouselWidth - categoryGap * 2) / 3
+      : 0;
+
+  function goToCategoryPage(nextPage: number) {
+    if (nextPage < 0 || nextPage >= categoryPages.length) return;
+    setCategoryPage(nextPage);
+    categoryCarouselRef.current?.scrollTo({
+      x: nextPage * categoryCarouselWidth,
+      animated: true,
+    });
+  }
+
   const fromLanguageName = languageNames[String(from ?? "").toLowerCase()];
   const toLanguageName = languageNames[String(to ?? "").toLowerCase()];
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView
+        ref={mainScrollRef}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator
+        persistentScrollbar
+        onContentSizeChange={(_, height) => setScrollHeight(height)}
+        onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
       >
         {/* Samma topprad som pa de andra sidorna */}
         <View style={styles.topRow}>
@@ -600,34 +639,121 @@ export default function FlashcardsPage() {
         {/* STEG 1: välj vad man vill öva på */}
         {step === "categories" && (
           <View>
-            <Text style={styles.helpText}>{t("whatToPractise")}</Text>
-
             {/* Alla val syns direkt, som knappar man kan trycka på. */}
             <Text style={styles.label}>{t("categories")}</Text>
 
-            <View style={styles.chipGrid}>
-              {renderChip({ kind: "all" })}
+            <View style={styles.categoryCarouselRow}>
+              <TouchableOpacity
+                style={styles.categoryArrowButton}
+                onPress={() => goToCategoryPage(categoryPage - 1)}
+                disabled={categoryPage === 0}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={
+                    categoryPage > 0
+                      ? styles.categoryArrowText
+                      : styles.categoryArrowDisabled
+                  }
+                >
+                  ‹
+                </Text>
+              </TouchableOpacity>
 
-              {categories.map((category) =>
-                renderChip({ kind: "category", name: category.name }),
-              )}
-            </View>
-
-            <Text style={styles.label}>{t("myLists")}</Text>
-
-            <Text style={styles.hintText}>{t("listsHint")}</Text>
-
-            <View style={styles.chipGrid}>
-              {decks.map((deck) => renderChip({ kind: "deck", deck }))}
+              <View
+                style={styles.categoryCarousel}
+                onLayout={(event) =>
+                  setCategoryCarouselWidth(event.nativeEvent.layout.width)
+                }
+              >
+                <ScrollView
+                  ref={categoryCarouselRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  scrollEventThrottle={16}
+                  onScroll={(event) => {
+                    if (categoryCarouselWidth > 0) {
+                      setCategoryPage(
+                        Math.round(
+                          event.nativeEvent.contentOffset.x /
+                            categoryCarouselWidth,
+                        ),
+                      );
+                    }
+                  }}
+                >
+                  {categoryCarouselWidth > 0 &&
+                    categoryPages.map((items, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.categoryCarouselPage,
+                          { width: categoryCarouselWidth },
+                        ]}
+                      >
+                        {items.map((category) => (
+                          <View
+                            key={category.id}
+                            style={{ width: categoryBoxWidth }}
+                          >
+                            {renderChip({
+                              kind: "category",
+                              name: category.name,
+                            })}
+                          </View>
+                        ))}
+                      </View>
+                    ))}
+                </ScrollView>
+              </View>
 
               <TouchableOpacity
-                style={styles.newListChip}
+                style={styles.categoryArrowButton}
+                onPress={() => goToCategoryPage(categoryPage + 1)}
+                disabled={categoryPage >= categoryPages.length - 1}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={
+                    categoryPage < categoryPages.length - 1
+                      ? styles.categoryArrowText
+                      : styles.categoryArrowDisabled
+                  }
+                >
+                  ›
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.quickActionsRow}>
+              <View style={{ width: categoryBoxWidth || 100 }}>
+                {renderChip({ kind: "all" })}
+              </View>
+              <TouchableOpacity
+                style={[styles.newListChip, { width: categoryBoxWidth || 100 }]}
                 onPress={newDeck}
                 activeOpacity={0.8}
               >
                 <FontAwesome name="plus" size={12} color={colors.primary} />
-                <Text style={styles.newListChipText}>{t("newList")}</Text>
+                <Text style={styles.newListChipText}>
+                  {String(language).toLowerCase() === "es"
+                    ? "Crear\nlista"
+                    : String(language).toLowerCase() === "en"
+                      ? "Create\nlist"
+                      : "Skapa\nlista"}
+                </Text>
               </TouchableOpacity>
+            </View>
+
+            <Text style={styles.label}>{t("myLists")}</Text>
+
+            <View style={styles.savedListsGrid}>
+              {decks.map((deck) => (
+                <View key={deck.id} style={{ width: categoryBoxWidth || 100 }}>
+                  {renderChip({ kind: "deck", deck })}
+                </View>
+              ))}
             </View>
 
             {/* Kortet visar vad man valt, och vad man kan göra med det.
@@ -679,16 +805,21 @@ export default function FlashcardsPage() {
                     </Text>
                   </TouchableOpacity>
 
-                  {/* Bara när det finns fler än 20 ord att slumpa bland. */}
-                  {sourceCount > RANDOM_COUNT && (
+                  {sourceCount > 0 && (
                     <TouchableOpacity
                       style={styles.fullSecondaryButton}
-                      onPress={() =>
-                        openCategory(chosenCategoryName(), "random")
-                      }
+                      onPress={() => {
+                        setRandomPickerMode("practice");
+                        setRandomAmount("");
+                        setShowRandomPicker(true);
+                      }}
                     >
                       <Text style={styles.secondaryButtonText}>
-                        {t("practiseRandom20")}
+                        {String(language).toLowerCase() === "es"
+                          ? "Aleatorio"
+                          : String(language).toLowerCase() === "en"
+                            ? "Random"
+                            : "Slumpa"}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -722,8 +853,8 @@ export default function FlashcardsPage() {
             )}
 
             <Text style={styles.helpText}>
-              {editingDeck ? t("myLists") : categoryLabel} · {t("chooseWords")} (
-              {selectedIds.length} / {categoryWords.length})
+              {editingDeck ? t("myLists") : categoryLabel} · {t("chooseWords")}{" "}
+              ({selectedIds.length} / {categoryWords.length})
             </Text>
 
             {/* Filtrera pa kategori, sa listan blir kortare. */}
@@ -782,7 +913,7 @@ export default function FlashcardsPage() {
               style={styles.search}
             />
 
-            {/* Snabbval. "Slumpa 20" gor stora kategorier hanterbara. */}
+            {/* Snabbval för att välja ord. */}
             <View style={styles.chipRow}>
               <TouchableOpacity
                 style={styles.chip}
@@ -805,8 +936,21 @@ export default function FlashcardsPage() {
                 <Text style={styles.chipText}>{t("selectNone")}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.chip} onPress={selectRandom}>
-                <Text style={styles.chipText}>{t("randomTwenty")}</Text>
+              <TouchableOpacity
+                style={styles.chip}
+                onPress={() => {
+                  setRandomPickerMode("selection");
+                  setRandomAmount("");
+                  setShowRandomPicker(true);
+                }}
+              >
+                <Text style={styles.chipText}>
+                  {String(language).toLowerCase() === "es"
+                    ? "Aleatorio"
+                    : String(language).toLowerCase() === "en"
+                      ? "Random"
+                      : "Slumpa"}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -849,24 +993,7 @@ export default function FlashcardsPage() {
               </TouchableOpacity>
             )}
 
-            {/* Spara och ta bort hor bara till egna listor. */}
-            {editingDeck && (
-              <TouchableOpacity
-                style={styles.fullSecondaryButton}
-                onPress={saveDeck}
-              >
-                <Text style={styles.secondaryButtonText}>{t("save")}</Text>
-              </TouchableOpacity>
-            )}
-
-            {editingDeck && editingDeckId !== null && (
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => setConfirmDelete(true)}
-              >
-                <Text style={styles.deleteButtonText}>{t("delete")}</Text>
-              </TouchableOpacity>
-            )}
+            {/* Spara-knappen ligger fast längst ner på skärmen. */}
           </View>
         )}
 
@@ -958,6 +1085,147 @@ export default function FlashcardsPage() {
         )}
       </ScrollView>
 
+      {/* Snabbnavigering och Spara är alltid åtkomliga i ordlistan. */}
+      {step === "words" && (
+        <View style={styles.stickyActions}>
+          <View style={styles.scrollNavigation}>
+            <TouchableOpacity
+              style={styles.scrollNavigationButton}
+              accessibilityRole="button"
+              accessibilityLabel={
+                String(language).toLowerCase() === "es"
+                  ? "Ir arriba"
+                  : String(language).toLowerCase() === "en"
+                    ? "Scroll to top"
+                    : "Scrolla högst upp"
+              }
+              onPress={() =>
+                mainScrollRef.current?.scrollTo({ y: 0, animated: true })
+              }
+            >
+              <FontAwesome name="arrow-up" size={16} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.scrollNavigationButton}
+              accessibilityRole="button"
+              accessibilityLabel={
+                String(language).toLowerCase() === "es"
+                  ? "Ir abajo del todo"
+                  : String(language).toLowerCase() === "en"
+                    ? "Scroll to bottom"
+                    : "Scrolla längst ner"
+              }
+              onPress={() =>
+                mainScrollRef.current?.scrollTo({
+                  y: Math.max(0, scrollHeight - viewportHeight),
+                  animated: true,
+                })
+              }
+            >
+              <FontAwesome name="arrow-down" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+          {editingDeck && (
+            <View style={styles.stickyEditButtons}>
+              {editingDeckId !== null && (
+                <TouchableOpacity
+                  style={styles.stickyDeleteButton}
+                  onPress={() => setConfirmDelete(true)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.deleteButtonText}>{t("delete")}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.stickySaveButton, styles.stickyEditButtonFlex]}
+                onPress={saveDeck}
+              >
+                <Text style={styles.primaryButtonText}>{t("save")}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Välj själv hur många ord som ska slumpas. */}
+      <Modal
+        visible={showRandomPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRandomPicker(false)}
+      >
+        <View style={styles.modalBackground}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {String(language).toLowerCase() === "es"
+                ? "Elegir cantidad"
+                : String(language).toLowerCase() === "en"
+                  ? "Choose number of words"
+                  : "Hur många ord vill du slumpa?"}
+            </Text>
+            <Text style={styles.modalMessage}>
+              {String(language).toLowerCase() === "es"
+                ? `Puedes elegir entre 1 y ${randomPickerMode === "practice" ? sourceCount : visibleWords.length} palabras.`
+                : String(language).toLowerCase() === "en"
+                  ? `Choose between 1 and ${randomPickerMode === "practice" ? sourceCount : visibleWords.length} words.`
+                  : `Välj mellan 1 och ${randomPickerMode === "practice" ? sourceCount : visibleWords.length} ord.`}
+            </Text>
+            <TextInput
+              style={styles.randomAmountInput}
+              value={randomAmount}
+              onChangeText={(value) =>
+                setRandomAmount(value.replace(/[^0-9]/g, ""))
+              }
+              keyboardType="number-pad"
+              maxLength={6}
+              selectTextOnFocus
+              accessibilityLabel={
+                String(language).toLowerCase() === "es"
+                  ? "Número de palabras"
+                  : String(language).toLowerCase() === "en"
+                    ? "Number of words"
+                    : "Antal ord"
+              }
+            />
+            <TouchableOpacity
+              style={[
+                styles.fullPrimaryButton,
+                (!Number.isInteger(Number(randomAmount)) ||
+                  Number(randomAmount) < 1 ||
+                  Number(randomAmount) >
+                    (randomPickerMode === "practice"
+                      ? sourceCount
+                      : visibleWords.length)) &&
+                  styles.buttonDisabled,
+              ]}
+              disabled={
+                !Number.isInteger(Number(randomAmount)) ||
+                Number(randomAmount) < 1 ||
+                Number(randomAmount) >
+                  (randomPickerMode === "practice"
+                    ? sourceCount
+                    : visibleWords.length)
+              }
+              onPress={selectRandom}
+            >
+              <Text style={styles.primaryButtonText}>
+                {String(language).toLowerCase() === "es"
+                  ? "Aleatorio"
+                  : String(language).toLowerCase() === "en"
+                    ? "Random"
+                    : "Slumpa"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.fullSecondaryButton}
+              onPress={() => setShowRandomPicker(false)}
+            >
+              <Text style={styles.secondaryButtonText}>{t("cancel")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Fraga innan vi tar bort listan. */}
       <Modal
         visible={confirmDelete}
@@ -1001,6 +1269,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 16,
     paddingBottom: 50,
+  },
+
+  stickyActions: {
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 10,
+  },
+
+  scrollNavigation: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+  },
+
+  scrollNavigationButton: {
+    width: 42,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+
+  stickyEditButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  stickyEditButtonFlex: {
+    flex: 1,
+  },
+  stickyDeleteButton: {
+    flex: 1,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: "#FEE2E2",
+  },
+  stickySaveButton: {
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: colors.primary,
   },
 
   topRow: {
@@ -1050,6 +1368,77 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
+  // Kategorierna ligger i en horisontell rad som går att svepa.
+  categoryCarouselRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  categoryCarousel: {
+    flex: 1,
+  },
+  categoryCarouselPage: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  categoryArrowButton: {
+    width: 25,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryArrowText: {
+    fontSize: 29,
+    color: "#475569",
+    fontWeight: "300",
+  },
+  categoryArrowDisabled: {
+    fontSize: 29,
+    color: "#CBD5E1",
+    fontWeight: "300",
+  },
+
+  categoryBox: {
+    width: "100%",
+    minHeight: 56,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  categoryBoxActive: {
+    width: "100%",
+    minHeight: 56,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: "#2563EB",
+    borderWidth: 1,
+    borderColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  quickActionsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+
+  savedListsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 2,
+    justifyContent: "center",
+  },
+
   // Chipsen radbryts, så att alla val syns utan att man skrollar i sidled.
   chipGrid: {
     flexDirection: "row",
@@ -1057,22 +1446,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
-  newListChip: {
+  newListRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 13,
-    backgroundColor: "#EFF6FF",
+    marginTop: 12,
+  },
+
+  newListChip: {
+    width: "31.5%",
+    minHeight: 56,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: colors.primary,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 4,
   },
 
   newListChipText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
+    lineHeight: 17,
+    textAlign: "center",
     color: colors.primary,
   },
 
@@ -1179,6 +1577,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 22,
+  },
+
+  randomAmountInput: {
+    height: 54,
+    marginTop: 18,
+    borderRadius: 14,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
   },
 
   modalTitle: {

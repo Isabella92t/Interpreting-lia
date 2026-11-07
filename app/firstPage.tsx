@@ -21,6 +21,37 @@ const languages = [
   { label: "English", value: "en", flag: "🇬🇧" },
 ];
 
+/** Liten diskret symbol: två deltagare och en tolk med namnbricka. */
+function InterpreterLogo() {
+  return (
+    <View
+      style={styles.logo}
+      accessibilityLabel="TolkAppen – tre personer och tolk med namnbricka"
+    >
+      <View style={[styles.logoPerson, styles.logoSideLeft]}>
+        <View style={styles.logoSideHead} />
+        <View style={styles.logoSideBody} />
+      </View>
+      <View style={[styles.logoPerson, styles.logoSideRight]}>
+        <View style={styles.logoSideHead} />
+        <View style={styles.logoSideBody} />
+      </View>
+      <View style={styles.logoCenter}>
+        <View style={styles.logoCenterHead} />
+        <View style={styles.logoCenterBody} />
+        <View style={styles.logoStrapLeft} />
+        <View style={styles.logoStrapRight} />
+        <View style={styles.logoBadge}>
+          <Text style={styles.logoBadgeText} numberOfLines={1}>
+            TolkAppen
+          </Text>
+          <View style={styles.logoBadgeTail} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function FirstPage() {
   const router = useRouter();
   const { t } = useUiLanguage();
@@ -126,6 +157,7 @@ export default function FirstPage() {
 
       {/* CONTENT */}
       <View style={styles.content}>
+        <InterpreterLogo />
         <Text style={styles.title}>{t("chooseLanguages")}</Text>
 
         {/* FRÅN */}
@@ -280,7 +312,7 @@ export default function FirstPage() {
             {t("continue")}
           </Text>
 
-          {canContinue && <Text style={styles.continueArrow}>→</Text>}
+          
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -288,9 +320,109 @@ export default function FirstPage() {
 }
 
 const styles = StyleSheet.create({
+  // Kompakt logotyp – placerad ovanför språkvalen, inte en stor illustration.
+  logo: {
+    width: 106,
+    height: 90,
+    alignSelf: "center",
+    marginBottom: 34,
+    position: "relative",
+    transform: [{ scale: 1.6 }],
+  },
+  logoPerson: {
+    position: "absolute",
+    top: 12,
+    width: 38,
+    height: 55,
+    alignItems: "center",
+  },
+  logoSideLeft: { left: 2 },
+  logoSideRight: { right: 2 },
+  logoSideHead: {
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    backgroundColor: "#91B7DA",
+  },
+  logoSideBody: {
+    width: 35,
+    height: 29,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: "#91B7DA",
+    marginTop: 3,
+  },
+  logoCenter: {
+    position: "absolute",
+    top: 0,
+    left: 29,
+    width: 48,
+    height: 70,
+    alignItems: "center",
+  },
+  logoCenterHead: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#234C7A",
+    zIndex: 2,
+  },
+  logoCenterBody: {
+    position: "absolute",
+    top: 27,
+    width: 48,
+    height: 41,
+    borderTopLeftRadius: 23,
+    borderTopRightRadius: 23,
+    borderBottomLeftRadius: 5,
+    borderBottomRightRadius: 5,
+    backgroundColor: "#234C7A",
+  },
+  logoStrapLeft: {
+    position: "absolute",
+    top: 28,
+    left: 16,
+    width: 3,
+    height: 24,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "-28deg" }],
+    zIndex: 3,
+  },
+  logoStrapRight: {
+    position: "absolute",
+    top: 28,
+    right: 16,
+    width: 3,
+    height: 24,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "28deg" }],
+    zIndex: 3,
+  },
+  logoBadge: {
+    position: "absolute",
+    top: 43,
+    width: 53,
+    height: 19,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 4,
+  },
+  logoBadgeText: { fontSize: 8, fontWeight: "700", color: "#234C7A" },
+  logoBadgeTail: {
+    position: "absolute",
+    bottom: -3,
+    left: 10,
+    width: 7,
+    height: 7,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "45deg" }],
+  },
+
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#F8FAFD",
     paddingHorizontal: 24,
   },
 
@@ -311,19 +443,21 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
 
-
-
   content: {
     flex: 1,
     justifyContent: "center",
+    width: "88%",
+    maxWidth: 360,
+    alignSelf: "center",
+    paddingBottom: 24,
   },
 
   title: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: colors.text,
-    textAlign: "center",
-    marginBottom: 34,
+    fontSize: 21,
+    fontWeight: "500",
+    color: "#243B53",
+    textAlign: "left",
+    marginBottom: 22,
   },
 
   label: {
@@ -336,12 +470,12 @@ const styles = StyleSheet.create({
   },
 
   languageCard: {
-    height: 72,
-    borderRadius: 16,
+    height: 56,
+    borderRadius: 12,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -359,22 +493,22 @@ const styles = StyleSheet.create({
   },
 
   flagContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 14,
+    marginRight: 10,
   },
 
   flag: {
-    fontSize: 25,
+    fontSize: 20,
   },
 
   languageName: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "500",
     color: colors.text,
   },
 
@@ -458,14 +592,14 @@ const styles = StyleSheet.create({
   },
 
   continueButton: {
-    height: 54,
-    borderRadius: 16,
+    height: 48,
+    borderRadius: 11,
     marginTop: 30,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
-    width: "78%",
+    width: "68%",
   },
 
   continueButtonDisabled: {

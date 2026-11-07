@@ -5,6 +5,7 @@ import { useSQLiteContext } from "expo-sqlite";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "@/components/back-button";
+import { LanguagePicker } from "@/components/language-picker";
 import { SearchBar } from "@/components/search-bar";
 import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
@@ -55,6 +56,32 @@ type Translation = {
   text_to: string;
   information: string | null;
 };
+
+/** Liten diskret symbol: två deltagare och en tolk med namnbricka. */
+function InterpreterLogo() {
+  return (
+    <View style={styles.logo} accessibilityLabel="TolkAppen – tre personer och tolk med namnbricka">
+      <View style={[styles.logoPerson, styles.logoSideLeft]}>
+        <View style={styles.logoSideHead} />
+        <View style={styles.logoSideBody} />
+      </View>
+      <View style={[styles.logoPerson, styles.logoSideRight]}>
+        <View style={styles.logoSideHead} />
+        <View style={styles.logoSideBody} />
+      </View>
+      <View style={styles.logoCenter}>
+        <View style={styles.logoCenterHead} />
+        <View style={styles.logoCenterBody} />
+        <View style={styles.logoStrapLeft} />
+        <View style={styles.logoStrapRight} />
+        <View style={styles.logoBadge}>
+          <Text style={styles.logoBadgeText} numberOfLines={1}>TolkAppen</Text>
+          <View style={styles.logoBadgeTail} />
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export default function DictionaryPage() {
   const router = useRouter();
@@ -501,7 +528,7 @@ export default function DictionaryPage() {
         accessibilityLabel={`Visa information om ${item.text_from}`}
         hitSlop={6}
       >
-        <FontAwesome name="info-circle" size={15} color="#2563EB" />
+        <FontAwesome name="info-circle" size={15} color="#285F9D" />
       </TouchableOpacity>
     );
   }
@@ -514,6 +541,10 @@ export default function DictionaryPage() {
         if (selectedInformation) setSelectedInformation(null);
       }}
     >
+      <View pointerEvents="none" accessible={false} style={styles.watermarkLayer}>
+        <View style={styles.watermarkScale}><InterpreterLogo /></View>
+      </View>
+      <View style={styles.topRow}>
       <BackButton
         onPress={() =>
           router.dismissTo({
@@ -523,6 +554,8 @@ export default function DictionaryPage() {
         }
       />
 
+      <LanguagePicker />
+      </View>
       <Text style={styles.title}>{category ? category : t("dictionary")}</Text>
 
       <Text style={styles.subtitle}>
@@ -548,7 +581,7 @@ export default function DictionaryPage() {
           <FontAwesome
             name={displayMode === "stacked" ? "columns" : "bars"}
             size={14}
-            color="#64748B"
+            color="#71859B"
           />
           <Text style={styles.displayModeLabel}>
             {displayMode === "stacked" ? "Bredvid varandra" : "Under varandra"}
@@ -913,7 +946,7 @@ export default function DictionaryPage() {
               >
                 <Text
                   style={{
-                    color: "#4338ca",
+                    color: "#285F9D",
                     fontSize: 14,
                     fontWeight: "600",
                   }}
@@ -930,9 +963,34 @@ export default function DictionaryPage() {
 }
 
 const styles = StyleSheet.create({
+  watermarkLayer: { position: "absolute", top: "27%", left: 0, right: 0, height: 240, alignItems: "center", justifyContent: "center", opacity: 0.055 },
+  watermarkScale: { width: 106, height: 83, transform: [{ scale: 2.8 }], alignItems: "center", justifyContent: "center" },
+  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  logo: {
+    width: 106,
+    height: 90,
+    alignSelf: "center",
+    marginBottom: 34,
+    position: "relative",
+    transform: [{ scale: 1.6 }],
+  },
+  logoPerson: { position: "absolute", top: 12, width: 38, height: 55, alignItems: "center" },
+  logoSideLeft: { left: 2 },
+  logoSideRight: { right: 2 },
+  logoSideHead: { width: 21, height: 21, borderRadius: 11, backgroundColor: "#91B7DA" },
+  logoSideBody: { width: 35, height: 29, borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: "#91B7DA", marginTop: 3 },
+  logoCenter: { position: "absolute", top: 0, left: 29, width: 48, height: 70, alignItems: "center" },
+  logoCenterHead: { width: 26, height: 26, borderRadius: 13, backgroundColor: "#234C7A", zIndex: 2 },
+  logoCenterBody: { position: "absolute", top: 27, width: 48, height: 41, borderTopLeftRadius: 23, borderTopRightRadius: 23, borderBottomLeftRadius: 5, borderBottomRightRadius: 5, backgroundColor: "#234C7A" },
+  logoStrapLeft: { position: "absolute", top: 28, left: 16, width: 3, height: 24, backgroundColor: "#FFFFFF", transform: [{ rotate: "-28deg" }], zIndex: 3 },
+  logoStrapRight: { position: "absolute", top: 28, right: 16, width: 3, height: 24, backgroundColor: "#FFFFFF", transform: [{ rotate: "28deg" }], zIndex: 3 },
+  logoBadge: { position: "absolute", top: 43, width: 53, height: 19, borderRadius: 10, backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center", zIndex: 4 },
+  logoBadgeText: { fontSize: 8, fontWeight: "700", color: "#234C7A" },
+  logoBadgeTail: { position: "absolute", bottom: -3, left: 10, width: 7, height: 7, backgroundColor: "#FFFFFF", transform: [{ rotate: "45deg" }] },
+
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#F5F9FD",
     paddingHorizontal: 22,
     paddingTop: 16,
   },
@@ -954,12 +1012,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     borderRadius: 9,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    backgroundColor: "#F8FAFC",
+    borderColor: "#DFE8F1",
+    backgroundColor: "#F7FAFD",
   },
   displayModeLabel: {
     fontSize: 11,
-    color: "#64748B",
+    color: "#71859B",
   },
   sideTextRow: {
     flexDirection: "row",
@@ -977,15 +1035,16 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 21,
+    fontWeight: "700",
+    color: "#203B59",
     marginBottom: 4,
     textAlign: "center",
   },
 
   subtitle: {
     fontSize: 12,
-    color: "#6b7280",
+    color: "#71859B",
     textAlign: "center",
     marginBottom: 20,
   },
@@ -999,7 +1058,7 @@ const styles = StyleSheet.create({
 
   searchResults: {
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#DFE8F1",
     borderRadius: 14,
     backgroundColor: "#FFFFFF",
     overflow: "hidden",
@@ -1040,8 +1099,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: "#F8FAFC",
-    borderColor: "#BFDBFE",
+    backgroundColor: "#F7FAFD",
+    borderColor: "#C5DBEF",
     borderWidth: 1,
     borderRadius: 10,
   },
@@ -1057,7 +1116,7 @@ const styles = StyleSheet.create({
   informationBody: {
     fontSize: 12,
     lineHeight: 18,
-    color: "#64748B",
+    color: "#71859B",
   },
 
   listContent: {
@@ -1080,7 +1139,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: "600",
-    color: "#111827",
+    color: "#203B59",
     paddingRight: 8,
   },
 
@@ -1094,34 +1153,34 @@ const styles = StyleSheet.create({
 
   translation: {
     fontSize: 14,
-    color: "#6b7280",
+    color: "#71859B",
     marginTop: 3,
   },
 
   empty: {
     fontSize: 14,
-    color: "#6b7280",
+    color: "#71859B",
     textAlign: "center",
     paddingVertical: 24,
   },
 
   addWordPlusButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignSelf: "flex-end",
-    marginBottom: 12,
+    marginBottom: 16,
     marginRight: 2,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "#E9F3FB",
     borderWidth: 1,
-    borderColor: "#DBEAFE",
+    borderColor: "#DCEBF7",
     alignItems: "center",
     justifyContent: "center",
   },
   addWordPlusText: {
-    fontSize: 21,
-    lineHeight: 23,
-    color: "#2563EB",
+    fontSize: 26,
+    lineHeight: 29,
+    color: "#285F9D",
     fontWeight: "500",
   },
   addCategoriesScroll: { maxHeight: 135, marginBottom: 12 },
@@ -1130,21 +1189,21 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 9,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#DFE8F1",
     marginBottom: 6,
   },
   addCategoryChoiceSelected: {
-    backgroundColor: "#EFF6FF",
-    borderColor: "#BFDBFE",
+    backgroundColor: "#E9F3FB",
+    borderColor: "#C5DBEF",
   },
   addCategoryChoiceText: { color: "#334155", fontSize: 13 },
   addSaveButton: {
-    backgroundColor: "#E0E7FF",
+    backgroundColor: "#DCEBF7",
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: "center",
   },
-  addSaveButtonText: { color: "#4338CA", fontWeight: "600", fontSize: 14 },
+  addSaveButtonText: { color: "#285F9D", fontWeight: "600", fontSize: 14 },
 
   modalOverlay: {
     flex: 1,
@@ -1156,8 +1215,8 @@ const styles = StyleSheet.create({
 
   editModal: {
     width: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
     padding: 20,
     position: "relative",
   },
@@ -1176,32 +1235,32 @@ const styles = StyleSheet.create({
   closeModalText: {
     fontSize: 28,
     fontWeight: "400",
-    color: "#6b7280",
+    color: "#71859B",
     lineHeight: 30,
   },
 
   editTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#111827",
+    color: "#203B59",
     marginBottom: 18,
     paddingRight: 35,
   },
 
   editLabel: {
     fontSize: 12,
-    color: "#6b7280",
+    color: "#71859B",
     marginBottom: 5,
   },
 
   editInput: {
     height: 44,
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#DFE8F1",
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 15,
-    color: "#111827",
+    color: "#203B59",
     marginBottom: 14,
   },
 
@@ -1249,4 +1308,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-
