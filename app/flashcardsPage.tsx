@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -78,10 +79,14 @@ export default function FlashcardsPage() {
 
   // Egna listor.
   const [decks, setDecks] = useState<Deck[]>([]);
+  const deckOperationInProgress = useRef(false);
+  const [deckPage, setDeckPage] = useState(0);
+  const deckCarouselRef = useRef<ScrollView>(null);
 
   // Det man valt att öva på, och hur många ord det innehåller.
   const [source, setSource] = useState<Source>({ kind: "all" });
   const [sourceCount, setSourceCount] = useState(0);
+  const justSavedDeckId = useRef<number | null>(null);
 
   // Redigerar vi en egen lista, eller bara en kategori?
   // editingDeckId = null betyder en ny lista som inte sparats an.
@@ -129,7 +134,21 @@ export default function FlashcardsPage() {
   // Raknar orden i det man valt, sa att man ser hur stort det ar
   // innan man borjar.
   useEffect(() => {
-    countWords(source).then(setSourceCount);
+    // Efter Spara är antalet redan känt. Låt inte en ny asynkron
+    // databasfråga ersätta det med 0 innan användaren klickar igen.
+    if (source.kind === "deck" && justSavedDeckId.current === source.deck.id) {
+      justSavedDeckId.current = null;
+      return;
+    }
+    let active = true;
+    countWords(source)
+      .then((count) => {
+        if (active) setSourceCount(count);
+      })
+      .catch((error) => console.error("Kunde inte räkna ord:", error));
+    return () => {
+      active = false;
+    };
   }, [source, from, to]);
 
   async function loadCategories() {
@@ -203,93 +222,95 @@ export default function FlashcardsPage() {
     setStep("words");
   }
 
-  // Oppna en sparad lista. startNow = true ovar direkt.
-  async function openDeck(deck: Deck, startNow: boolean) {
+  // Sparade listor kan övas på samma tre sätt som kategorier.
+  async function openDeck(deck: Deck, mode: "all" | "random" | "pick" | "edit", randomCount = 1) {
     const words = await loadAllWords();
-
     const rows = await db.getAllAsync<{ word_id: number }>(
-      "SELECT word_id FROM deck_words WHERE deck_id = ?",
-      deck.id,
+      "SELECT word_id FROM deck_words WHERE deck_id = ?", deck.id,
     );
+    const ids = new Set(rows.map((row) => row.word_id));
+    const deckCards = words.filter((word) => ids.has(word.word_id));
 
-    const ids = rows.map((row) => row.word_id);
-    const deckCards = words.filter((word) => ids.includes(word.word_id));
-
-    setEditingDeck(true);
-    setEditingDeckId(deck.id);
+    setEditingDeck(mode === "edit");
+    setEditingDeckId(mode === "edit" ? deck.id : null);
     setDeckName(deck.name);
     setChosenCategory(null);
-    setCategoryWords(words);
-    setSelectedIds(ids);
+    setCategoryWords(mode === "edit" ? words : deckCards);
+    const roundCards = mode === "random" ? shuffle(deckCards).slice(0, randomCount) : deckCards;
+    setSelectedIds(roundCards.map((word) => word.word_id));
     setSearch("");
     setFilterCategory(null);
 
-    if (startNow && deckCards.length > 0) {
-      startRound(deckCards);
-    } else {
-      setStep("words");
-    }
+    if (mode === "all" && deckCards.length > 0) startRound(deckCards);
+    else if (mode === "random" && deckCards.length > 0)
+      startRound(roundCards);
+    else setStep("words");
   }
 
   async function saveDeck() {
+    if (deckOperationInProgress.current) return;
+    deckOperationInProgress.current = true;
     const name = deckName.trim() || t("newList");
 
-    let deckId = editingDeckId;
+    try {
+      // Alla ändringar i listan sparas tillsammans, eller inte alls.
+      const deckId = await db.withExclusiveTransactionAsync(async (tx) => {
+        let id = editingDeckId;
+        if (id === null) {
+          const inserted = await tx.runAsync(
+            "INSERT INTO decks (name, created_at) VALUES (?, ?)",
+            name,
+            new Date().toISOString(),
+          );
+          id = inserted.lastInsertRowId;
+        } else {
+          await tx.runAsync("UPDATE decks SET name = ? WHERE id = ?", name, id);
+        }
 
-    if (deckId === null) {
-      await db.runAsync(
-        "INSERT INTO decks (name, created_at) VALUES (?, ?)",
-        name,
-        new Date().toISOString(),
-      );
+        await tx.runAsync("DELETE FROM deck_words WHERE deck_id = ?", id);
+        for (const wordId of selectedIds) {
+          await tx.runAsync(
+            "INSERT OR IGNORE INTO deck_words (deck_id, word_id) VALUES (?, ?)",
+            id,
+            wordId,
+          );
+        }
+        return id;
+      });
 
-      const row = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM decks ORDER BY id DESC LIMIT 1",
-      );
-
-      if (!row) {
-        return;
-      }
-
-      deckId = row.id;
-    } else {
-      await db.runAsync("UPDATE decks SET name = ? WHERE id = ?", name, deckId);
+      await loadDecks();
+      // Visa rätt antal direkt utan att användaren behöver välja listan igen.
+      justSavedDeckId.current = deckId;
+      setSourceCount(new Set(selectedIds).size);
+      setSource({ kind: "deck", deck: { id: deckId, name } });
+      setStep("categories");
+    } catch (error) {
+      console.error("Kunde inte spara ordlistan:", error);
+      Alert.alert("Fel", "Kunde inte spara ordlistan. Försök igen.");
+    } finally {
+      deckOperationInProgress.current = false;
     }
-
-    // Enklast: ta bort alla rader och lagg in de valda igen.
-    await db.runAsync("DELETE FROM deck_words WHERE deck_id = ?", deckId);
-
-    for (const wordId of selectedIds) {
-      await db.runAsync(
-        "INSERT OR IGNORE INTO deck_words (deck_id, word_id) VALUES (?, ?)",
-        deckId,
-        wordId,
-      );
-    }
-
-    await loadDecks();
-
-    // Listan man nyss sparat blir vald, sa att man kan trycka Öva direkt.
-    setSource({ kind: "deck", deck: { id: deckId, name } });
-    setStep("categories");
   }
 
   async function confirmDeleteDeck() {
-    if (editingDeckId === null) {
-      return;
+    if (editingDeckId === null || deckOperationInProgress.current) return;
+    deckOperationInProgress.current = true;
+    try {
+      const deckId = editingDeckId;
+      await db.withExclusiveTransactionAsync(async (tx) => {
+        await tx.runAsync("DELETE FROM deck_words WHERE deck_id = ?", deckId);
+        await tx.runAsync("DELETE FROM decks WHERE id = ?", deckId);
+      });
+      await loadDecks();
+      setSource({ kind: "all" });
+      setConfirmDelete(false);
+      setStep("categories");
+    } catch (error) {
+      console.error("Kunde inte radera ordlistan:", error);
+      Alert.alert("Fel", "Kunde inte radera ordlistan. Försök igen.");
+    } finally {
+      deckOperationInProgress.current = false;
     }
-
-    await db.runAsync(
-      "DELETE FROM deck_words WHERE deck_id = ?",
-      editingDeckId,
-    );
-
-    await db.runAsync("DELETE FROM decks WHERE id = ?", editingDeckId);
-
-    await loadDecks();
-    setSource({ kind: "all" });
-    setConfirmDelete(false);
-    setStep("categories");
   }
 
   // Raknar orden i en kategori, i en egen lista, eller alla ord.
@@ -507,7 +528,8 @@ export default function FlashcardsPage() {
     }
     setShowRandomPicker(false);
     if (randomPickerMode === "practice") {
-      openCategory(chosenCategoryName(), "random", amount);
+      if (source.kind === "deck") openDeck(source.deck, "random", amount);
+      else openCategory(chosenCategoryName(), "random", amount);
       return;
     }
     const shuffled = shuffle(visibleWords);
@@ -598,6 +620,11 @@ export default function FlashcardsPage() {
   for (let i = 0; i < categories.length; i += 3) {
     categoryPages.push(categories.slice(i, i + 3));
   }
+  const deckPages: Deck[][] = [];
+  for (let i = 0; i < decks.length; i += 3) {
+    deckPages.push(decks.slice(i, i + 3));
+  }
+
   const categoryGap = 8;
   const categoryBoxWidth =
     categoryCarouselWidth > 0
@@ -608,6 +635,15 @@ export default function FlashcardsPage() {
     if (nextPage < 0 || nextPage >= categoryPages.length) return;
     setCategoryPage(nextPage);
     categoryCarouselRef.current?.scrollTo({
+      x: nextPage * categoryCarouselWidth,
+      animated: true,
+    });
+  }
+
+  function goToDeckPage(nextPage: number) {
+    if (nextPage < 0 || nextPage >= deckPages.length) return;
+    setDeckPage(nextPage);
+    deckCarouselRef.current?.scrollTo({
       x: nextPage * categoryCarouselWidth,
       animated: true,
     });
@@ -748,12 +784,52 @@ export default function FlashcardsPage() {
 
             <Text style={styles.label}>{t("myLists")}</Text>
 
-            <View style={styles.savedListsGrid}>
-              {decks.map((deck) => (
-                <View key={deck.id} style={{ width: categoryBoxWidth || 100 }}>
-                  {renderChip({ kind: "deck", deck })}
-                </View>
-              ))}
+            <View style={styles.categoryCarouselRow}>
+              <TouchableOpacity
+                style={styles.categoryArrowButton}
+                onPress={() => goToDeckPage(deckPage - 1)}
+                disabled={deckPage === 0}
+                activeOpacity={0.7}
+              >
+                <Text style={deckPage > 0 ? styles.categoryArrowText : styles.categoryArrowDisabled}>‹</Text>
+              </TouchableOpacity>
+
+              <View style={styles.categoryCarousel}>
+                <ScrollView
+                  ref={deckCarouselRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  scrollEventThrottle={16}
+                  onScroll={(event) => {
+                    if (categoryCarouselWidth > 0) {
+                      setDeckPage(Math.round(event.nativeEvent.contentOffset.x / categoryCarouselWidth));
+                    }
+                  }}
+                >
+                  {categoryCarouselWidth > 0 && deckPages.map((items, index) => (
+                    <View
+                      key={index}
+                      style={[styles.categoryCarouselPage, { width: categoryCarouselWidth }]}
+                    >
+                      {items.map((deck) => (
+                        <View key={deck.id} style={{ width: categoryBoxWidth }}>
+                          {renderChip({ kind: "deck", deck })}
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <TouchableOpacity
+                style={styles.categoryArrowButton}
+                onPress={() => goToDeckPage(deckPage + 1)}
+                disabled={deckPage >= deckPages.length - 1}
+                activeOpacity={0.7}
+              >
+                <Text style={deckPage < deckPages.length - 1 ? styles.categoryArrowText : styles.categoryArrowDisabled}>›</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Kortet visar vad man valt, och vad man kan göra med det.
@@ -765,76 +841,52 @@ export default function FlashcardsPage() {
                 {sourceCount} {t("words")}
               </Text>
 
-              {source.kind === "deck" ? (
-                <>
+              <>
+                <TouchableOpacity
+                  style={[styles.fullPrimaryButton, sourceCount === 0 && styles.buttonDisabled]}
+                  disabled={sourceCount === 0}
+                  onPress={() => source.kind === "deck"
+                    ? openDeck(source.deck, "all")
+                    : openCategory(chosenCategoryName(), "all")}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {t("practiseEverything")} ({sourceCount})
+                  </Text>
+                </TouchableOpacity>
+                {sourceCount > 0 && (
                   <TouchableOpacity
-                    style={[
-                      styles.fullPrimaryButton,
-                      sourceCount === 0 && styles.buttonDisabled,
-                    ]}
-                    onPress={() => openDeck(source.deck, true)}
-                    disabled={sourceCount === 0}
+                    style={styles.fullSecondaryButton}
+                    onPress={() => {
+                      setRandomPickerMode("practice");
+                      setRandomAmount("");
+                      setShowRandomPicker(true);
+                    }}
                   >
-                    <Text style={styles.primaryButtonText}>
-                      {t("practise")} ({sourceCount})
+                    <Text style={styles.secondaryButtonText}>
+                      {String(language).toLowerCase() === "es" ? "Aleatorio"
+                        : String(language).toLowerCase() === "en" ? "Random" : "Slumpa"}
                     </Text>
                   </TouchableOpacity>
-
+                )}
+                <TouchableOpacity
+                  style={styles.editSourceButton}
+                  onPress={() => source.kind === "deck"
+                    ? openDeck(source.deck, "pick")
+                    : openCategory(chosenCategoryName(), "pick")}
+                >
+                  <FontAwesome name="pencil" size={15} color="#334155" />
+                  <Text style={styles.secondaryButtonText}>{t("chooseWordsYourself")}</Text>
+                </TouchableOpacity>
+                {source.kind === "deck" && (
                   <TouchableOpacity
                     style={styles.editSourceButton}
-                    onPress={() => openDeck(source.deck, false)}
+                    onPress={() => openDeck(source.deck, "edit")}
                   >
                     <FontAwesome name="pencil" size={15} color="#334155" />
-                    <Text style={styles.secondaryButtonText}>
-                      {t("editList")}
-                    </Text>
+                    <Text style={styles.secondaryButtonText}>{t("editList")}</Text>
                   </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={[
-                      styles.fullPrimaryButton,
-                      sourceCount === 0 && styles.buttonDisabled,
-                    ]}
-                    onPress={() => openCategory(chosenCategoryName(), "all")}
-                    disabled={sourceCount === 0}
-                  >
-                    <Text style={styles.primaryButtonText}>
-                      {t("practiseEverything")} ({sourceCount})
-                    </Text>
-                  </TouchableOpacity>
-
-                  {sourceCount > 0 && (
-                    <TouchableOpacity
-                      style={styles.fullSecondaryButton}
-                      onPress={() => {
-                        setRandomPickerMode("practice");
-                        setRandomAmount("");
-                        setShowRandomPicker(true);
-                      }}
-                    >
-                      <Text style={styles.secondaryButtonText}>
-                        {String(language).toLowerCase() === "es"
-                          ? "Aleatorio"
-                          : String(language).toLowerCase() === "en"
-                            ? "Random"
-                            : "Slumpa"}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    style={styles.editSourceButton}
-                    onPress={() => openCategory(chosenCategoryName(), "pick")}
-                  >
-                    <FontAwesome name="pencil" size={15} color="#334155" />
-                    <Text style={styles.secondaryButtonText}>
-                      {t("chooseWordsYourself")}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
+                )}
+              </>
             </View>
           </View>
         )}
@@ -982,7 +1034,7 @@ export default function FlashcardsPage() {
               );
             })}
 
-            {selectedIds.length > 0 && (
+            {!editingDeck && selectedIds.length > 0 && (
               <TouchableOpacity
                 style={styles.fullPrimaryButton}
                 onPress={startFromSelection}
@@ -1237,7 +1289,11 @@ export default function FlashcardsPage() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("deleteListTitle")}</Text>
 
-            <Text style={styles.modalMessage}>{t("deleteNoteMessage")}</Text>
+            <Text style={styles.modalMessage}>{String(language).toLowerCase() === "es"
+              ? "¿Seguro que quieres eliminar esta lista?"
+              : String(language).toLowerCase() === "en"
+                ? "Are you sure you want to delete this list?"
+                : "Vill du verkligen radera den här ordlistan?"}</Text>
 
             <TouchableOpacity
               style={styles.fullSecondaryButton}
