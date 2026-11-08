@@ -1,5 +1,5 @@
 import { FontAwesome } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -7,7 +7,7 @@ import { BackButton } from "@/components/back-button";
 import { LanguagePicker } from "@/components/language-picker";
 import { SearchBar } from "@/components/search-bar";
 import { useUiLanguage } from "@/context/ui-language-context";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -84,6 +84,7 @@ export default function IdiomsPage() {
   const [showAddIdiom, setShowAddIdiom] = useState(false);
   const [newIdiom, setNewIdiom] = useState("");
   const [newTranslation, setNewTranslation] = useState("");
+  const [newThirdTranslation, setNewThirdTranslation] = useState("");
   const [newInfo, setNewInfo] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
@@ -92,6 +93,7 @@ export default function IdiomsPage() {
   const [editingIdiom, setEditingIdiom] = useState<Idiom | null>(null);
   const [editIdiomText, setEditIdiomText] = useState("");
   const [editTranslationText, setEditTranslationText] = useState("");
+  const [editThirdTranslation, setEditThirdTranslation] = useState("");
   const [editInfo, setEditInfo] = useState("");
   const [showInfo, setShowInfo] = useState<string | null>(null);
   const [editError, setEditError] = useState("");
@@ -101,10 +103,15 @@ export default function IdiomsPage() {
   const fromLanguage = languageNames[String(from ?? "").toLowerCase()];
 
   const toLanguage = languageNames[String(to ?? "").toLowerCase()];
+  const thirdLanguage = Object.values(languageNames).find(
+    (name) => name !== fromLanguage && name !== toLanguage,
+  );
 
-  useEffect(() => {
-    void loadIdioms();
-  }, [from, to]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadIdioms();
+    }, [db, from, to]),
+  );
 
   useEffect(() => {
     let active = true;
@@ -207,11 +214,18 @@ export default function IdiomsPage() {
       toLanguage,
     );
 
-    if (!fromRow || !toRow) return null;
+    if (!fromRow || !toRow || !thirdLanguage) return null;
+
+    const thirdRow = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM languages WHERE name = ?",
+      thirdLanguage,
+    );
+    if (!thirdRow) return null;
 
     return {
       fromId: fromRow.id,
       toId: toRow.id,
+      thirdId: thirdRow.id,
     };
   }
 
@@ -222,6 +236,7 @@ export default function IdiomsPage() {
 
     setNewIdiom("");
     setNewTranslation("");
+    setNewThirdTranslation("");
     setNewInfo("");
     setFormError("");
     setShowAddIdiom(false);
@@ -232,6 +247,7 @@ export default function IdiomsPage() {
 
     const idiomText = newIdiom.trim();
     const translationText = newTranslation.trim();
+    const thirdText = newThirdTranslation.trim();
     const infoText = newInfo.trim();
 
     if (!idiomText || !translationText) {
@@ -261,8 +277,8 @@ export default function IdiomsPage() {
         return;
       }
 
-      await db.withTransactionAsync(async () => {
-        const inserted = await db.runAsync(
+      await db.withExclusiveTransactionAsync(async (txn) => {
+        const inserted = await txn.runAsync(
           "INSERT INTO idioms (name, info) VALUES (?, ?)",
           idiomText,
           infoText || null,
@@ -270,7 +286,7 @@ export default function IdiomsPage() {
 
         const idiomId = inserted.lastInsertRowId;
 
-        await db.runAsync(
+        await txn.runAsync(
           `INSERT INTO idiom_translations
            (idiom_id, language_id, text)
            VALUES (?, ?, ?)`,
@@ -279,7 +295,7 @@ export default function IdiomsPage() {
           idiomText,
         );
 
-        await db.runAsync(
+        await txn.runAsync(
           `INSERT INTO idiom_translations
            (idiom_id, language_id, text)
            VALUES (?, ?, ?)`,
@@ -287,10 +303,19 @@ export default function IdiomsPage() {
           languages.toId,
           translationText,
         );
+        if (thirdText) {
+          await txn.runAsync(
+            "INSERT INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
+            idiomId,
+            languages.thirdId,
+            thirdText,
+          );
+        }
       });
 
       setNewIdiom("");
       setNewTranslation("");
+      setNewThirdTranslation("");
       setNewInfo("");
       setShowAddIdiom(false);
 
@@ -305,11 +330,25 @@ export default function IdiomsPage() {
 
   // REDIGERA IDIOM
 
-  function openEditIdiom(item: Idiom) {
+  async function openEditIdiom(item: Idiom) {
     setEditingIdiom(item);
     setEditIdiomText(item.text_from);
     setEditTranslationText(item.text_to);
+    setEditThirdTranslation("");
     setEditInfo(item.info ?? "");
+    try {
+      const languages = await getLanguageIds();
+      if (!languages) return;
+      const third = await db.getFirstAsync<{ text: string }>(
+        "SELECT text FROM idiom_translations WHERE idiom_id = ? AND language_id = ?",
+        item.idiom_id,
+        languages.thirdId,
+      );
+      setEditThirdTranslation(third?.text ?? "");
+    } catch (error) {
+      console.error("Kunde inte läsa tredje språket:", error);
+      setEditError("Kunde inte läsa översättningen. Försök öppna igen.");
+    }
     setEditError("");
   }
 
@@ -319,6 +358,7 @@ export default function IdiomsPage() {
     setEditingIdiom(null);
     setEditIdiomText("");
     setEditTranslationText("");
+    setEditThirdTranslation("");
     setEditInfo("");
     setEditError("");
   }
@@ -328,6 +368,7 @@ export default function IdiomsPage() {
 
     const idiomText = editIdiomText.trim();
     const translationText = editTranslationText.trim();
+    const thirdText = editThirdTranslation.trim();
     const infoText = editInfo.trim();
 
     if (!idiomText || !translationText) {
@@ -365,8 +406,8 @@ export default function IdiomsPage() {
 
       // Namnet i idioms-tabellen uppdateras också,
       // så att databasen hålls konsekvent.
-      await db.withTransactionAsync(async () => {
-        await db.runAsync(
+      await db.withExclusiveTransactionAsync(async (txn) => {
+        await txn.runAsync(
           `
           UPDATE idioms
           SET name = ?, info = ?
@@ -377,7 +418,7 @@ export default function IdiomsPage() {
           editingIdiom.idiom_id,
         );
 
-        await db.runAsync(
+        await txn.runAsync(
           `
           UPDATE idiom_translations
           SET text = ?
@@ -389,7 +430,7 @@ export default function IdiomsPage() {
           languages.fromId,
         );
 
-        await db.runAsync(
+        await txn.runAsync(
           `
           UPDATE idiom_translations
           SET text = ?
@@ -400,11 +441,25 @@ export default function IdiomsPage() {
           editingIdiom.idiom_id,
           languages.toId,
         );
+        await txn.runAsync(
+          "DELETE FROM idiom_translations WHERE idiom_id = ? AND language_id = ?",
+          editingIdiom.idiom_id,
+          languages.thirdId,
+        );
+        if (thirdText) {
+          await txn.runAsync(
+            "INSERT INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
+            editingIdiom.idiom_id,
+            languages.thirdId,
+            thirdText,
+          );
+        }
       });
 
       setEditingIdiom(null);
       setEditIdiomText("");
       setEditTranslationText("");
+      setEditThirdTranslation("");
       setEditError("");
 
       await loadIdioms();
@@ -449,13 +504,13 @@ export default function IdiomsPage() {
     setEditError("");
 
     try {
-      await db.withTransactionAsync(async () => {
-        await db.runAsync(
+      await db.withExclusiveTransactionAsync(async (txn) => {
+        await txn.runAsync(
           "DELETE FROM idiom_translations WHERE idiom_id = ?",
           idiomId,
         );
 
-        await db.runAsync("DELETE FROM idioms WHERE id = ?", idiomId);
+        await txn.runAsync("DELETE FROM idioms WHERE id = ?", idiomId);
       });
 
       setEditingIdiom(null);
@@ -675,6 +730,18 @@ export default function IdiomsPage() {
                 autoCapitalize="sentences"
               />
 
+              <Text style={styles.addFieldLabel}>
+                {thirdLanguage} (valfritt)
+              </Text>
+              <TextInput
+                style={[styles.input, styles.idiomInput]}
+                value={newThirdTranslation}
+                onChangeText={setNewThirdTranslation}
+                multiline
+                textAlignVertical="top"
+                autoCapitalize="sentences"
+              />
+
               <Text style={styles.addFieldLabel}>Information (valfritt)</Text>
 
               <TextInput
@@ -776,6 +843,18 @@ export default function IdiomsPage() {
                 }}
                 placeholder="Översättning..."
                 placeholderTextColor="#94A3B8"
+                multiline
+                textAlignVertical="top"
+                autoCapitalize="sentences"
+              />
+
+              <Text style={styles.addFieldLabel}>
+                {thirdLanguage} (valfritt)
+              </Text>
+              <TextInput
+                style={[styles.input, styles.idiomInput]}
+                value={editThirdTranslation}
+                onChangeText={setEditThirdTranslation}
                 multiline
                 textAlignVertical="top"
                 autoCapitalize="sentences"
