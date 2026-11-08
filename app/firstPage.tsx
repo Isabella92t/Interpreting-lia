@@ -1,9 +1,10 @@
 import { colors } from "@/constants/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -62,7 +63,38 @@ export default function FirstPage() {
   const [fromLanguage, setFromLanguage] = useState<string | null>(null);
   const [toLanguage, setToLanguage] = useState<string | null>(null);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Hämta senaste språkvalet när startsidan öppnas.
+  useEffect(() => {
+    let active = true;
+
+    async function restoreLanguages() {
+      try {
+        const [savedFrom, savedTo] = await Promise.all([
+          AsyncStorage.getItem("fromLanguage"),
+          AsyncStorage.getItem("toLanguage"),
+        ]);
+
+        const validFrom = languages.some((item) => item.value === savedFrom);
+        const validTo = languages.some((item) => item.value === savedTo);
+
+        if (active && validFrom && validTo && savedFrom !== savedTo) {
+          setFromLanguage(savedFrom);
+          setToLanguage(savedTo);
+        }
+      } catch (error) {
+        console.log("Kunde inte läsa sparade språk:", error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void restoreLanguages();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const canContinue = Boolean(fromLanguage && toLanguage);
 
@@ -133,6 +165,10 @@ export default function FirstPage() {
       });
     } catch (error) {
       console.log("Kunde inte spara språk:", error);
+      Alert.alert(
+        "Kunde inte spara",
+        "Det gick inte att spara språkvalet. Försök igen.",
+      );
     }
   }
 
@@ -311,8 +347,6 @@ export default function FirstPage() {
           >
             {t("continue")}
           </Text>
-
-          
         </TouchableOpacity>
       </View>
     </SafeAreaView>

@@ -1,7 +1,7 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -85,6 +85,10 @@ export default function NotePage() {
   const [text, setText] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const savingRef = useRef(false);
+  const deletingRef = useRef(false);
 
   useEffect(() => {
     if (id) void loadNote();
@@ -123,43 +127,70 @@ export default function NotePage() {
   }
 
   async function saveNote() {
+    if (savingRef.current || deletingRef.current) return;
     if (!title.trim() && !text.trim()) {
       Alert.alert(t("writeSomethingFirst"));
       return;
     }
-    const noteTitle = title.trim() || t("untitled");
-    const selectedDateValue = selectedDate
-      ? formatDateOnly(selectedDate)
-      : null;
-    if (id) {
-      await db.runAsync(
-        `UPDATE notes SET title = ?, text = ?, selected_date = ? WHERE id = ?`,
-        noteTitle,
-        text.trim(),
-        selectedDateValue,
-        Number(id),
-      );
-    } else {
-      await db.runAsync(
-        `INSERT INTO notes (title, text, created_at, selected_date) VALUES (?, ?, ?, ?)`,
-        noteTitle,
-        text.trim(),
-        new Date().toISOString(),
-        selectedDateValue,
-      );
+
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const noteTitle = title.trim() || t("untitled");
+      const selectedDateValue = selectedDate
+        ? formatDateOnly(selectedDate)
+        : null;
+      if (id) {
+        await db.runAsync(
+          `UPDATE notes SET title = ?, text = ?, selected_date = ? WHERE id = ?`,
+          noteTitle,
+          text.trim(),
+          selectedDateValue,
+          Number(id),
+        );
+      } else {
+        await db.runAsync(
+          `INSERT INTO notes (title, text, created_at, selected_date) VALUES (?, ?, ?, ?)`,
+          noteTitle,
+          text.trim(),
+          new Date().toISOString(),
+          selectedDateValue,
+        );
+      }
+      goToNotes();
+    } catch (error) {
+      console.error("Kunde inte spara anteckningen:", error);
+      Alert.alert("Fel", "Det gick inte att spara anteckningen. Försök igen.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
-    goToNotes();
   }
 
   function deleteNote() {
+    if (savingRef.current || deletingRef.current) return;
     Alert.alert(t("deleteNoteTitle"), t("deleteNoteMessage"), [
       { text: t("cancel"), style: "cancel" },
       {
         text: t("delete"),
         style: "destructive",
         onPress: async () => {
-          await db.runAsync("DELETE FROM notes WHERE id = ?", Number(id));
-          goToNotes();
+          if (deletingRef.current || savingRef.current) return;
+          deletingRef.current = true;
+          setDeleting(true);
+          try {
+            await db.runAsync("DELETE FROM notes WHERE id = ?", Number(id));
+            goToNotes();
+          } catch (error) {
+            console.error("Kunde inte radera anteckningen:", error);
+            Alert.alert(
+              "Fel",
+              "Det gick inte att radera anteckningen. Försök igen.",
+            );
+          } finally {
+            deletingRef.current = false;
+            setDeleting(false);
+          }
         },
       },
     ]);
@@ -227,12 +258,20 @@ export default function NotePage() {
           />
         )}
 
-        <TouchableOpacity style={styles.saveButton} onPress={saveNote}>
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={saveNote}
+          disabled={saving || deleting}
+        >
           <Text style={styles.saveButtonText}>{t("save")}</Text>
         </TouchableOpacity>
 
         {id && (
-          <TouchableOpacity style={styles.deleteButton} onPress={deleteNote}>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={deleteNote}
+            disabled={saving || deleting}
+          >
             <Text style={styles.deleteButtonText}>{t("delete")}</Text>
           </TouchableOpacity>
         )}

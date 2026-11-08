@@ -40,6 +40,28 @@ const CATEGORY_EXPANDED_KEY = "categoriesExpanded";
 const MIN_SEARCH_LENGTH = 3;
 const MAX_RESULTS = 3;
 
+// Texter som används på den här sidan och ännu inte finns i t().
+const pageTexts = {
+  sv: {
+    saving: "Sparar...",
+    optionalInformation: "Information (frivilligt)",
+    moreResults: "fler träffar",
+    saveWordFailed: "Kunde inte spara ordet. Försök igen.",
+  },
+  en: {
+    saving: "Saving...",
+    optionalInformation: "Information (optional)",
+    moreResults: "more results",
+    saveWordFailed: "Could not save the word. Please try again.",
+  },
+  es: {
+    saving: "Guardando...",
+    optionalInformation: "Información (opcional)",
+    moreResults: "resultados más",
+    saveWordFailed: "No se pudo guardar la palabra. Inténtalo de nuevo.",
+  },
+};
+
 const languageNames: Record<string, string> = {
   sv: "Svenska",
   en: "English",
@@ -121,6 +143,9 @@ export default function SecondPage() {
   const router = useRouter();
   const db = useSQLiteContext();
   const { t, language } = useUiLanguage();
+  const pageText =
+    pageTexts[String(language).toLowerCase() as keyof typeof pageTexts] ??
+    pageTexts.sv;
 
   const { from, to } = useLocalSearchParams<{
     from?: string;
@@ -142,9 +167,12 @@ export default function SecondPage() {
   const carouselRef = useRef<ScrollView>(null);
 
   const [showAddWord, setShowAddWord] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   const [word, setWord] = useState("");
   const [translation, setTranslation] = useState("");
+  const [englishWord, setEnglishWord] = useState("");
 
   const [wordInformation, setWordInformation] = useState("");
 
@@ -170,13 +198,14 @@ export default function SecondPage() {
   const [savingCategory, setSavingCategory] = useState(false);
 
   useEffect(() => {
-    loadCategories();
     loadRecentCategories();
     loadCategoriesExpanded();
   }, []);
 
+  // Uppdatera kategorier och sökresultat när användaren återvänder hit.
   useFocusEffect(
     useCallback(() => {
+      loadCategories();
       loadAllTranslations();
     }, [from, to]),
   );
@@ -337,6 +366,17 @@ export default function SecondPage() {
     return svenska || engelska || spanska || category.name;
   }
 
+  // Visa alltid valt källspråk först, målspråk sedan och tredje språket sist.
+  const orderedLanguageCodes = Array.from(
+    new Set([
+      String(from ?? "").toLowerCase(),
+      String(to ?? "").toLowerCase(),
+      "sv",
+      "en",
+      "es",
+    ]),
+  ).filter((code) => code === "sv" || code === "en" || code === "es");
+
   function closeAddCategory() {
     if (savingCategory) return;
 
@@ -352,8 +392,10 @@ export default function SecondPage() {
 
     setWord("");
     setTranslation("");
+    setEnglishWord("");
     setWordInformation("");
     setSelectedCategories([]);
+    setShowCategoryPicker(false);
     setWordError("");
     setShowAddWord(false);
   }
@@ -464,17 +506,30 @@ export default function SecondPage() {
   async function addWord() {
     if (savingWord) return;
 
-    if (!word.trim() || !translation.trim()) {
-      setWordError(t("fillAllFields"));
+    // Alla tre språken visas. De två valda språken behåller sina
+    // befintliga inmatningsfält, och det tredje språket har ett eget fält.
+    const fromCode = String(from ?? "").toLowerCase();
+    const toCode = String(to ?? "").toLowerCase();
+    const thirdCode = ["sv", "en", "es"].find(
+      (code) => code !== fromCode && code !== toCode,
+    );
+    if (
+      !languageNames[fromCode] ||
+      !languageNames[toCode] ||
+      !thirdCode ||
+      fromCode === toCode
+    ) {
+      setWordError(t("languagesNotFound"));
       return;
     }
 
-    const fromLanguage = languageNames[String(from).toLowerCase()];
-
-    const toLanguage = languageNames[String(to).toLowerCase()];
-
-    if (!fromLanguage || !toLanguage) {
-      setWordError(t("languagesNotFound"));
+    const entries = [
+      { code: fromCode, text: word.trim() },
+      { code: toCode, text: translation.trim() },
+      { code: thirdCode, text: englishWord.trim() },
+    ];
+    if (entries.filter((entry) => entry.text.length > 0).length < 2) {
+      setWordError(t("fillTwoLanguagesHelp"));
       return;
     }
 
@@ -482,109 +537,95 @@ export default function SecondPage() {
     setWordError("");
 
     try {
-      await db.runAsync(
-        "INSERT OR IGNORE INTO words (name) VALUES (?)",
-        word.trim(),
-      );
-
-      const wordResult = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM words WHERE name = ?",
-        word.trim(),
-      );
-
-      if (!wordResult) {
-        setWordError("Kunde inte spara ordet. Försök igen.");
-        return;
-      }
-
-      const fromLanguageResult = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM languages WHERE name = ?",
-        fromLanguage,
-      );
-
-      const toLanguageResult = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM languages WHERE name = ?",
-        toLanguage,
-      );
-
-      if (!fromLanguageResult || !toLanguageResult) {
-        setWordError(t("languagesNotFound"));
-        return;
-      }
-
-      await db.runAsync(
-        `
-        INSERT OR IGNORE INTO translations
-          (word_id, language_id, text)
-        VALUES (?, ?, ?)
-        `,
-        wordResult.id,
-        fromLanguageResult.id,
-        word.trim(),
-      );
-
-      await db.runAsync(
-        `
-        INSERT OR IGNORE INTO translations
-          (word_id, language_id, text)
-        VALUES (?, ?, ?)
-        `,
-        wordResult.id,
-        toLanguageResult.id,
-        translation.trim(),
-      );
-
-      // Frivillig information.
-      if (wordInformation.trim()) {
-        await db.runAsync(
-          "UPDATE words SET information = ? WHERE id = ?",
-          wordInformation.trim(),
-          wordResult.id,
-        );
-      }
-
-      if (selectedCategories.length === 0) {
-        const otherCategory = await db.getFirstAsync<{ id: number }>(
-          "SELECT id FROM tags WHERE name = ?",
-          "Övrigt",
+      // Alla databasändringar för ett ord sparas tillsammans.
+      // Om något steg misslyckas ångras hela sparningen automatiskt.
+      await db.withExclusiveTransactionAsync(async (transaction) => {
+        const wordName =
+          word.trim() || translation.trim() || englishWord.trim();
+        await transaction.runAsync(
+          "INSERT OR IGNORE INTO words (name) VALUES (?)",
+          wordName,
         );
 
-        if (otherCategory) {
-          await db.runAsync(
-            `
-            INSERT OR IGNORE INTO word_tags
-              (word_id, tag_id)
-            VALUES (?, ?)
-            `,
+        const wordResult = await transaction.getFirstAsync<{ id: number }>(
+          "SELECT id FROM words WHERE name = ?",
+          wordName,
+        );
+
+        if (!wordResult) {
+          throw new Error("Kunde inte hitta ordet efter sparning.");
+        }
+
+        for (const entry of entries) {
+          if (!entry.text) continue;
+          const languageResult = await transaction.getFirstAsync<{
+            id: number;
+          }>(
+            "SELECT id FROM languages WHERE name = ?",
+            languageNames[entry.code],
+          );
+          if (!languageResult) throw new Error(`Språket ${entry.code} saknas`);
+          await transaction.runAsync(
+            `INSERT OR IGNORE INTO translations
+             (word_id, language_id, text) VALUES (?, ?, ?)`,
             wordResult.id,
-            otherCategory.id,
+            languageResult.id,
+            entry.text,
           );
         }
-      } else {
-        for (const categoryName of selectedCategories) {
-          const categoryResult = await db.getFirstAsync<{ id: number }>(
+
+        // Frivillig information.
+        if (wordInformation.trim()) {
+          await transaction.runAsync(
+            "UPDATE words SET information = ? WHERE id = ?",
+            wordInformation.trim(),
+            wordResult.id,
+          );
+        }
+
+        if (selectedCategories.length === 0) {
+          const otherCategory = await transaction.getFirstAsync<{ id: number }>(
             "SELECT id FROM tags WHERE name = ?",
-            categoryName,
+            "Övrigt",
           );
 
-          if (categoryResult) {
-            await db.runAsync(
+          if (otherCategory) {
+            await transaction.runAsync(
               `
               INSERT OR IGNORE INTO word_tags
                 (word_id, tag_id)
               VALUES (?, ?)
               `,
               wordResult.id,
-              categoryResult.id,
+              otherCategory.id,
             );
           }
+        } else {
+          for (const categoryName of selectedCategories) {
+            const categoryResult = await transaction.getFirstAsync<{
+              id: number;
+            }>("SELECT id FROM tags WHERE name = ?", categoryName);
+
+            if (categoryResult) {
+              await transaction.runAsync(
+                `
+                INSERT OR IGNORE INTO word_tags
+                  (word_id, tag_id)
+                VALUES (?, ?)
+                `,
+                wordResult.id,
+                categoryResult.id,
+              );
+            }
+          }
         }
-      }
+      });
 
       await loadAllTranslations();
 
       setWord("");
       setTranslation("");
+      setEnglishWord("");
       setWordInformation("");
       setSelectedCategories([]);
       setWordError("");
@@ -592,7 +633,7 @@ export default function SecondPage() {
     } catch (error) {
       console.error("Kunde inte spara ord:", error);
 
-      setWordError("Kunde inte spara ordet. Försök igen.");
+      setWordError(pageText.saveWordFailed);
     } finally {
       setSavingWord(false);
     }
@@ -780,7 +821,8 @@ export default function SecondPage() {
 
                 {searchResults.length > MAX_RESULTS && (
                   <Text style={styles.moreResults}>
-                    + {searchResults.length - MAX_RESULTS} fler träffar
+                    + {searchResults.length - MAX_RESULTS}{" "}
+                    {pageText.moreResults}
                   </Text>
                 )}
               </>
@@ -806,17 +848,6 @@ export default function SecondPage() {
               />
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={styles.addCategoryButton}
-            onPress={() => {
-              setCategoryError("");
-              setShowAddCategory(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addCategoryText}>+</Text>
-          </TouchableOpacity>
         </View>
 
         {categoriesExpanded && (
@@ -991,6 +1022,80 @@ export default function SecondPage() {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* Plusknappen ligger längst ner och påverkas inte av sidans scrollning. */}
+      <View style={styles.bottomActionBar}>
+        <TouchableOpacity
+          style={styles.bottomAddButton}
+          onPress={() => setShowAddMenu(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={
+            language === "es"
+              ? "Añadir"
+              : language === "en"
+                ? "Add"
+                : "Lägg till"
+          }
+        >
+          <Text style={styles.bottomAddText}>+</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Välj vad som ska skapas. De befintliga formulären återanvänds. */}
+      <Modal
+        visible={showAddMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddMenu(false)}
+      >
+        <View style={styles.modalBackground}>
+          <View style={styles.addMenuCard}>
+            <TouchableOpacity
+              style={styles.addMenuOption}
+              onPress={() => {
+                setShowAddMenu(false);
+                setWordError("");
+                setShowAddWord(true);
+              }}
+              accessibilityRole="button"
+            >
+              <FontAwesome name="book" size={19} color="#285F9D" />
+              <Text style={styles.addMenuOptionText}>
+                {language === "es"
+                  ? "Palabra"
+                  : language === "en"
+                    ? "Word"
+                    : "Ord"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.addMenuOption}
+              onPress={() => {
+                setShowAddMenu(false);
+                setCategoryError("");
+                setShowAddCategory(true);
+              }}
+              accessibilityRole="button"
+            >
+              <FontAwesome name="folder-o" size={19} color="#285F9D" />
+              <Text style={styles.addMenuOptionText}>
+                {language === "es"
+                  ? "Categoría"
+                  : language === "en"
+                    ? "Category"
+                    : "Kategori"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowAddMenu(false)}
+            >
+              <Text style={styles.modalCancelText}>{t("cancel")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* MODAL: LÄGG TILL KATEGORI */}
 
       <Modal
@@ -1003,39 +1108,28 @@ export default function SecondPage() {
           <View style={styles.categoryModal}>
             <Text style={styles.modalTitle}>{t("addCategory")}</Text>
 
-            <Text style={styles.languageLabel}>Svenska</Text>
-
-            <TextInput
-              style={styles.input}
-              value={newCategorySv}
-              onChangeText={(value) => {
-                setNewCategorySv(value);
-                setCategoryError("");
-              }}
-              autoFocus
-            />
-
-            <Text style={styles.languageLabel}>English</Text>
-
-            <TextInput
-              style={styles.input}
-              value={newCategoryEn}
-              onChangeText={(value) => {
-                setNewCategoryEn(value);
-                setCategoryError("");
-              }}
-            />
-
-            <Text style={styles.languageLabel}>Español</Text>
-
-            <TextInput
-              style={styles.input}
-              value={newCategoryEs}
-              onChangeText={(value) => {
-                setNewCategoryEs(value);
-                setCategoryError("");
-              }}
-            />
+            {orderedLanguageCodes.map((code, index) => (
+              <Fragment key={code}>
+                <Text style={styles.languageLabel}>{languageNames[code]}</Text>
+                <TextInput
+                  style={styles.input}
+                  value={
+                    code === "sv"
+                      ? newCategorySv
+                      : code === "en"
+                        ? newCategoryEn
+                        : newCategoryEs
+                  }
+                  onChangeText={(value) => {
+                    if (code === "sv") setNewCategorySv(value);
+                    else if (code === "en") setNewCategoryEn(value);
+                    else setNewCategoryEs(value);
+                    setCategoryError("");
+                  }}
+                  autoFocus={index === 0}
+                />
+              </Fragment>
+            ))}
 
             <Text style={styles.categoryHint}>{t("fillTwoLanguages")}</Text>
 
@@ -1053,7 +1147,7 @@ export default function SecondPage() {
               activeOpacity={0.8}
             >
               <Text style={styles.modalPrimaryButtonText}>
-                {savingCategory ? "Sparar..." : t("add")}
+                {savingCategory ? pageText.saving : t("add")}
               </Text>
             </TouchableOpacity>
 
@@ -1086,14 +1180,9 @@ export default function SecondPage() {
             <View style={styles.categoryModal}>
               <Text style={styles.modalTitle}>{t("addWord")}</Text>
 
-              <View style={styles.modalLanguagePair}>
-                <Text style={styles.modalLanguageText}>{from}</Text>
-
-                <Text style={styles.modalLanguageArrow}>→</Text>
-
-                <Text style={styles.modalLanguageText}>{to}</Text>
-              </View>
-
+              <Text style={styles.languageLabel}>
+                {languageNames[String(from ?? "").toLowerCase()] || from}
+              </Text>
               <TextInput
                 style={styles.input}
                 value={word}
@@ -1103,6 +1192,9 @@ export default function SecondPage() {
                 }}
               />
 
+              <Text style={styles.languageLabel}>
+                {languageNames[String(to ?? "").toLowerCase()] || to}
+              </Text>
               <TextInput
                 style={styles.input}
                 value={translation}
@@ -1112,8 +1204,28 @@ export default function SecondPage() {
                 }}
               />
 
+              <Text style={styles.languageLabel}>
+                {
+                  languageNames[
+                    ["sv", "en", "es"].find(
+                      (code) =>
+                        code !== String(from ?? "").toLowerCase() &&
+                        code !== String(to ?? "").toLowerCase(),
+                    ) ?? "en"
+                  ]
+                }
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={englishWord}
+                onChangeText={(value) => {
+                  setEnglishWord(value);
+                  setWordError("");
+                }}
+              />
+
               <Text style={styles.informationLabel}>
-                Information (frivilligt)
+                {pageText.optionalInformation}
               </Text>
 
               <TextInput
@@ -1131,33 +1243,86 @@ export default function SecondPage() {
 
               <Text style={styles.optionalText}>{t("categoryOptional")}</Text>
 
-              {categories
-                .filter((category) => category.name !== "Övrigt")
-                .map((category) => {
-                  const isSelected = selectedCategories.includes(category.name);
+              <TouchableOpacity
+                style={styles.categoryPickerButton}
+                onPress={() => setShowCategoryPicker((current) => !current)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showCategoryPicker }}
+              >
+                <Text style={styles.categoryPickerButtonText}>
+                  {language === "es"
+                    ? "Elegir categoría"
+                    : language === "en"
+                      ? "Choose category"
+                      : "Välj kategori"}
+                  {selectedCategories.length > 0
+                    ? ` (${selectedCategories.length})`
+                    : ""}
+                </Text>
+                <FontAwesome
+                  name={showCategoryPicker ? "chevron-up" : "chevron-down"}
+                  size={14}
+                  color="#285F9D"
+                />
+              </TouchableOpacity>
 
-                  return (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={
-                        isSelected ? styles.selectedCategory : styles.category
-                      }
-                      onPress={() => toggleCategory(category.name)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={
-                          isSelected
-                            ? styles.selectedCategoryText
-                            : styles.categoryOptionText
-                        }
-                      >
-                        {isSelected ? "✓  " : ""}
-                        {getCategoryName(category)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              {showCategoryPicker && (
+                <View style={styles.categoryPickerPanel}>
+                  <ScrollView
+                    style={styles.categoryPickerScroll}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator
+                  >
+                    {categories
+                      .filter((category) => category.name !== "Övrigt")
+                      .map((category) => {
+                        const isSelected = selectedCategories.includes(
+                          category.name,
+                        );
+                        return (
+                          <TouchableOpacity
+                            key={category.id}
+                            style={
+                              isSelected
+                                ? styles.selectedCategory
+                                : styles.category
+                            }
+                            onPress={() => toggleCategory(category.name)}
+                            activeOpacity={0.8}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: isSelected }}
+                          >
+                            <Text
+                              style={
+                                isSelected
+                                  ? styles.selectedCategoryText
+                                  : styles.categoryOptionText
+                              }
+                            >
+                              {isSelected ? "✓  " : ""}
+                              {getCategoryName(category)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </ScrollView>
+                  <TouchableOpacity
+                    style={styles.categoryPickerDone}
+                    onPress={() => setShowCategoryPicker(false)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.categoryPickerDoneText}>
+                      {language === "es"
+                        ? "Listo"
+                        : language === "en"
+                          ? "Done"
+                          : "Klar"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {!!wordError && <Text style={styles.formError}>{wordError}</Text>}
 
@@ -1171,7 +1336,7 @@ export default function SecondPage() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalPrimaryButtonText}>
-                  {savingWord ? "Sparar..." : t("add")}
+                  {savingWord ? pageText.saving : t("add")}
                 </Text>
               </TouchableOpacity>
 
@@ -1323,7 +1488,53 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 22,
     paddingTop: 16,
-    paddingBottom: 50,
+    paddingBottom: 28,
+  },
+  bottomActionBar: {
+    alignItems: "flex-end",
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 12,
+    zIndex: 2,
+  },
+  bottomAddButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#E9F3FB",
+    borderWidth: 1,
+    borderColor: "#DCEBF7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomAddText: {
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: "500",
+    color: "#285F9D",
+  },
+  addMenuCard: {
+    width: "100%",
+    maxWidth: 500,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 24,
+  },
+  addMenuOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 15,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#DFE8F1",
+    backgroundColor: "#F7FAFD",
+    borderRadius: 12,
+  },
+  addMenuOptionText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#203B59",
   },
 
   topRow: {
@@ -1469,34 +1680,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
 
-  sectionHeaderSimple: {
-    marginTop: 30,
-    marginBottom: 12,
-  },
-
   sectionTitle: {
     fontSize: 19,
     fontWeight: "700",
     color: "#203B59",
-  },
-
-  addCategoryButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    marginLeft: 8,
-    backgroundColor: "#E9F3FB",
-    borderWidth: 1,
-    borderColor: "#DCEBF7",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  addCategoryText: {
-    fontSize: 21,
-    lineHeight: 23,
-    color: "#285F9D",
-    fontWeight: "500",
   },
 
   carouselRow: {
@@ -1634,23 +1821,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
-  modalLanguagePair: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-
-  modalLanguageText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#304C69",
-  },
-
-  modalLanguageArrow: {
-    color: "#8299AF",
-    marginHorizontal: 8,
-  },
-
   languageLabel: {
     fontSize: 13,
     fontWeight: "700",
@@ -1692,6 +1862,42 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
+  categoryPickerButton: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: "#DFE8F1",
+    backgroundColor: "#F5F9FD",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  categoryPickerButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#285F9D",
+  },
+  categoryPickerPanel: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#DFE8F1",
+    backgroundColor: "#FFFFFF",
+  },
+  categoryPickerScroll: {
+    maxHeight: 210,
+  },
+  categoryPickerDone: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  categoryPickerDoneText: {
+    fontWeight: "700",
+    color: "#285F9D",
+  },
   category: {
     borderWidth: 1,
     borderColor: "#DFE8F1",

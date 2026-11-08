@@ -12,6 +12,7 @@ import { SearchBar } from "@/components/search-bar";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useCallback, useState } from "react";
 import {
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -89,11 +90,19 @@ export default function NotesPage() {
   );
 
   async function loadNotes() {
-    const result = await db.getAllAsync<Note>(
-      `SELECT id, title, text, created_at, selected_date
-       FROM notes ORDER BY created_at DESC`,
-    );
-    setNotes(result);
+    try {
+      const result = await db.getAllAsync<Note>(
+        `SELECT id, title, text, created_at, selected_date
+         FROM notes ORDER BY created_at DESC`,
+      );
+      setNotes(result);
+    } catch (error) {
+      console.error("Kunde inte hämta anteckningar:", error);
+      Alert.alert(
+        "Fel",
+        "Det gick inte att hämta anteckningarna. Försök igen.",
+      );
+    }
   }
 
   const searchText = normalizeSearchText(search);

@@ -60,7 +60,10 @@ type Translation = {
 /** Liten diskret symbol: två deltagare och en tolk med namnbricka. */
 function InterpreterLogo() {
   return (
-    <View style={styles.logo} accessibilityLabel="TolkAppen – tre personer och tolk med namnbricka">
+    <View
+      style={styles.logo}
+      accessibilityLabel="TolkAppen – tre personer och tolk med namnbricka"
+    >
       <View style={[styles.logoPerson, styles.logoSideLeft]}>
         <View style={styles.logoSideHead} />
         <View style={styles.logoSideBody} />
@@ -75,7 +78,9 @@ function InterpreterLogo() {
         <View style={styles.logoStrapLeft} />
         <View style={styles.logoStrapRight} />
         <View style={styles.logoBadge}>
-          <Text style={styles.logoBadgeText} numberOfLines={1}>TolkAppen</Text>
+          <Text style={styles.logoBadgeText} numberOfLines={1}>
+            TolkAppen
+          </Text>
           <View style={styles.logoBadgeTail} />
         </View>
       </View>
@@ -87,13 +92,57 @@ export default function DictionaryPage() {
   const router = useRouter();
   const db = useSQLiteContext();
 
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
 
   const { from, to, category } = useLocalSearchParams<{
     from?: string;
     to?: string;
     category?: string;
   }>();
+
+  // Det interna kategorinamnet används fortfarande i SQL-frågor.
+  // Endast den synliga rubriken översätts.
+  const [categoryTitle, setCategoryTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!category) {
+      setCategoryTitle(null);
+      return;
+    }
+
+    // Visa det interna namnet tills den översatta rubriken har hämtats.
+    setCategoryTitle(null);
+    (async () => {
+      try {
+        const row = await db.getFirstAsync<WordCategory>(
+          "SELECT id, name, name_sv, name_en, name_es FROM tags WHERE name = ?",
+          category,
+        );
+        if (!active) return;
+        const translatedName =
+          language === "sv"
+            ? row?.name_sv
+            : language === "en"
+              ? row?.name_en
+              : row?.name_es;
+        setCategoryTitle(
+          translatedName?.trim() ||
+            row?.name_en?.trim() ||
+            row?.name_sv?.trim() ||
+            row?.name?.trim() ||
+            category,
+        );
+      } catch (error) {
+        console.error("Kunde inte läsa kategorirubrik:", error);
+        if (active) setCategoryTitle(category);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [db, category, language]);
 
   const [translations, setTranslations] = useState<Translation[]>([]);
   const [displayMode, setDisplayMode] = useState<"stacked" | "side">("stacked");
@@ -110,17 +159,34 @@ export default function DictionaryPage() {
   const [editTextTo, setEditTextTo] = useState("");
   const [editInformation, setEditInformation] = useState("");
   const [editError, setEditError] = useState("");
+  const [editCategories, setEditCategories] = useState<WordCategory[]>([]);
+  const [editCategoryIds, setEditCategoryIds] = useState<number[]>([]);
+  const [showEditCategories, setShowEditCategories] = useState(false);
+  const [loadingEditCategories, setLoadingEditCategories] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingWord, setDeletingWord] = useState(false);
 
   const [showAddWord, setShowAddWord] = useState(false);
   const [newWord, setNewWord] = useState("");
   const [newTranslation, setNewTranslation] = useState("");
+  const [newThirdTranslation, setNewThirdTranslation] = useState("");
   const [newInformation, setNewInformation] = useState("");
   const [wordCategories, setWordCategories] = useState<WordCategory[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [addError, setAddError] = useState("");
   const [addingWord, setAddingWord] = useState(false);
+
+  // Importera befintliga ord till den öppna kategorin utan att kopiera orden.
+  const [showCategoryImport, setShowCategoryImport] = useState(false);
+  const [importSources, setImportSources] = useState<WordCategory[]>([]);
+  const [importSource, setImportSource] = useState<WordCategory | null>(null);
+  const [importWords, setImportWords] = useState<Translation[]>([]);
+  const [importSelectedIds, setImportSelectedIds] = useState<number[]>([]);
+  const [importStep, setImportStep] = useState<"categories" | "mode" | "words">(
+    "categories",
+  );
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState("");
 
   useEffect(() => {
     loadTranslations();
@@ -238,9 +304,122 @@ export default function DictionaryPage() {
     setTranslations(result);
   }
 
+  function importCategoryName(item: WordCategory) {
+    const translated =
+      language === "sv"
+        ? item.name_sv
+        : language === "en"
+          ? item.name_en
+          : item.name_es;
+    return (
+      translated?.trim() ||
+      item.name_en?.trim() ||
+      item.name_sv?.trim() ||
+      item.name
+    );
+  }
+
+  async function openCategoryImport() {
+    if (!category) return;
+    setImportSource(null);
+    setImportWords([]);
+    setImportSelectedIds([]);
+    setImportStep("categories");
+    setImportError("");
+    setShowCategoryImport(true);
+    try {
+      const rows = await db.getAllAsync<WordCategory>(
+        "SELECT id, name, name_sv, name_en, name_es FROM tags WHERE name <> ? AND name <> 'Övrigt' ORDER BY LOWER(name)",
+        category,
+      );
+      setImportSources(rows);
+    } catch (error) {
+      console.error("Kunde inte hämta importkategorier:", error);
+      setImportError("Kunde inte hämta kategorierna.");
+    }
+  }
+
+  async function selectImportSource(source: WordCategory) {
+    setImportSource(source);
+    setImportWords([]);
+    setImportSelectedIds([]);
+    setImportError("");
+    setImportBusy(true);
+    try {
+      const fromName = languageNames[String(from ?? "").toLowerCase()];
+      const toName = languageNames[String(to ?? "").toLowerCase()];
+      const rows = await db.getAllAsync<Translation>(
+        `SELECT DISTINCT w.id AS word_id,
+          COALESCE(tf.text, w.name) AS text_from,
+          COALESCE(tt.text, '') AS text_to,
+          w.information AS information
+         FROM words w
+         INNER JOIN word_tags wt ON wt.word_id = w.id
+         LEFT JOIN translations tf ON tf.word_id = w.id
+           AND tf.language_id = (SELECT id FROM languages WHERE name = ?)
+         LEFT JOIN translations tt ON tt.word_id = w.id
+           AND tt.language_id = (SELECT id FROM languages WHERE name = ?)
+         WHERE wt.tag_id = ?
+         ORDER BY LOWER(text_from)`,
+        fromName,
+        toName,
+        source.id,
+      );
+      setImportWords(rows);
+      setImportStep("mode");
+    } catch (error) {
+      console.error("Kunde inte läsa ord för import:", error);
+      setImportError("Kunde inte läsa orden i kategorin.");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function importCategoryWords(wordIds: number[]) {
+    if (!category || !importSource || importBusy) return;
+    setImportBusy(true);
+    setImportError("");
+    try {
+      const destination = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM tags WHERE name = ?",
+        category,
+      );
+      if (!destination) throw new Error("Målkategorin finns inte längre");
+      const existing = await db.getAllAsync<{ word_id: number }>(
+        "SELECT word_id FROM word_tags WHERE tag_id = ?",
+        destination.id,
+      );
+      const existingIds = new Set(existing.map((row) => row.word_id));
+      const idsToAdd = [...new Set(wordIds)].filter(
+        (id) => !existingIds.has(id),
+      );
+      await db.withTransactionAsync(async () => {
+        for (const wordId of idsToAdd) {
+          await db.runAsync(
+            "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
+            wordId,
+            destination.id,
+          );
+        }
+      });
+      setShowCategoryImport(false);
+      await loadTranslations();
+      Alert.alert(
+        "Import klart",
+        `${idsToAdd.length} ord lades till i kategorin.${wordIds.length - idsToAdd.length > 0 ? ` ${wordIds.length - idsToAdd.length} fanns redan.` : ""}`,
+      );
+    } catch (error) {
+      console.error("Kunde inte importera ord:", error);
+      setImportError("Importen misslyckades. Försök igen.");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
   async function openAddWord() {
     setNewWord("");
     setNewTranslation("");
+    setNewThirdTranslation("");
     setNewInformation("");
     setAddError("");
     setSelectedCategoryIds([]);
@@ -275,9 +454,14 @@ export default function DictionaryPage() {
     setAddingWord(true);
     setAddError("");
     try {
-      const fromName = languageNames[String(from ?? "").toLowerCase()];
-      const toName = languageNames[String(to ?? "").toLowerCase()];
-      if (!fromName || !toName) {
+      const fromCode = String(from ?? "").toLowerCase();
+      const toCode = String(to ?? "").toLowerCase();
+      const thirdCode = Object.keys(languageNames).find(
+        (code) => code !== fromCode && code !== toCode,
+      );
+      const fromName = languageNames[fromCode];
+      const toName = languageNames[toCode];
+      if (!fromName || !toName || !thirdCode || fromCode === toCode) {
         setAddError("Språken kunde inte hittas.");
         return;
       }
@@ -289,7 +473,13 @@ export default function DictionaryPage() {
         "SELECT id FROM languages WHERE name = ?",
         toName,
       );
-      if (!fromRow || !toRow) {
+      const thirdRow = newThirdTranslation.trim()
+        ? await db.getFirstAsync<{ id: number }>(
+            "SELECT id FROM languages WHERE name = ?",
+            languageNames[thirdCode],
+          )
+        : null;
+      if (!fromRow || !toRow || (newThirdTranslation.trim() && !thirdRow)) {
         setAddError("Språken kunde inte hittas.");
         return;
       }
@@ -315,6 +505,14 @@ export default function DictionaryPage() {
           toRow.id,
           newTranslation.trim(),
         );
+        if (thirdRow && newThirdTranslation.trim()) {
+          await db.runAsync(
+            "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
+            wordRow.id,
+            thirdRow.id,
+            newThirdTranslation.trim(),
+          );
+        }
         if (newInformation.trim()) {
           await db.runAsync(
             "UPDATE words SET information = ? WHERE id = ?",
@@ -345,24 +543,55 @@ export default function DictionaryPage() {
     }
   }
 
-  function openEditWord(item: Translation) {
+  async function openEditWord(item: Translation) {
     setEditError("");
-    setEditingWord(item);
     setEditTextFrom(item.text_from);
     setEditTextTo(item.text_to);
     setEditInformation(item.information ?? "");
+    setShowEditCategories(false);
+    setEditCategories([]);
+    setEditCategoryIds([]);
+    setLoadingEditCategories(true);
+    setEditingWord(item);
+    try {
+      const [categories, assigned] = await Promise.all([
+        db.getAllAsync<WordCategory>(
+          "SELECT id, name, name_sv, name_en, name_es FROM tags ORDER BY LOWER(name)",
+        ),
+        db.getAllAsync<{ tag_id: number }>(
+          "SELECT tag_id FROM word_tags WHERE word_id = ?",
+          item.word_id,
+        ),
+      ]);
+      setEditCategories(categories);
+      setEditCategoryIds(assigned.map((row) => row.tag_id));
+    } catch (error) {
+      console.error("Kunde inte läsa ordets kategorier:", error);
+      setEditError("Kunde inte hämta kategorierna. Försök igen.");
+    } finally {
+      setLoadingEditCategories(false);
+    }
   }
 
-  function closeEditWord() {
+  function resetEditWord() {
     setEditingWord(null);
     setEditError("");
     setEditTextFrom("");
     setEditTextTo("");
     setEditInformation("");
+    setEditCategories([]);
+    setEditCategoryIds([]);
+    setShowEditCategories(false);
+  }
+
+  function closeEditWord() {
+    if (savingEdit || deletingWord) return;
+    resetEditWord();
   }
 
   async function saveEditedWord() {
-    if (!editingWord || savingEdit || deletingWord) return;
+    if (!editingWord || savingEdit || deletingWord || loadingEditCategories)
+      return;
     const fromLanguage = languageNames[String(from ?? "").toLowerCase()];
     const toLanguage = languageNames[String(to ?? "").toLowerCase()];
     if (!fromLanguage || !toLanguage) {
@@ -406,8 +635,32 @@ export default function DictionaryPage() {
           editInformation.trim() || null,
           editingWord.word_id,
         );
+        // Uppdatera ordets kategorier i samma transaktion som övriga ändringar.
+        await db.runAsync(
+          "DELETE FROM word_tags WHERE word_id = ?",
+          editingWord.word_id,
+        );
+        const otherCategory = editCategories.find(
+          (item) => item.name === "Övrigt",
+        );
+        const chosenIds = editCategoryIds.filter(
+          (id) => id !== otherCategory?.id,
+        );
+        const idsToSave =
+          chosenIds.length > 0
+            ? chosenIds
+            : otherCategory
+              ? [otherCategory.id]
+              : [];
+        for (const tagId of idsToSave) {
+          await db.runAsync(
+            "INSERT OR IGNORE INTO word_tags (word_id, tag_id) VALUES (?, ?)",
+            editingWord.word_id,
+            tagId,
+          );
+        }
       });
-      closeEditWord();
+      resetEditWord();
       await loadTranslations();
     } catch (error) {
       console.error("Failed to save word:", error);
@@ -446,7 +699,7 @@ export default function DictionaryPage() {
         await db.runAsync("DELETE FROM translations WHERE word_id = ?", wordId);
         await db.runAsync("DELETE FROM words WHERE id = ?", wordId);
       });
-      closeEditWord();
+      resetEditWord();
       await loadTranslations();
     } catch (error) {
       console.error("Failed to delete word:", error);
@@ -541,22 +794,30 @@ export default function DictionaryPage() {
         if (selectedInformation) setSelectedInformation(null);
       }}
     >
-      <View pointerEvents="none" accessible={false} style={styles.watermarkLayer}>
-        <View style={styles.watermarkScale}><InterpreterLogo /></View>
+      <View
+        pointerEvents="none"
+        accessible={false}
+        style={styles.watermarkLayer}
+      >
+        <View style={styles.watermarkScale}>
+          <InterpreterLogo />
+        </View>
       </View>
       <View style={styles.topRow}>
-      <BackButton
-        onPress={() =>
-          router.dismissTo({
-            pathname: "/secondPage",
-            params: { from, to },
-          })
-        }
-      />
+        <BackButton
+          onPress={() =>
+            router.dismissTo({
+              pathname: "/secondPage",
+              params: { from, to },
+            })
+          }
+        />
 
-      <LanguagePicker />
+        <LanguagePicker />
       </View>
-      <Text style={styles.title}>{category ? category : t("dictionary")}</Text>
+      <Text style={styles.title}>
+        {category ? (categoryTitle ?? category) : t("dictionary")}
+      </Text>
 
       <Text style={styles.subtitle}>
         {languageNames[String(from ?? "").toLowerCase()]} →{" "}
@@ -720,17 +981,177 @@ export default function DictionaryPage() {
         }
       />
 
-      <TouchableOpacity
-        style={styles.addWordPlusButton}
-        onPress={() => {
-          void openAddWord();
+      <View style={styles.categoryBottomActions}>
+        {!!category && (
+          <TouchableOpacity
+            style={styles.importCategoryButton}
+            onPress={() => {
+              void openCategoryImport();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Importera ord från en annan kategori"
+          >
+            <FontAwesome name="download" size={14} color="#285F9D" />
+            <Text style={styles.importCategoryButtonText}>Importera</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={styles.addWordPlusButton}
+          onPress={() => {
+            void openAddWord();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Lägg till ord"
+          activeOpacity={0.8}
+        >
+          <Text style={styles.addWordPlusText}>+</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        visible={showCategoryImport}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!importBusy) setShowCategoryImport(false);
         }}
-        accessibilityRole="button"
-        accessibilityLabel="Lägg till ord"
-        activeOpacity={0.8}
       >
-        <Text style={styles.addWordPlusText}>+</Text>
-      </TouchableOpacity>
+        <View style={styles.modalOverlay}>
+          <View style={styles.editModal}>
+            <TouchableOpacity
+              onPress={() => {
+                if (!importBusy) setShowCategoryImport(false);
+              }}
+              style={styles.closeModalButton}
+              disabled={importBusy}
+            >
+              <Text style={styles.closeModalText}>×</Text>
+            </TouchableOpacity>
+            <Text style={styles.editTitle}>Importera från kategori</Text>
+            {importStep === "categories" && (
+              <>
+                <Text style={styles.importHint}>
+                  Välj vilken kategori du vill hämta ord från.
+                </Text>
+                <ScrollView style={styles.importScroll} nestedScrollEnabled>
+                  {importSources.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.addCategoryChoice}
+                      onPress={() => {
+                        void selectImportSource(item);
+                      }}
+                      disabled={importBusy}
+                    >
+                      <Text style={styles.addCategoryChoiceText}>
+                        {importCategoryName(item)} ›
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                  {importSources.length === 0 && (
+                    <Text style={styles.importHint}>
+                      Det finns inga andra kategorier att importera från.
+                    </Text>
+                  )}
+                </ScrollView>
+              </>
+            )}
+            {importStep === "mode" && importSource && (
+              <>
+                <Text style={styles.importHint}>
+                  {importCategoryName(importSource)} · {importWords.length} ord
+                </Text>
+                <TouchableOpacity
+                  style={styles.addCategoryChoice}
+                  disabled={importBusy || importWords.length === 0}
+                  onPress={() => {
+                    void importCategoryWords(
+                      importWords.map((item) => item.word_id),
+                    );
+                  }}
+                >
+                  <Text style={styles.addCategoryChoiceText}>
+                    ✓ Välj hela kategorin
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.addCategoryChoice}
+                  disabled={importBusy || importWords.length === 0}
+                  onPress={() => setImportStep("words")}
+                >
+                  <Text style={styles.addCategoryChoiceText}>
+                    ☐ Välj vissa ord
+                  </Text>
+                </TouchableOpacity>
+                {importWords.length === 0 && (
+                  <Text style={styles.importHint}>
+                    Den här kategorin har inga ord.
+                  </Text>
+                )}
+              </>
+            )}
+            {importStep === "words" && (
+              <>
+                <Text style={styles.importHint}>
+                  Markera orden du vill importera ({importSelectedIds.length}{" "}
+                  valda).
+                </Text>
+                <ScrollView style={styles.importScroll} nestedScrollEnabled>
+                  {importWords.map((item) => {
+                    const checked = importSelectedIds.includes(item.word_id);
+                    return (
+                      <TouchableOpacity
+                        key={item.word_id}
+                        style={[
+                          styles.addCategoryChoice,
+                          checked && styles.addCategoryChoiceSelected,
+                        ]}
+                        onPress={() =>
+                          setImportSelectedIds((current) =>
+                            checked
+                              ? current.filter((id) => id !== item.word_id)
+                              : [...current, item.word_id],
+                          )
+                        }
+                      >
+                        <Text style={styles.addCategoryChoiceText}>
+                          {checked ? "☑" : "☐"} {item.text_from}
+                          {item.text_to ? ` – ${item.text_to}` : ""}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+                <TouchableOpacity
+                  style={styles.addSaveButton}
+                  disabled={importBusy || importSelectedIds.length === 0}
+                  onPress={() => {
+                    void importCategoryWords(importSelectedIds);
+                  }}
+                >
+                  <Text style={styles.addSaveButtonText}>
+                    Importera valda ({importSelectedIds.length})
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {!!importError && (
+              <Text style={styles.editError}>{importError}</Text>
+            )}
+            {importStep !== "categories" && (
+              <TouchableOpacity
+                style={styles.importBackButton}
+                disabled={importBusy}
+                onPress={() =>
+                  setImportStep(importStep === "words" ? "mode" : "categories")
+                }
+              >
+                <Text style={styles.editCategoryToggleText}>‹ Tillbaka</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showAddWord}
@@ -739,100 +1160,126 @@ export default function DictionaryPage() {
         onRequestClose={closeAddWord}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.editModal}>
+          <View style={[styles.editModal, styles.addWordModal]}>
             <TouchableOpacity
               onPress={closeAddWord}
               style={styles.closeModalButton}
             >
               <Text style={styles.closeModalText}>×</Text>
             </TouchableOpacity>
-            <Text style={styles.editTitle}>Lägg till ord</Text>
-            <Text style={styles.editLabel}>
-              {languageNames[String(from ?? "").toLowerCase()]}
-            </Text>
-            <TextInput
-              style={styles.editInput}
-              value={newWord}
-              onChangeText={(value) => {
-                setNewWord(value);
-                setAddError("");
-              }}
-              autoCapitalize="none"
-            />
-            <Text style={styles.editLabel}>
-              {languageNames[String(to ?? "").toLowerCase()]}
-            </Text>
-            <TextInput
-              style={styles.editInput}
-              value={newTranslation}
-              onChangeText={(value) => {
-                setNewTranslation(value);
-                setAddError("");
-              }}
-              autoCapitalize="none"
-            />
-            <Text style={styles.editLabel}>Information (valfritt)</Text>
-            <TextInput
-              style={[styles.editInput, styles.editInformationInput]}
-              value={newInformation}
-              onChangeText={(value) => {
-                setNewInformation(value);
-                setAddError("");
-              }}
-              multiline
-              textAlignVertical="top"
-            />
-            <Text style={styles.editLabel}>Kategori (valfritt)</Text>
             <ScrollView
-              style={styles.addCategoriesScroll}
-              nestedScrollEnabled
               keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.addWordModalContent}
             >
-              {wordCategories
-                .filter((item) => item.name !== "Övrigt")
-                .map((item) => {
-                  const selected = selectedCategoryIds.includes(item.id);
-                  const code = String(from ?? "").toLowerCase();
-                  const name =
-                    (code === "sv"
-                      ? item.name_sv
-                      : code === "en"
-                        ? item.name_en
-                        : item.name_es) || item.name;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[
-                        styles.addCategoryChoice,
-                        selected && styles.addCategoryChoiceSelected,
-                      ]}
-                      onPress={() => {
-                        setSelectedCategoryIds((current) =>
-                          selected
-                            ? current.filter((id) => id !== item.id)
-                            : [...current, item.id],
-                        );
-                        setAddError("");
-                      }}
-                    >
-                      <Text style={styles.addCategoryChoiceText}>
-                        {selected ? "✓  " : ""}
-                        {name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <Text style={styles.editTitle}>Lägg till ord</Text>
+              <Text style={styles.editLabel}>
+                {languageNames[String(from ?? "").toLowerCase()]}
+              </Text>
+              <TextInput
+                style={styles.editInput}
+                value={newWord}
+                onChangeText={(value) => {
+                  setNewWord(value);
+                  setAddError("");
+                }}
+                autoCapitalize="none"
+              />
+              <Text style={styles.editLabel}>
+                {languageNames[String(to ?? "").toLowerCase()]}
+              </Text>
+              <TextInput
+                style={styles.editInput}
+                value={newTranslation}
+                onChangeText={(value) => {
+                  setNewTranslation(value);
+                  setAddError("");
+                }}
+                autoCapitalize="none"
+              />
+              <Text style={styles.editLabel}>
+                {
+                  languageNames[
+                    Object.keys(languageNames).find(
+                      (code) =>
+                        code !== String(from ?? "").toLowerCase() &&
+                        code !== String(to ?? "").toLowerCase(),
+                    ) ?? "en"
+                  ]
+                }{" "}
+                (valfritt)
+              </Text>
+              <TextInput
+                style={styles.editInput}
+                value={newThirdTranslation}
+                onChangeText={(value) => {
+                  setNewThirdTranslation(value);
+                  setAddError("");
+                }}
+                autoCapitalize="none"
+              />
+              <Text style={styles.editLabel}>Information (valfritt)</Text>
+              <TextInput
+                style={[styles.editInput, styles.editInformationInput]}
+                value={newInformation}
+                onChangeText={(value) => {
+                  setNewInformation(value);
+                  setAddError("");
+                }}
+                multiline
+                textAlignVertical="top"
+              />
+              <Text style={styles.editLabel}>Kategori (valfritt)</Text>
+              <ScrollView
+                style={styles.addCategoriesScroll}
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+              >
+                {wordCategories
+                  .filter((item) => item.name !== "Övrigt")
+                  .map((item) => {
+                    const selected = selectedCategoryIds.includes(item.id);
+                    const code = String(from ?? "").toLowerCase();
+                    const name =
+                      (code === "sv"
+                        ? item.name_sv
+                        : code === "en"
+                          ? item.name_en
+                          : item.name_es) || item.name;
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[
+                          styles.addCategoryChoice,
+                          selected && styles.addCategoryChoiceSelected,
+                        ]}
+                        onPress={() => {
+                          setSelectedCategoryIds((current) =>
+                            selected
+                              ? current.filter((id) => id !== item.id)
+                              : [...current, item.id],
+                          );
+                          setAddError("");
+                        }}
+                      >
+                        <Text style={styles.addCategoryChoiceText}>
+                          {selected ? "✓  " : ""}
+                          {name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+              </ScrollView>
+              {!!addError && <Text style={styles.editError}>{addError}</Text>}
+              <TouchableOpacity
+                style={styles.addSaveButton}
+                onPress={() => {
+                  void addWord();
+                }}
+                disabled={addingWord}
+              >
+                <Text style={styles.addSaveButtonText}>{t("add")}</Text>
+              </TouchableOpacity>
             </ScrollView>
-            {!!addError && <Text style={styles.editError}>{addError}</Text>}
-            <TouchableOpacity
-              style={styles.addSaveButton}
-              onPress={() => {
-                void addWord();
-              }}
-              disabled={addingWord}
-            >
-              <Text style={styles.addSaveButtonText}>{t("add")}</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -901,6 +1348,88 @@ export default function DictionaryPage() {
               autoCorrect={false}
             />
 
+            <TouchableOpacity
+              style={styles.editCategoryToggle}
+              onPress={() => setShowEditCategories((current) => !current)}
+              disabled={loadingEditCategories}
+              accessibilityRole="button"
+              accessibilityLabel="Kategorier"
+            >
+              <Text style={styles.editCategoryHeading}>Kategorier</Text>
+              <View style={styles.editCategorySummary}>
+                <Text style={styles.editCategoryToggleText}>
+                  {loadingEditCategories
+                    ? "Laddar..."
+                    : (() => {
+                        const otherId = editCategories.find(
+                          (item) => item.name === "Övrigt",
+                        )?.id;
+                        const count = editCategoryIds.filter(
+                          (id) => id !== otherId,
+                        ).length;
+                        return count === 0 ? "Övrigt" : `${count} valda`;
+                      })()}
+                </Text>
+                <FontAwesome
+                  name={showEditCategories ? "chevron-up" : "chevron-down"}
+                  size={12}
+                  color="#285F9D"
+                />
+              </View>
+            </TouchableOpacity>
+            {showEditCategories && (
+              <ScrollView
+                style={styles.editCategoriesScroll}
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+              >
+                {editCategories
+                  .filter((item) => item.name !== "Övrigt")
+                  .map((item) => {
+                    const selected = editCategoryIds.includes(item.id);
+                    const name =
+                      (language === "sv"
+                        ? item.name_sv
+                        : language === "en"
+                          ? item.name_en
+                          : item.name_es
+                      )?.trim() ||
+                      item.name_en?.trim() ||
+                      item.name_sv?.trim() ||
+                      item.name;
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[
+                          styles.addCategoryChoice,
+                          selected && styles.addCategoryChoiceSelected,
+                        ]}
+                        onPress={() =>
+                          setEditCategoryIds((current) =>
+                            current.includes(item.id)
+                              ? current.filter((id) => id !== item.id)
+                              : [...current, item.id],
+                          )
+                        }
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: selected }}
+                      >
+                        <Text style={styles.addCategoryChoiceText}>
+                          {selected ? "☑  " : "☐  "}
+                          {name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                <TouchableOpacity
+                  style={styles.editCategoriesDone}
+                  onPress={() => setShowEditCategories(false)}
+                >
+                  <Text style={styles.editCategoryToggleText}>Klar</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+
             {!!editError && <Text style={styles.editError}>{editError}</Text>}
 
             {/* RADERA + SPARA */}
@@ -936,7 +1465,12 @@ export default function DictionaryPage() {
 
               <TouchableOpacity
                 onPress={saveEditedWord}
-                disabled={savingEdit || deletingWord}
+                disabled={
+                  savingEdit ||
+                  deletingWord ||
+                  loadingEditCategories ||
+                  !!editError
+                }
                 style={{
                   backgroundColor: "#e0e7ff",
                   borderRadius: 10,
@@ -963,9 +1497,29 @@ export default function DictionaryPage() {
 }
 
 const styles = StyleSheet.create({
-  watermarkLayer: { position: "absolute", top: "27%", left: 0, right: 0, height: 240, alignItems: "center", justifyContent: "center", opacity: 0.055 },
-  watermarkScale: { width: 106, height: 83, transform: [{ scale: 2.8 }], alignItems: "center", justifyContent: "center" },
-  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  watermarkLayer: {
+    position: "absolute",
+    top: "27%",
+    left: 0,
+    right: 0,
+    height: 240,
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.055,
+  },
+  watermarkScale: {
+    width: 106,
+    height: 83,
+    transform: [{ scale: 2.8 }],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
   logo: {
     width: 106,
     height: 90,
@@ -974,19 +1528,96 @@ const styles = StyleSheet.create({
     position: "relative",
     transform: [{ scale: 1.6 }],
   },
-  logoPerson: { position: "absolute", top: 12, width: 38, height: 55, alignItems: "center" },
+  logoPerson: {
+    position: "absolute",
+    top: 12,
+    width: 38,
+    height: 55,
+    alignItems: "center",
+  },
   logoSideLeft: { left: 2 },
   logoSideRight: { right: 2 },
-  logoSideHead: { width: 21, height: 21, borderRadius: 11, backgroundColor: "#91B7DA" },
-  logoSideBody: { width: 35, height: 29, borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: "#91B7DA", marginTop: 3 },
-  logoCenter: { position: "absolute", top: 0, left: 29, width: 48, height: 70, alignItems: "center" },
-  logoCenterHead: { width: 26, height: 26, borderRadius: 13, backgroundColor: "#234C7A", zIndex: 2 },
-  logoCenterBody: { position: "absolute", top: 27, width: 48, height: 41, borderTopLeftRadius: 23, borderTopRightRadius: 23, borderBottomLeftRadius: 5, borderBottomRightRadius: 5, backgroundColor: "#234C7A" },
-  logoStrapLeft: { position: "absolute", top: 28, left: 16, width: 3, height: 24, backgroundColor: "#FFFFFF", transform: [{ rotate: "-28deg" }], zIndex: 3 },
-  logoStrapRight: { position: "absolute", top: 28, right: 16, width: 3, height: 24, backgroundColor: "#FFFFFF", transform: [{ rotate: "28deg" }], zIndex: 3 },
-  logoBadge: { position: "absolute", top: 43, width: 53, height: 19, borderRadius: 10, backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center", zIndex: 4 },
+  logoSideHead: {
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    backgroundColor: "#91B7DA",
+  },
+  logoSideBody: {
+    width: 35,
+    height: 29,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: "#91B7DA",
+    marginTop: 3,
+  },
+  logoCenter: {
+    position: "absolute",
+    top: 0,
+    left: 29,
+    width: 48,
+    height: 70,
+    alignItems: "center",
+  },
+  logoCenterHead: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#234C7A",
+    zIndex: 2,
+  },
+  logoCenterBody: {
+    position: "absolute",
+    top: 27,
+    width: 48,
+    height: 41,
+    borderTopLeftRadius: 23,
+    borderTopRightRadius: 23,
+    borderBottomLeftRadius: 5,
+    borderBottomRightRadius: 5,
+    backgroundColor: "#234C7A",
+  },
+  logoStrapLeft: {
+    position: "absolute",
+    top: 28,
+    left: 16,
+    width: 3,
+    height: 24,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "-28deg" }],
+    zIndex: 3,
+  },
+  logoStrapRight: {
+    position: "absolute",
+    top: 28,
+    right: 16,
+    width: 3,
+    height: 24,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "28deg" }],
+    zIndex: 3,
+  },
+  logoBadge: {
+    position: "absolute",
+    top: 43,
+    width: 53,
+    height: 19,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 4,
+  },
   logoBadgeText: { fontSize: 8, fontWeight: "700", color: "#234C7A" },
-  logoBadgeTail: { position: "absolute", bottom: -3, left: 10, width: 7, height: 7, backgroundColor: "#FFFFFF", transform: [{ rotate: "45deg" }] },
+  logoBadgeTail: {
+    position: "absolute",
+    bottom: -3,
+    left: 10,
+    width: 7,
+    height: 7,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "45deg" }],
+  },
 
   container: {
     flex: 1,
@@ -1164,13 +1795,41 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
 
+  categoryBottomActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 16,
+    marginRight: 2,
+  },
+  importCategoryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: "#E9F3FB",
+    borderWidth: 1,
+    borderColor: "#DCEBF7",
+  },
+  importCategoryButtonText: {
+    color: "#285F9D",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  importHint: { color: "#71859B", fontSize: 13, marginBottom: 12 },
+  importScroll: { maxHeight: 320, marginBottom: 12 },
+  importBackButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    marginTop: 8,
+  },
   addWordPlusButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignSelf: "flex-end",
-    marginBottom: 16,
-    marginRight: 2,
     backgroundColor: "#E9F3FB",
     borderWidth: 1,
     borderColor: "#DCEBF7",
@@ -1184,6 +1843,22 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   addCategoriesScroll: { maxHeight: 135, marginBottom: 12 },
+  editCategoryToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: "#DFE8F1",
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  editCategoryHeading: { color: "#203B59", fontSize: 13, fontWeight: "600" },
+  editCategorySummary: { flexDirection: "row", alignItems: "center", gap: 10 },
+  editCategoryToggleText: { color: "#285F9D", fontSize: 13, fontWeight: "600" },
+  editCategoriesScroll: { maxHeight: 155, marginBottom: 12 },
+  editCategoriesDone: { alignItems: "center", paddingVertical: 10 },
   addCategoryChoice: {
     paddingHorizontal: 12,
     paddingVertical: 9,
@@ -1213,6 +1888,8 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
+  addWordModal: { maxHeight: "85%" },
+  addWordModalContent: { paddingTop: 8, paddingBottom: 8 },
   editModal: {
     width: "100%",
     backgroundColor: "#FFFFFF",
