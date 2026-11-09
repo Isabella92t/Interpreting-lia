@@ -35,6 +35,134 @@ const languageNames: Record<string, string> = {
   es: "Español",
 };
 
+type IdiomUiKey =
+  | "required"
+  | "languagesMissing"
+  | "duplicate"
+  | "saveFailed"
+  | "loadThirdFailed"
+  | "editFailed"
+  | "deleteTitle"
+  | "deleteMessage"
+  | "cancel"
+  | "delete"
+  | "deleteFailed"
+  | "showSide"
+  | "showStacked"
+  | "side"
+  | "stacked"
+  | "showInfo"
+  | "editItem"
+  | "addIdiom"
+  | "info"
+  | "closeInfo"
+  | "close"
+  | "optional"
+  | "optionalInfo"
+  | "add"
+  | "saving"
+  | "editIdiom"
+  | "idiomPlaceholder"
+  | "translationPlaceholder"
+  | "infoOptional";
+
+const IDIOM_UI: Record<"sv" | "en" | "es", Record<IdiomUiKey, string>> = {
+  sv: {
+    required: "Fyll i idiomet och översättningen.",
+    languagesMissing: "Språken kunde inte hittas.",
+    duplicate: "Det här idiomet finns redan.",
+    saveFailed: "Kunde inte spara idiomet. Försök igen.",
+    loadThirdFailed: "Kunde inte läsa översättningen. Försök öppna igen.",
+    editFailed: "Kunde inte spara ändringarna. Försök igen.",
+    deleteTitle: "Radera idiom?",
+    deleteMessage: "Vill du verkligen radera",
+    cancel: "Avbryt",
+    delete: "Radera",
+    deleteFailed: "Kunde inte radera idiomet. Försök igen.",
+    showSide: "Visa idiom bredvid varandra",
+    showStacked: "Visa idiom under varandra",
+    side: "Bredvid varandra",
+    stacked: "Under varandra",
+    showInfo: "Visa info om",
+    editItem: "Redigera",
+    addIdiom: "Lägg till idiom",
+    info: "Info",
+    closeInfo: "Stäng information",
+    close: "Stäng",
+    optional: "valfritt",
+    optionalInfo: "Information (valfritt)",
+    add: "Lägg till",
+    saving: "Sparar...",
+    editIdiom: "Redigera idiom",
+    idiomPlaceholder: "Idiom eller uttryck...",
+    translationPlaceholder: "Översättning...",
+    infoOptional: "Info (valfritt)",
+  },
+  en: {
+    required: "Enter the idiom and its translation.",
+    languagesMissing: "The languages could not be found.",
+    duplicate: "This idiom already exists.",
+    saveFailed: "Could not save the idiom. Please try again.",
+    loadThirdFailed: "Could not load the translation. Please open it again.",
+    editFailed: "Could not save the changes. Please try again.",
+    deleteTitle: "Delete idiom?",
+    deleteMessage: "Are you sure you want to delete",
+    cancel: "Cancel",
+    delete: "Delete",
+    deleteFailed: "Could not delete the idiom. Please try again.",
+    showSide: "Show idioms side by side",
+    showStacked: "Show idioms vertically",
+    side: "Side by side",
+    stacked: "Vertically",
+    showInfo: "Show info about",
+    editItem: "Edit",
+    addIdiom: "Add idiom",
+    info: "Info",
+    closeInfo: "Close information",
+    close: "Close",
+    optional: "optional",
+    optionalInfo: "Information (optional)",
+    add: "Add",
+    saving: "Saving...",
+    editIdiom: "Edit idiom",
+    idiomPlaceholder: "Idiom or expression...",
+    translationPlaceholder: "Translation...",
+    infoOptional: "Info (optional)",
+  },
+  es: {
+    required: "Introduce el modismo y su traducción.",
+    languagesMissing: "No se encontraron los idiomas.",
+    duplicate: "Este modismo ya existe.",
+    saveFailed: "No se pudo guardar el modismo. Inténtalo de nuevo.",
+    loadThirdFailed:
+      "No se pudo cargar la traducción. Intenta abrirla de nuevo.",
+    editFailed: "No se pudieron guardar los cambios. Inténtalo de nuevo.",
+    deleteTitle: "¿Eliminar modismo?",
+    deleteMessage: "¿Seguro que quieres eliminar",
+    cancel: "Cancelar",
+    delete: "Eliminar",
+    deleteFailed: "No se pudo eliminar el modismo. Inténtalo de nuevo.",
+    showSide: "Mostrar modismos uno al lado del otro",
+    showStacked: "Mostrar modismos uno debajo del otro",
+    side: "Uno al lado del otro",
+    stacked: "Uno debajo del otro",
+    showInfo: "Ver información sobre",
+    editItem: "Editar",
+    addIdiom: "Añadir modismo",
+    info: "Información",
+    closeInfo: "Cerrar información",
+    close: "Cerrar",
+    optional: "opcional",
+    optionalInfo: "Información (opcional)",
+    add: "Añadir",
+    saving: "Guardando...",
+    editIdiom: "Editar modismo",
+    idiomPlaceholder: "Modismo o expresión...",
+    translationPlaceholder: "Traducción...",
+    infoOptional: "Información (opcional)",
+  },
+};
+
 // Diskret vattenstämpel – tre personer, placerad bakom innehållet.
 function InterpreterWatermark() {
   return (
@@ -67,7 +195,8 @@ function InterpreterWatermark() {
 export default function IdiomsPage() {
   const router = useRouter();
   const db = useSQLiteContext();
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
+  const ui = IDIOM_UI[language === "en" || language === "es" ? language : "sv"];
 
   const { from, to } = useLocalSearchParams<{
     from?: string;
@@ -251,7 +380,7 @@ export default function IdiomsPage() {
     const infoText = newInfo.trim();
 
     if (!idiomText || !translationText) {
-      setFormError("Fyll i idiomet och översättningen.");
+      setFormError(ui.required);
       return;
     }
 
@@ -263,7 +392,7 @@ export default function IdiomsPage() {
       const languages = await getLanguageIds();
 
       if (!languages) {
-        setFormError("Språken kunde inte hittas.");
+        setFormError(ui.languagesMissing);
         return;
       }
 
@@ -273,7 +402,7 @@ export default function IdiomsPage() {
       );
 
       if (existing) {
-        setFormError("Det här idiomet finns redan.");
+        setFormError(ui.duplicate);
         return;
       }
 
@@ -322,7 +451,7 @@ export default function IdiomsPage() {
       await loadIdioms();
     } catch (error) {
       console.error("Kunde inte spara idiom:", error);
-      setFormError("Kunde inte spara idiomet. Försök igen.");
+      setFormError(ui.saveFailed);
     } finally {
       setSaving(false);
     }
@@ -347,9 +476,8 @@ export default function IdiomsPage() {
       setEditThirdTranslation(third?.text ?? "");
     } catch (error) {
       console.error("Kunde inte läsa tredje språket:", error);
-      setEditError("Kunde inte läsa översättningen. Försök öppna igen.");
+      setEditError(ui.loadThirdFailed);
     }
-    setEditError("");
   }
 
   function closeEditIdiom() {
@@ -372,7 +500,7 @@ export default function IdiomsPage() {
     const infoText = editInfo.trim();
 
     if (!idiomText || !translationText) {
-      setEditError("Fyll i idiomet och översättningen.");
+      setEditError(ui.required);
       return;
     }
 
@@ -384,7 +512,7 @@ export default function IdiomsPage() {
       const languages = await getLanguageIds();
 
       if (!languages) {
-        setEditError("Språken kunde inte hittas.");
+        setEditError(ui.languagesMissing);
         return;
       }
 
@@ -400,7 +528,7 @@ export default function IdiomsPage() {
       );
 
       if (existing) {
-        setEditError("Det här idiomet finns redan.");
+        setEditError(ui.duplicate);
         return;
       }
 
@@ -465,7 +593,7 @@ export default function IdiomsPage() {
       await loadIdioms();
     } catch (error) {
       console.error("Kunde inte redigera idiom:", error);
-      setEditError("Kunde inte spara ändringarna. Försök igen.");
+      setEditError(ui.editFailed);
     } finally {
       setSavingEdit(false);
     }
@@ -477,15 +605,15 @@ export default function IdiomsPage() {
     if (!editingIdiom || savingEdit || deletingIdiom) return;
 
     Alert.alert(
-      "Radera idiom?",
-      `Vill du verkligen radera ”${editingIdiom.text_from}”?`,
+      ui.deleteTitle,
+      `${ui.deleteMessage} ”${editingIdiom.text_from}”?`,
       [
         {
-          text: "Avbryt",
+          text: ui.cancel,
           style: "cancel",
         },
         {
-          text: "Radera",
+          text: ui.delete,
           style: "destructive",
           onPress: () => {
             void deleteIdiom();
@@ -521,7 +649,7 @@ export default function IdiomsPage() {
       await loadIdioms();
     } catch (error) {
       console.error("Kunde inte radera idiom:", error);
-      setEditError("Kunde inte radera idiomet. Försök igen.");
+      setEditError(ui.deleteFailed);
     } finally {
       setDeletingIdiom(false);
     }
@@ -563,9 +691,7 @@ export default function IdiomsPage() {
           disabled={!displayReady}
           accessibilityRole="button"
           accessibilityLabel={
-            displayMode === "stacked"
-              ? "Visa idiom bredvid varandra"
-              : "Visa idiom under varandra"
+            displayMode === "stacked" ? ui.showSide : ui.showStacked
           }
         >
           <FontAwesome
@@ -574,7 +700,7 @@ export default function IdiomsPage() {
             color="#71859B"
           />
           <Text style={styles.displayModeLabel}>
-            {displayMode === "stacked" ? "Bredvid varandra" : "Under varandra"}
+            {displayMode === "stacked" ? ui.side : ui.stacked}
           </Text>
         </TouchableOpacity>
       </View>
@@ -623,7 +749,7 @@ export default function IdiomsPage() {
                 style={styles.infoButton}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel={`Visa info om ${item.text_from}`}
+                accessibilityLabel={`${ui.showInfo} ${item.text_from}`}
               >
                 <FontAwesome name="info-circle" size={15} color="#285F9D" />
               </TouchableOpacity>
@@ -634,7 +760,7 @@ export default function IdiomsPage() {
               style={styles.editButton}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel={`Redigera ${item.text_from}`}
+              accessibilityLabel={`${ui.editItem} ${item.text_from}`}
             >
               <FontAwesome name="pencil" size={13} color="#8194A9" />
             </TouchableOpacity>
@@ -655,7 +781,7 @@ export default function IdiomsPage() {
         }}
         activeOpacity={0.8}
         accessibilityRole="button"
-        accessibilityLabel="Lägg till idiom"
+        accessibilityLabel={ui.addIdiom}
       >
         <Text style={styles.addIdiomPlus}>+</Text>
       </TouchableOpacity>
@@ -669,15 +795,15 @@ export default function IdiomsPage() {
       >
         <View style={[styles.modalBackground, styles.infoModalBackground]}>
           <View style={styles.categoryModal}>
-            <Text style={styles.modalTitle}>Info</Text>
+            <Text style={styles.modalTitle}>{ui.info}</Text>
             <Text style={styles.infoText}>{showInfo}</Text>
             <TouchableOpacity
               style={styles.modalCancelButton}
               onPress={() => setShowInfo(null)}
               accessibilityRole="button"
-              accessibilityLabel="Stäng information"
+              accessibilityLabel={ui.closeInfo}
             >
-              <Text style={styles.modalCancelText}>Stäng</Text>
+              <Text style={styles.modalCancelText}>{ui.close}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -701,7 +827,7 @@ export default function IdiomsPage() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.categoryModal}>
-              <Text style={styles.modalTitle}>Lägg till idiom</Text>
+              <Text style={styles.modalTitle}>{ui.addIdiom}</Text>
 
               <Text style={styles.addFieldLabel}>{fromLanguage ?? from}</Text>
               <TextInput
@@ -731,7 +857,7 @@ export default function IdiomsPage() {
               />
 
               <Text style={styles.addFieldLabel}>
-                {thirdLanguage} (valfritt)
+                {thirdLanguage} ({ui.optional})
               </Text>
               <TextInput
                 style={[styles.input, styles.idiomInput]}
@@ -742,7 +868,7 @@ export default function IdiomsPage() {
                 autoCapitalize="sentences"
               />
 
-              <Text style={styles.addFieldLabel}>Information (valfritt)</Text>
+              <Text style={styles.addFieldLabel}>{ui.optionalInfo}</Text>
 
               <TextInput
                 style={[styles.input, styles.idiomInput]}
@@ -764,7 +890,7 @@ export default function IdiomsPage() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalPrimaryButtonText}>
-                  {saving ? "Sparar..." : "Lägg till"}
+                  {saving ? ui.saving : ui.add}
                 </Text>
               </TouchableOpacity>
 
@@ -774,7 +900,7 @@ export default function IdiomsPage() {
                 disabled={saving}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalCancelText}>Avbryt</Text>
+                <Text style={styles.modalCancelText}>{ui.cancel}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -803,12 +929,12 @@ export default function IdiomsPage() {
                 style={styles.closeModalButton}
                 onPress={closeEditIdiom}
                 disabled={savingEdit || deletingIdiom}
-                accessibilityLabel="Stäng"
+                accessibilityLabel={ui.close}
               >
                 <Text style={styles.closeModalText}>×</Text>
               </TouchableOpacity>
 
-              <Text style={styles.modalTitle}>Redigera idiom</Text>
+              <Text style={styles.modalTitle}>{ui.editIdiom}</Text>
 
               <View style={styles.modalLanguagePair}>
                 <Text style={styles.modalLanguageText}>
@@ -827,7 +953,7 @@ export default function IdiomsPage() {
                   setEditIdiomText(value);
                   setEditError("");
                 }}
-                placeholder="Idiom eller uttryck..."
+                placeholder={ui.idiomPlaceholder}
                 placeholderTextColor="#94A3B8"
                 multiline
                 textAlignVertical="top"
@@ -841,7 +967,7 @@ export default function IdiomsPage() {
                   setEditTranslationText(value);
                   setEditError("");
                 }}
-                placeholder="Översättning..."
+                placeholder={ui.translationPlaceholder}
                 placeholderTextColor="#94A3B8"
                 multiline
                 textAlignVertical="top"
@@ -849,7 +975,7 @@ export default function IdiomsPage() {
               />
 
               <Text style={styles.addFieldLabel}>
-                {thirdLanguage} (valfritt)
+                {thirdLanguage} ({ui.optional})
               </Text>
               <TextInput
                 style={[styles.input, styles.idiomInput]}
@@ -862,7 +988,7 @@ export default function IdiomsPage() {
 
               <TextInput
                 style={[styles.input, styles.idiomInput]}
-                placeholder="Info (valfritt)"
+                placeholder={ui.infoOptional}
                 placeholderTextColor="#94A3B8"
                 value={editInfo}
                 onChangeText={setEditInfo}
@@ -890,7 +1016,7 @@ export default function IdiomsPage() {
                   disabled={savingEdit || deletingIdiom}
                 >
                   <Text style={styles.saveButtonText}>
-                    {savingEdit ? "Sparar..." : t("save")}
+                    {savingEdit ? ui.saving : t("save")}
                   </Text>
                 </TouchableOpacity>
               </View>

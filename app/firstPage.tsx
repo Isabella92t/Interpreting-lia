@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -21,6 +22,19 @@ const languages = [
   { label: "Español", value: "es", flag: "🇪🇸" },
   { label: "English", value: "en", flag: "🇬🇧" },
 ];
+
+/** Mjuk botanisk illustration med transparent bakgrund. */
+function SageBranch() {
+  return (
+    <Image
+      source={require("../assets/images/kvist.png")}
+      style={styles.branch}
+      resizeMode="contain"
+      accessible={false}
+      pointerEvents="none"
+    />
+  );
+}
 
 /** Liten diskret symbol: två deltagare och en tolk med namnbricka. */
 function InterpreterLogo() {
@@ -55,7 +69,7 @@ function InterpreterLogo() {
 
 export default function FirstPage() {
   const router = useRouter();
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
 
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
@@ -185,6 +199,12 @@ export default function FirstPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <View pointerEvents="none" style={styles.backgroundLayers}>
+        <View style={styles.backgroundTop} />
+        <View style={styles.backgroundMiddle} />
+        <View style={styles.backgroundBottom} />
+      </View>
+      <SageBranch />
       {/* HEADER. Första sidan är startsidan, så den har ingen
           tillbaka-knapp. Bara jordgloben, uppe till höger. */}
       <View style={styles.header}>
@@ -195,6 +215,13 @@ export default function FirstPage() {
       <View style={styles.content}>
         <InterpreterLogo />
         <Text style={styles.title}>{t("chooseLanguages")}</Text>
+        <Text style={styles.subtitle}>
+          {language === "sv"
+            ? "Välj dina arbetsspråk i TolkAppen."
+            : language === "es"
+              ? "Elige tus idiomas de trabajo en TolkAppen."
+              : "Choose your working languages in TolkAppen."}
+        </Text>
 
         {/* FRÅN */}
         <Text style={styles.label}>{t("from")}</Text>
@@ -359,7 +386,7 @@ const styles = StyleSheet.create({
     width: 106,
     height: 90,
     alignSelf: "center",
-    marginBottom: 34,
+    marginBottom: 28,
     position: "relative",
     transform: [{ scale: 1.6 }],
   },
@@ -456,8 +483,23 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFD",
+    backgroundColor: "#F1F5F4",
     paddingHorizontal: 24,
+  },
+
+  backgroundLayers: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backgroundTop: { flex: 4, backgroundColor: "#EAF3FA" },
+  backgroundMiddle: { flex: 3, backgroundColor: "#F5F7F4" },
+  backgroundBottom: { flex: 3, backgroundColor: "#F8EEDD" },
+  branch: {
+    position: "absolute",
+    right: 25,
+    bottom: -20,
+    width: 116,
+    height: 190,
+    opacity: 0.58,
   },
 
   loadingContainer: {
@@ -484,14 +526,23 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     alignSelf: "center",
     paddingBottom: 24,
+    zIndex: 1,
   },
 
   title: {
-    fontSize: 21,
-    fontWeight: "500",
+    fontSize: 28,
+    fontWeight: "700",
     color: "#243B53",
-    textAlign: "left",
-    marginBottom: 22,
+    textAlign: "center",
+    marginBottom: 7,
+  },
+
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#65798B",
+    textAlign: "center",
+    marginBottom: 26,
   },
 
   label: {
@@ -504,15 +555,20 @@ const styles = StyleSheet.create({
   },
 
   languageCard: {
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
+    height: 64,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 12,
+    borderColor: "#E3EAF0",
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    shadowColor: "#315D79",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   languageCardActive: {
@@ -626,24 +682,28 @@ const styles = StyleSheet.create({
   },
 
   continueButton: {
-    height: 48,
-    borderRadius: 11,
-    marginTop: 30,
+    height: 56,
+    borderRadius: 28,
+    marginTop: 32,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
-    width: "68%",
+    width: "100%",
+    maxWidth: 320,
+    elevation: 3,
+    shadowColor: "#315D79",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
-
   continueButtonDisabled: {
     backgroundColor: colors.disabled,
   },
 
   continueButtonActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: "#648EB5",
   },
-
   continueButtonText: {
     fontSize: 16,
     fontWeight: "600",

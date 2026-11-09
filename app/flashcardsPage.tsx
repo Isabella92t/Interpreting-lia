@@ -68,6 +68,29 @@ export default function FlashcardsPage() {
 
   const { t, language } = useUiLanguage();
 
+  // Felmeddelanden följer appens språk, inte tolkspråkparet.
+  const deckErrorTexts = {
+    sv: {
+      title: "Fel",
+      save: "Kunde inte spara ordlistan. Försök igen.",
+      delete: "Kunde inte radera ordlistan. Försök igen.",
+    },
+    en: {
+      title: "Error",
+      save: "Could not save the word list. Please try again.",
+      delete: "Could not delete the word list. Please try again.",
+    },
+    es: {
+      title: "Error",
+      save: "No se pudo guardar la lista de palabras. Inténtalo de nuevo.",
+      delete: "No se pudo eliminar la lista de palabras. Inténtalo de nuevo.",
+    },
+  }[language] ?? {
+    title: "Error",
+    save: "Could not save the word list. Please try again.",
+    delete: "Could not delete the word list. Please try again.",
+  };
+
   const { from, to } = useLocalSearchParams<{ from?: string; to?: string }>();
 
   const [step, setStep] = useState<Step>("categories");
@@ -297,7 +320,7 @@ export default function FlashcardsPage() {
       setStep("categories");
     } catch (error) {
       console.error("Kunde inte spara ordlistan:", error);
-      Alert.alert("Fel", "Kunde inte spara ordlistan. Försök igen.");
+      Alert.alert(deckErrorTexts.title, deckErrorTexts.save);
     } finally {
       deckOperationInProgress.current = false;
     }
@@ -318,7 +341,7 @@ export default function FlashcardsPage() {
       setStep("categories");
     } catch (error) {
       console.error("Kunde inte radera ordlistan:", error);
-      Alert.alert("Fel", "Kunde inte radera ordlistan. Försök igen.");
+      Alert.alert(deckErrorTexts.title, deckErrorTexts.delete);
     } finally {
       deckOperationInProgress.current = false;
     }

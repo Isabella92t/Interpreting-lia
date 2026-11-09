@@ -47,18 +47,27 @@ const pageTexts = {
     optionalInformation: "Information (frivilligt)",
     moreResults: "fler träffar",
     saveWordFailed: "Kunde inte spara ordet. Försök igen.",
+    chooseCategory: "Välj kategori",
+    done: "Klar",
+    showInformationAbout: "Visa information om",
   },
   en: {
     saving: "Saving...",
     optionalInformation: "Information (optional)",
     moreResults: "more results",
     saveWordFailed: "Could not save the word. Please try again.",
+    chooseCategory: "Choose category",
+    done: "Done",
+    showInformationAbout: "Show information about",
   },
   es: {
     saving: "Guardando...",
     optionalInformation: "Información (opcional)",
     moreResults: "resultados más",
     saveWordFailed: "No se pudo guardar la palabra. Inténtalo de nuevo.",
+    chooseCategory: "Elegir categoría",
+    done: "Listo",
+    showInformationAbout: "Mostrar información sobre",
   },
 };
 
@@ -788,7 +797,7 @@ export default function SecondPage() {
                             )
                           }
                           accessibilityRole="button"
-                          accessibilityLabel={`Visa information om ${item.text_from}`}
+                          accessibilityLabel={`${pageText.showInformationAbout} ${item.text_from}`}
                           style={styles.infoButton}
                         >
                           <FontAwesome
@@ -1029,13 +1038,7 @@ export default function SecondPage() {
           onPress={() => setShowAddMenu(true)}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={
-            language === "es"
-              ? "Añadir"
-              : language === "en"
-                ? "Add"
-                : "Lägg till"
-          }
+          accessibilityLabel={t("add")}
         >
           <Text style={styles.bottomAddText}>+</Text>
         </TouchableOpacity>
@@ -1060,13 +1063,7 @@ export default function SecondPage() {
               accessibilityRole="button"
             >
               <FontAwesome name="book" size={19} color="#285F9D" />
-              <Text style={styles.addMenuOptionText}>
-                {language === "es"
-                  ? "Palabra"
-                  : language === "en"
-                    ? "Word"
-                    : "Ord"}
-              </Text>
+              <Text style={styles.addMenuOptionText}>{t("word")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.addMenuOption}
@@ -1078,13 +1075,7 @@ export default function SecondPage() {
               accessibilityRole="button"
             >
               <FontAwesome name="folder-o" size={19} color="#285F9D" />
-              <Text style={styles.addMenuOptionText}>
-                {language === "es"
-                  ? "Categoría"
-                  : language === "en"
-                    ? "Category"
-                    : "Kategori"}
-              </Text>
+              <Text style={styles.addMenuOptionText}>{t("category")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.modalCancelButton}
@@ -1251,11 +1242,7 @@ export default function SecondPage() {
                 accessibilityState={{ expanded: showCategoryPicker }}
               >
                 <Text style={styles.categoryPickerButtonText}>
-                  {language === "es"
-                    ? "Elegir categoría"
-                    : language === "en"
-                      ? "Choose category"
-                      : "Välj kategori"}
+                  {pageText.chooseCategory}
                   {selectedCategories.length > 0
                     ? ` (${selectedCategories.length})`
                     : ""}
@@ -1314,11 +1301,7 @@ export default function SecondPage() {
                     accessibilityRole="button"
                   >
                     <Text style={styles.categoryPickerDoneText}>
-                      {language === "es"
-                        ? "Listo"
-                        : language === "en"
-                          ? "Done"
-                          : "Klar"}
+                      {pageText.done}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1477,7 +1460,7 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: "#F5F9FD",
+    backgroundColor: "#EAF3FA",
   },
 
   scrollView: {
@@ -1501,7 +1484,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#E9F3FB",
+    backgroundColor: "#DCECF8",
     borderWidth: 1,
     borderColor: "#DCEBF7",
     alignItems: "center",
@@ -1721,14 +1704,19 @@ const styles = StyleSheet.create({
 
   categoryCard: {
     minHeight: 64,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#DFE8F1",
+    borderColor: "#E2E9ED",
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 8,
     paddingVertical: 10,
+    shadowColor: "#597783",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.09,
+    shadowRadius: 9,
+    elevation: 2,
   },
 
   categoryText: {
@@ -1741,20 +1729,25 @@ const styles = StyleSheet.create({
 
   featureCard: {
     minHeight: 76,
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#DFE8F1",
+    borderColor: "#E3E9EA",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 15,
     marginBottom: 10,
+    shadowColor: "#597783",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.09,
+    shadowRadius: 9,
+    elevation: 2,
   },
 
   featureIcon: {
     width: 44,
     height: 44,
-    borderRadius: 13,
+    borderRadius: 15,
     backgroundColor: "#E9F3FB",
     alignItems: "center",
     justifyContent: "center",

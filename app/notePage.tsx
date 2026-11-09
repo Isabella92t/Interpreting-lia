@@ -21,6 +21,25 @@ const LINE_HEIGHT = 28;
 const LINE_COUNT = 40;
 const EMPTY_LINES = 14;
 
+// Felmeddelanden som följer jordglobens språk.
+const noteMessages = {
+  sv: {
+    error: "Fel",
+    saveFailed: "Det gick inte att spara anteckningen. Försök igen.",
+    deleteFailed: "Det gick inte att radera anteckningen. Försök igen.",
+  },
+  en: {
+    error: "Error",
+    saveFailed: "Could not save the note. Please try again.",
+    deleteFailed: "Could not delete the note. Please try again.",
+  },
+  es: {
+    error: "Error",
+    saveFailed: "No se pudo guardar la nota. Inténtalo de nuevo.",
+    deleteFailed: "No se pudo eliminar la nota. Inténtalo de nuevo.",
+  },
+};
+
 function PaperLines() {
   return (
     <View style={styles.lines} pointerEvents="none">
@@ -70,7 +89,8 @@ type Note = {
 export default function NotePage() {
   const router = useRouter();
   const db = useSQLiteContext();
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
+  const messages = noteMessages[language] ?? noteMessages.en;
   const { id, from, to } = useLocalSearchParams<{
     id?: string;
     from?: string;
@@ -160,7 +180,7 @@ export default function NotePage() {
       goToNotes();
     } catch (error) {
       console.error("Kunde inte spara anteckningen:", error);
-      Alert.alert("Fel", "Det gick inte att spara anteckningen. Försök igen.");
+      Alert.alert(messages.error, messages.saveFailed);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -183,10 +203,7 @@ export default function NotePage() {
             goToNotes();
           } catch (error) {
             console.error("Kunde inte radera anteckningen:", error);
-            Alert.alert(
-              "Fel",
-              "Det gick inte att radera anteckningen. Försök igen.",
-            );
+            Alert.alert(messages.error, messages.deleteFailed);
           } finally {
             deletingRef.current = false;
             setDeleting(false);

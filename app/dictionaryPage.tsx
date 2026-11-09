@@ -1,5 +1,6 @@
 import { FontAwesome } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,7 +10,7 @@ import { LanguagePicker } from "@/components/language-picker";
 import { SearchBar } from "@/components/search-bar";
 import { colors } from "@/constants/colors";
 import { useUiLanguage } from "@/context/ui-language-context";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -22,6 +23,146 @@ import {
   View,
 } from "react-native";
 
+const PAGE_TRANSLATIONS: Record<string, { en: string; es: string }> = {
+  "Gå vidare och välj vilka ord som ska importeras": {
+    en: "Continue to choose which words to import",
+    es: "Continúa para elegir las palabras que quieres importar",
+  },
+
+  "Välj kategori": { en: "Choose category", es: "Elegir categoría" },
+  "Importera från kategori": {
+    en: "Import from category",
+    es: "Importar desde una categoría",
+  },
+  "Välj vilken kategori du vill hämta ord från.": {
+    en: "Choose a category to import words from.",
+    es: "Elige una categoría de la que importar palabras.",
+  },
+  "Det finns inga andra kategorier att importera från.": {
+    en: "There are no other categories to import from.",
+    es: "No hay otras categorías desde las que importar.",
+  },
+  ord: { en: "words", es: "palabras" },
+  "✓ Välj hela kategorin": {
+    en: "✓ Select entire category",
+    es: "✓ Seleccionar toda la categoría",
+  },
+  "☐ Välj vissa ord": {
+    en: "☐ Select specific words",
+    es: "☐ Seleccionar algunas palabras",
+  },
+  "Den här kategorin har inga ord.": {
+    en: "This category has no words.",
+    es: "Esta categoría no contiene palabras.",
+  },
+  "Markera orden du vill importera": {
+    en: "Select the words you want to import",
+    es: "Selecciona las palabras que quieres importar",
+  },
+  valda: { en: "selected", es: "seleccionadas" },
+  "Importera valda": { en: "Import selected", es: "Importar seleccionadas" },
+  "‹ Tillbaka": { en: "‹ Back", es: "‹ Volver" },
+  "Import klart": { en: "Import complete", es: "Importación completada" },
+  "Kunde inte hämta kategorierna.": {
+    en: "Could not load the categories.",
+    es: "No se pudieron cargar las categorías.",
+  },
+  "Kunde inte hämta importkategorierna.": {
+    en: "Could not load import categories.",
+    es: "No se pudieron cargar las categorías para importar.",
+  },
+  "Kunde inte läsa orden i kategorin.": {
+    en: "Could not load the words in the category.",
+    es: "No se pudieron cargar las palabras de la categoría.",
+  },
+  "Importen misslyckades. Försök igen.": {
+    en: "Import failed. Please try again.",
+    es: "La importación falló. Inténtalo de nuevo.",
+  },
+  "Vill du verkligen radera ordet?": {
+    en: "Do you really want to delete this word?",
+    es: "¿Seguro que quieres eliminar esta palabra?",
+  },
+  valfritt: { en: "optional", es: "opcional" },
+  "Visa information om": {
+    en: "Show information about",
+    es: "Mostrar información sobre",
+  },
+  "Avsluta redigering": { en: "Finish editing", es: "Terminar edición" },
+  "Aktivera redigering": { en: "Enable editing", es: "Activar edición" },
+  "Växlar mellan kolumnvisning och visning under varandra": {
+    en: "Switches between side-by-side and stacked views",
+    es: "Alterna entre vista en columnas y vista vertical",
+  },
+  "Visa ord bredvid varandra": {
+    en: "Show words side by side",
+    es: "Mostrar palabras en columnas",
+  },
+  "Visa ord under varandra": {
+    en: "Show words vertically",
+    es: "Mostrar palabras en vertical",
+  },
+  "fler träffar": { en: "more results", es: "resultados más" },
+  "Importera ord från en annan kategori": {
+    en: "Import words from another category",
+    es: "Importar palabras de otra categoría",
+  },
+  "Redigera ordet": { en: "Edit word", es: "Editar palabra" },
+  Redigera: { en: "Edit", es: "Editar" },
+  Klar: { en: "Done", es: "Listo" },
+  Importera: { en: "Import", es: "Importar" },
+  "Lägg till ord": { en: "Add word", es: "Añadir palabra" },
+  "Redigera ord": { en: "Edit word", es: "Editar palabra" },
+  "Information (valfritt)": {
+    en: "Information (optional)",
+    es: "Información (opcional)",
+  },
+  "Kategori (valfritt)": {
+    en: "Category (optional)",
+    es: "Categoría (opcional)",
+  },
+  Kategorier: { en: "Categories", es: "Categorías" },
+  "Laddar...": { en: "Loading...", es: "Cargando..." },
+  Övrigt: { en: "Other", es: "Otros" },
+  "Radera ord?": { en: "Delete word?", es: "¿Eliminar palabra?" },
+  Avbryt: { en: "Cancel", es: "Cancelar" },
+  Radera: { en: "Delete", es: "Eliminar" },
+  "Kunde inte lägga till ordet. Försök igen.": {
+    en: "Could not add the word. Please try again.",
+    es: "No se pudo añadir la palabra. Inténtalo de nuevo.",
+  },
+  "Kunde inte hämta kategorierna. Försök igen.": {
+    en: "Could not load the categories. Please try again.",
+    es: "No se pudieron cargar las categorías. Inténtalo de nuevo.",
+  },
+  "Fyll i både ord och översättning.": {
+    en: "Enter both the word and its translation.",
+    es: "Introduce la palabra y su traducción.",
+  },
+  "Språken kunde inte hittas.": {
+    en: "The languages could not be found.",
+    es: "No se encontraron los idiomas.",
+  },
+  "Kunde inte spara ändringarna. Försök igen.": {
+    en: "Could not save changes. Please try again.",
+    es: "No se pudieron guardar los cambios. Inténtalo de nuevo.",
+  },
+  "Kunde inte radera ordet. Försök igen.": {
+    en: "Could not delete the word. Please try again.",
+    es: "No se pudo eliminar la palabra. Inténtalo de nuevo.",
+  },
+};
+
+function pageText(key: string, language: string) {
+  const entry = PAGE_TRANSLATIONS[key];
+  return language === "en"
+    ? (entry?.en ?? key)
+    : language === "es"
+      ? (entry?.es ?? key)
+      : key;
+}
+
+const EDIT_PENCILS_KEY = "tolkappen:showEditPencils";
 const MIN_SEARCH_LENGTH = 3;
 const MAX_RESULTS = 3;
 
@@ -93,6 +234,7 @@ export default function DictionaryPage() {
   const db = useSQLiteContext();
 
   const { t, language } = useUiLanguage();
+  const ui = (key: string) => pageText(key, language);
 
   const { from, to, category } = useLocalSearchParams<{
     from?: string;
@@ -147,6 +289,35 @@ export default function DictionaryPage() {
   const [translations, setTranslations] = useState<Translation[]>([]);
   const [displayMode, setDisplayMode] = useState<"stacked" | "side">("stacked");
   const [displayReady, setDisplayReady] = useState(false);
+  const [showEditPencils, setShowEditPencils] = useState(false);
+  // Gemensam inställning för alla sidor som använder samma lagringsnyckel.
+  // Läs om inställningen när sidan får fokus efter navigering.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      AsyncStorage.getItem(EDIT_PENCILS_KEY)
+        .then((value) => {
+          if (active) setShowEditPencils(value === "true");
+        })
+        .catch((error) =>
+          console.error("Kunde inte läsa redigeringsläge:", error),
+        );
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  async function toggleEditPencils() {
+    const next = !showEditPencils;
+    setShowEditPencils(next);
+    try {
+      await AsyncStorage.setItem(EDIT_PENCILS_KEY, String(next));
+    } catch (error) {
+      console.error("Kunde inte spara redigeringsläge:", error);
+    }
+  }
+
   const displayKey = `dictionary:${String(from ?? "").toLowerCase()}:${String(to ?? "").toLowerCase()}:${category ?? "__all__"}`;
   const [searchText, setSearchText] = useState("");
   const [selectedInformation, setSelectedInformation] = useState<{
@@ -335,7 +506,7 @@ export default function DictionaryPage() {
       setImportSources(rows);
     } catch (error) {
       console.error("Kunde inte hämta importkategorier:", error);
-      setImportError("Kunde inte hämta kategorierna.");
+      setImportError(ui("Kunde inte hämta kategorierna."));
     }
   }
 
@@ -369,7 +540,7 @@ export default function DictionaryPage() {
       setImportStep("mode");
     } catch (error) {
       console.error("Kunde inte läsa ord för import:", error);
-      setImportError("Kunde inte läsa orden i kategorin.");
+      setImportError(ui("Kunde inte läsa orden i kategorin."));
     } finally {
       setImportBusy(false);
     }
@@ -405,12 +576,16 @@ export default function DictionaryPage() {
       setShowCategoryImport(false);
       await loadTranslations();
       Alert.alert(
-        "Import klart",
-        `${idsToAdd.length} ord lades till i kategorin.${wordIds.length - idsToAdd.length > 0 ? ` ${wordIds.length - idsToAdd.length} fanns redan.` : ""}`,
+        ui("Import klart"),
+        language === "es"
+          ? `${idsToAdd.length} palabras añadidas a la categoría.${wordIds.length - idsToAdd.length > 0 ? ` ${wordIds.length - idsToAdd.length} ya existían.` : ""}`
+          : language === "en"
+            ? `${idsToAdd.length} words added to the category.${wordIds.length - idsToAdd.length > 0 ? ` ${wordIds.length - idsToAdd.length} already existed.` : ""}`
+            : `${idsToAdd.length} ord lades till i kategorin.${wordIds.length - idsToAdd.length > 0 ? ` ${wordIds.length - idsToAdd.length} fanns redan.` : ""}`,
       );
     } catch (error) {
       console.error("Kunde inte importera ord:", error);
-      setImportError("Importen misslyckades. Försök igen.");
+      setImportError(ui("Importen misslyckades. Försök igen."));
     } finally {
       setImportBusy(false);
     }
@@ -435,7 +610,7 @@ export default function DictionaryPage() {
       if (currentCategory) setSelectedCategoryIds([currentCategory.id]);
     } catch (error) {
       console.error("Failed to load categories:", error);
-      setAddError("Kunde inte hämta kategorierna.");
+      setAddError(ui("Kunde inte hämta kategorierna."));
     }
   }
 
@@ -448,7 +623,7 @@ export default function DictionaryPage() {
   async function addWord() {
     if (addingWord) return;
     if (!newWord.trim() || !newTranslation.trim()) {
-      setAddError("Fyll i både ord och översättning.");
+      setAddError(ui("Fyll i både ord och översättning."));
       return;
     }
     setAddingWord(true);
@@ -462,7 +637,7 @@ export default function DictionaryPage() {
       const fromName = languageNames[fromCode];
       const toName = languageNames[toCode];
       if (!fromName || !toName || !thirdCode || fromCode === toCode) {
-        setAddError("Språken kunde inte hittas.");
+        setAddError(ui("Språken kunde inte hittas."));
         return;
       }
       const fromRow = await db.getFirstAsync<{ id: number }>(
@@ -480,7 +655,7 @@ export default function DictionaryPage() {
           )
         : null;
       if (!fromRow || !toRow || (newThirdTranslation.trim() && !thirdRow)) {
-        setAddError("Språken kunde inte hittas.");
+        setAddError(ui("Språken kunde inte hittas."));
         return;
       }
       await db.withTransactionAsync(async () => {
@@ -537,7 +712,7 @@ export default function DictionaryPage() {
       await loadTranslations();
     } catch (error) {
       console.error("Failed to add word:", error);
-      setAddError("Kunde inte lägga till ordet. Försök igen.");
+      setAddError(ui("Kunde inte lägga till ordet. Försök igen."));
     } finally {
       setAddingWord(false);
     }
@@ -567,7 +742,7 @@ export default function DictionaryPage() {
       setEditCategoryIds(assigned.map((row) => row.tag_id));
     } catch (error) {
       console.error("Kunde inte läsa ordets kategorier:", error);
-      setEditError("Kunde inte hämta kategorierna. Försök igen.");
+      setEditError(ui("Kunde inte hämta kategorierna. Försök igen."));
     } finally {
       setLoadingEditCategories(false);
     }
@@ -595,11 +770,11 @@ export default function DictionaryPage() {
     const fromLanguage = languageNames[String(from ?? "").toLowerCase()];
     const toLanguage = languageNames[String(to ?? "").toLowerCase()];
     if (!fromLanguage || !toLanguage) {
-      setEditError("Språken kunde inte hittas.");
+      setEditError(ui("Språken kunde inte hittas."));
       return;
     }
     if (!editTextFrom.trim() || !editTextTo.trim()) {
-      setEditError("Fyll i både ord och översättning.");
+      setEditError(ui("Fyll i både ord och översättning."));
       return;
     }
     setSavingEdit(true);
@@ -614,7 +789,7 @@ export default function DictionaryPage() {
         toLanguage,
       );
       if (!fromLanguageRow || !toLanguageRow) {
-        setEditError("Språken kunde inte hittas.");
+        setEditError(ui("Språken kunde inte hittas."));
         return;
       }
       await db.withTransactionAsync(async () => {
@@ -664,7 +839,7 @@ export default function DictionaryPage() {
       await loadTranslations();
     } catch (error) {
       console.error("Failed to save word:", error);
-      setEditError("Kunde inte spara ändringarna. Försök igen.");
+      setEditError(ui("Kunde inte spara ändringarna. Försök igen."));
     } finally {
       setSavingEdit(false);
     }
@@ -673,12 +848,12 @@ export default function DictionaryPage() {
   function confirmDeleteWord() {
     if (!editingWord || savingEdit || deletingWord) return;
     Alert.alert(
-      "Radera ord?",
-      `Vill du verkligen radera ”${editingWord.text_from}”?`,
+      ui("Radera ord?"),
+      `${ui("Vill du verkligen radera ordet?")} ”${editingWord.text_from}”`,
       [
-        { text: "Avbryt", style: "cancel" },
+        { text: ui("Avbryt"), style: "cancel" },
         {
-          text: "Radera",
+          text: ui("Radera"),
           style: "destructive",
           onPress: () => {
             void deleteWord();
@@ -703,7 +878,7 @@ export default function DictionaryPage() {
       await loadTranslations();
     } catch (error) {
       console.error("Failed to delete word:", error);
-      setEditError("Kunde inte radera ordet. Försök igen.");
+      setEditError(ui("Kunde inte radera ordet. Försök igen."));
     } finally {
       setDeletingWord(false);
     }
@@ -778,7 +953,7 @@ export default function DictionaryPage() {
           )
         }
         accessibilityRole="button"
-        accessibilityLabel={`Visa information om ${item.text_from}`}
+        accessibilityLabel={`${ui("Visa information om")} ${item.text_from}`}
         hitSlop={6}
       >
         <FontAwesome name="info-circle" size={15} color="#285F9D" />
@@ -794,15 +969,6 @@ export default function DictionaryPage() {
         if (selectedInformation) setSelectedInformation(null);
       }}
     >
-      <View
-        pointerEvents="none"
-        accessible={false}
-        style={styles.watermarkLayer}
-      >
-        <View style={styles.watermarkScale}>
-          <InterpreterLogo />
-        </View>
-      </View>
       <View style={styles.topRow}>
         <BackButton
           onPress={() =>
@@ -827,16 +993,40 @@ export default function DictionaryPage() {
 
       <View style={styles.displayModeBar}>
         <TouchableOpacity
+          style={[
+            styles.displayModeButton,
+            showEditPencils && styles.editModeActive,
+          ]}
+          onPress={() => {
+            void toggleEditPencils();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            showEditPencils
+              ? ui("Avsluta redigering")
+              : ui("Aktivera redigering")
+          }
+          accessibilityState={{ selected: showEditPencils }}
+        >
+          <FontAwesome name="pencil" size={13} color="#71859B" />
+          <Text style={styles.displayModeLabel}>
+            {showEditPencils ? ui("Klar") : ui("Redigera")}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.displayModeButton}
           onPress={() => {
             void toggleDisplayMode();
           }}
           disabled={!displayReady}
+          accessibilityHint={ui(
+            "Växlar mellan kolumnvisning och visning under varandra",
+          )}
           accessibilityRole="button"
           accessibilityLabel={
             displayMode === "stacked"
-              ? "Visa ord bredvid varandra"
-              : "Visa ord under varandra"
+              ? ui("Visa ord bredvid varandra")
+              : ui("Visa ord under varandra")
           }
         >
           <FontAwesome
@@ -844,9 +1034,6 @@ export default function DictionaryPage() {
             size={14}
             color="#71859B"
           />
-          <Text style={styles.displayModeLabel}>
-            {displayMode === "stacked" ? "Bredvid varandra" : "Under varandra"}
-          </Text>
         </TouchableOpacity>
       </View>
 
@@ -896,23 +1083,38 @@ export default function DictionaryPage() {
                         {item.text_to}
                       </Text>
                     </View>
-                    {renderInfoButton(item, "results")}
-                    <TouchableOpacity
-                      onPress={() => openEditWord(item)}
-                      style={styles.editButton}
-                      hitSlop={6}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Redigera ${item.text_from}`}
+                    <View
+                      style={[
+                        styles.rowActions,
+                        !showEditPencils && styles.actionsWithoutPencil,
+                      ]}
                     >
-                      <FontAwesome name="pencil" size={12} color="#9ca3af" />
-                    </TouchableOpacity>
+                      <View style={styles.infoSlot}>
+                        {renderInfoButton(item, "results")}
+                      </View>
+                      {showEditPencils && (
+                        <TouchableOpacity
+                          onPress={() => openEditWord(item)}
+                          style={styles.editButton}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${ui("Redigera ordet")} ${item.text_from}`}
+                        >
+                          <FontAwesome
+                            name="pencil"
+                            size={12}
+                            color="#9ca3af"
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                   {renderInfoPopup(item, "results")}
                 </View>
               ))}
               {searchResults.length > MAX_RESULTS && (
                 <Text style={styles.moreResults}>
-                  + {searchResults.length - MAX_RESULTS} fler träffar
+                  + {searchResults.length - MAX_RESULTS} {ui("fler träffar")}
                 </Text>
               )}
             </>
@@ -928,48 +1130,106 @@ export default function DictionaryPage() {
         }
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => String(item.word_id)}
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            {displayMode === "side" ? (
-              <View style={styles.wordRow}>
-                <Text style={[styles.word, styles.sideColumn]}>
-                  {item.text_from}
+        ListHeaderComponent={
+          displayMode === "side" && filteredTranslations.length > 0 ? (
+            <View style={styles.columnHeadings}>
+              <Text style={styles.columnHeading}>
+                {languageNames[String(from ?? "").toLowerCase()]}
+              </Text>
+              <Text style={styles.columnHeading}>
+                {languageNames[String(to ?? "").toLowerCase()]}
+              </Text>
+              <View
+                style={[
+                  styles.columnActionsSpace,
+                  !showEditPencils && styles.actionsWithoutPencil,
+                ]}
+              />
+            </View>
+          ) : null
+        }
+        renderItem={({ item, index }) => (
+          <View>
+            {displayMode === "stacked" &&
+              !hasEnoughLetters &&
+              !normalizedSearch &&
+              (index === 0 ||
+                item.text_from.charAt(0).toLocaleUpperCase() !==
+                  filteredTranslations[index - 1]?.text_from
+                    .charAt(0)
+                    .toLocaleUpperCase()) && (
+                <Text style={styles.letterHeading}>
+                  {item.text_from.charAt(0).toLocaleUpperCase()}
                 </Text>
-                <Text
-                  style={[styles.translation, styles.sideColumnTranslation]}
-                >
-                  {item.text_to}
-                </Text>
-                {renderInfoButton(item, "list")}
-                <TouchableOpacity
-                  onPress={() => openEditWord(item)}
-                  style={styles.editButton}
-                  hitSlop={6}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Redigera ${item.text_from}`}
-                >
-                  <FontAwesome name="pencil" size={12} color="#9ca3af" />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
+              )}
+            <View style={styles.row}>
+              {displayMode === "side" ? (
                 <View style={styles.wordRow}>
-                  <Text style={styles.word}>{item.text_from}</Text>
-                  {renderInfoButton(item, "list")}
-                  <TouchableOpacity
-                    onPress={() => openEditWord(item)}
-                    style={styles.editButton}
-                    hitSlop={6}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Redigera ${item.text_from}`}
+                  <Text style={[styles.word, styles.sideColumn]}>
+                    {item.text_from}
+                  </Text>
+                  <Text
+                    style={[styles.translation, styles.sideColumnTranslation]}
                   >
-                    <FontAwesome name="pencil" size={12} color="#9ca3af" />
-                  </TouchableOpacity>
+                    {item.text_to}
+                  </Text>
+                  <View
+                    style={[
+                      styles.rowActions,
+                      !showEditPencils && styles.actionsWithoutPencil,
+                    ]}
+                  >
+                    <View style={styles.infoSlot}>
+                      {renderInfoButton(item, "list")}
+                    </View>
+                    {showEditPencils && (
+                      <TouchableOpacity
+                        onPress={() => openEditWord(item)}
+                        style={styles.editButton}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${ui("Redigera ordet")} ${item.text_from}`}
+                      >
+                        <FontAwesome name="pencil" size={12} color="#9ca3af" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-                <Text style={styles.translation}>{item.text_to}</Text>
-              </>
-            )}
-            {renderInfoPopup(item, "list")}
+              ) : (
+                <>
+                  <View style={styles.wordRow}>
+                    <Text style={styles.word}>{item.text_from}</Text>
+                    <View
+                      style={[
+                        styles.rowActions,
+                        !showEditPencils && styles.actionsWithoutPencil,
+                      ]}
+                    >
+                      <View style={styles.infoSlot}>
+                        {renderInfoButton(item, "list")}
+                      </View>
+                      {showEditPencils && (
+                        <TouchableOpacity
+                          onPress={() => openEditWord(item)}
+                          style={styles.editButton}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${ui("Redigera ordet")} ${item.text_from}`}
+                        >
+                          <FontAwesome
+                            name="pencil"
+                            size={12}
+                            color="#9ca3af"
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={styles.translation}>{item.text_to}</Text>
+                </>
+              )}
+              {renderInfoPopup(item, "list")}
+            </View>
           </View>
         )}
         contentContainerStyle={styles.listContent}
@@ -989,10 +1249,12 @@ export default function DictionaryPage() {
               void openCategoryImport();
             }}
             accessibilityRole="button"
-            accessibilityLabel="Importera ord från en annan kategori"
+            accessibilityLabel={ui("Importera ord från en annan kategori")}
           >
             <FontAwesome name="download" size={14} color="#285F9D" />
-            <Text style={styles.importCategoryButtonText}>Importera</Text>
+            <Text style={styles.importCategoryButtonText}>
+              {ui("Importera")}
+            </Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
@@ -1001,7 +1263,7 @@ export default function DictionaryPage() {
             void openAddWord();
           }}
           accessibilityRole="button"
-          accessibilityLabel="Lägg till ord"
+          accessibilityLabel={t("addWord")}
           activeOpacity={0.8}
         >
           <Text style={styles.addWordPlusText}>+</Text>
@@ -1027,39 +1289,76 @@ export default function DictionaryPage() {
             >
               <Text style={styles.closeModalText}>×</Text>
             </TouchableOpacity>
-            <Text style={styles.editTitle}>Importera från kategori</Text>
+            <Text style={styles.editTitle}>
+              {ui("Importera från kategori")}
+            </Text>
             {importStep === "categories" && (
               <>
                 <Text style={styles.importHint}>
-                  Välj vilken kategori du vill hämta ord från.
+                  {ui("Välj vilken kategori du vill hämta ord från.")}
                 </Text>
-                <ScrollView style={styles.importScroll} nestedScrollEnabled>
-                  {importSources.map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.addCategoryChoice}
-                      onPress={() => {
-                        void selectImportSource(item);
-                      }}
-                      disabled={importBusy}
-                    >
-                      <Text style={styles.addCategoryChoiceText}>
-                        {importCategoryName(item)} ›
+                <View style={styles.importListFrame}>
+                  <ScrollView
+                    style={styles.importScroll}
+                    contentContainerStyle={styles.importScrollContent}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator
+                    persistentScrollbar
+                  >
+                    {importSources.map((item, index) => (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[
+                          styles.importCategoryRow,
+                          index < importSources.length - 1 &&
+                            styles.importCategoryDivider,
+                        ]}
+                        onPress={() => {
+                          void selectImportSource(item);
+                        }}
+                        disabled={importBusy}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${ui("Välj kategori")}: ${importCategoryName(item)}`}
+                        accessibilityHint={ui(
+                          "Gå vidare och välj vilka ord som ska importeras",
+                        )}
+                      >
+                        <View style={styles.importCategoryLeft}>
+                          <FontAwesome
+                            name="folder-o"
+                            size={16}
+                            color="#7593B0"
+                          />
+                          <Text
+                            style={styles.importCategoryName}
+                            numberOfLines={2}
+                          >
+                            {importCategoryName(item)}
+                          </Text>
+                        </View>
+                        <FontAwesome
+                          name="chevron-right"
+                          size={12}
+                          color="#A0B0C1"
+                        />
+                      </TouchableOpacity>
+                    ))}
+                    {importSources.length === 0 && (
+                      <Text style={styles.importEmpty}>
+                        {ui(
+                          "Det finns inga andra kategorier att importera från.",
+                        )}
                       </Text>
-                    </TouchableOpacity>
-                  ))}
-                  {importSources.length === 0 && (
-                    <Text style={styles.importHint}>
-                      Det finns inga andra kategorier att importera från.
-                    </Text>
-                  )}
-                </ScrollView>
+                    )}
+                  </ScrollView>
+                </View>
               </>
             )}
             {importStep === "mode" && importSource && (
               <>
                 <Text style={styles.importHint}>
-                  {importCategoryName(importSource)} · {importWords.length} ord
+                  {importCategoryName(importSource)} · {importWords.length}{" "}
+                  {ui("ord")}
                 </Text>
                 <TouchableOpacity
                   style={styles.addCategoryChoice}
@@ -1071,7 +1370,7 @@ export default function DictionaryPage() {
                   }}
                 >
                   <Text style={styles.addCategoryChoiceText}>
-                    ✓ Välj hela kategorin
+                    {ui("✓ Välj hela kategorin")}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1080,12 +1379,12 @@ export default function DictionaryPage() {
                   onPress={() => setImportStep("words")}
                 >
                   <Text style={styles.addCategoryChoiceText}>
-                    ☐ Välj vissa ord
+                    {ui("☐ Välj vissa ord")}
                   </Text>
                 </TouchableOpacity>
                 {importWords.length === 0 && (
                   <Text style={styles.importHint}>
-                    Den här kategorin har inga ord.
+                    {ui("Den här kategorin har inga ord.")}
                   </Text>
                 )}
               </>
@@ -1093,8 +1392,8 @@ export default function DictionaryPage() {
             {importStep === "words" && (
               <>
                 <Text style={styles.importHint}>
-                  Markera orden du vill importera ({importSelectedIds.length}{" "}
-                  valda).
+                  {ui("Markera orden du vill importera")} (
+                  {importSelectedIds.length} {ui("valda")}).
                 </Text>
                 <ScrollView style={styles.importScroll} nestedScrollEnabled>
                   {importWords.map((item) => {
@@ -1130,7 +1429,7 @@ export default function DictionaryPage() {
                   }}
                 >
                   <Text style={styles.addSaveButtonText}>
-                    Importera valda ({importSelectedIds.length})
+                    {ui("Importera valda")} ({importSelectedIds.length})
                   </Text>
                 </TouchableOpacity>
               </>
@@ -1146,7 +1445,9 @@ export default function DictionaryPage() {
                   setImportStep(importStep === "words" ? "mode" : "categories")
                 }
               >
-                <Text style={styles.editCategoryToggleText}>‹ Tillbaka</Text>
+                <Text style={styles.editCategoryToggleText}>
+                  {ui("‹ Tillbaka")}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1171,7 +1472,7 @@ export default function DictionaryPage() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.addWordModalContent}
             >
-              <Text style={styles.editTitle}>Lägg till ord</Text>
+              <Text style={styles.editTitle}>{ui("Lägg till ord")}</Text>
               <Text style={styles.editLabel}>
                 {languageNames[String(from ?? "").toLowerCase()]}
               </Text>
@@ -1206,7 +1507,7 @@ export default function DictionaryPage() {
                     ) ?? "en"
                   ]
                 }{" "}
-                (valfritt)
+                ({ui("valfritt")})
               </Text>
               <TextInput
                 style={styles.editInput}
@@ -1217,7 +1518,9 @@ export default function DictionaryPage() {
                 }}
                 autoCapitalize="none"
               />
-              <Text style={styles.editLabel}>Information (valfritt)</Text>
+              <Text style={styles.editLabel}>
+                {ui("Information (valfritt)")}
+              </Text>
               <TextInput
                 style={[styles.editInput, styles.editInformationInput]}
                 value={newInformation}
@@ -1228,7 +1531,7 @@ export default function DictionaryPage() {
                 multiline
                 textAlignVertical="top"
               />
-              <Text style={styles.editLabel}>Kategori (valfritt)</Text>
+              <Text style={styles.editLabel}>{ui("Kategori (valfritt)")}</Text>
               <ScrollView
                 style={styles.addCategoriesScroll}
                 nestedScrollEnabled
@@ -1238,7 +1541,7 @@ export default function DictionaryPage() {
                   .filter((item) => item.name !== "Övrigt")
                   .map((item) => {
                     const selected = selectedCategoryIds.includes(item.id);
-                    const code = String(from ?? "").toLowerCase();
+                    const code = language;
                     const name =
                       (code === "sv"
                         ? item.name_sv
@@ -1301,7 +1604,7 @@ export default function DictionaryPage() {
               <Text style={styles.closeModalText}>×</Text>
             </TouchableOpacity>
 
-            <Text style={styles.editTitle}>Redigera ord</Text>
+            <Text style={styles.editTitle}>{ui("Redigera ord")}</Text>
 
             <Text style={styles.editLabel}>
               {languageNames[String(from ?? "").toLowerCase()]}
@@ -1333,7 +1636,7 @@ export default function DictionaryPage() {
               autoCorrect={false}
             />
 
-            <Text style={styles.editLabel}>Information (valfritt)</Text>
+            <Text style={styles.editLabel}>{ui("Information (valfritt)")}</Text>
 
             <TextInput
               value={editInformation}
@@ -1353,13 +1656,13 @@ export default function DictionaryPage() {
               onPress={() => setShowEditCategories((current) => !current)}
               disabled={loadingEditCategories}
               accessibilityRole="button"
-              accessibilityLabel="Kategorier"
+              accessibilityLabel={t("categories")}
             >
-              <Text style={styles.editCategoryHeading}>Kategorier</Text>
+              <Text style={styles.editCategoryHeading}>{ui("Kategorier")}</Text>
               <View style={styles.editCategorySummary}>
                 <Text style={styles.editCategoryToggleText}>
                   {loadingEditCategories
-                    ? "Laddar..."
+                    ? ui("Laddar...")
                     : (() => {
                         const otherId = editCategories.find(
                           (item) => item.name === "Övrigt",
@@ -1367,7 +1670,9 @@ export default function DictionaryPage() {
                         const count = editCategoryIds.filter(
                           (id) => id !== otherId,
                         ).length;
-                        return count === 0 ? "Övrigt" : `${count} valda`;
+                        return count === 0
+                          ? ui("Övrigt")
+                          : `${count} ${ui("valda")}`;
                       })()}
                 </Text>
                 <FontAwesome
@@ -1425,7 +1730,9 @@ export default function DictionaryPage() {
                   style={styles.editCategoriesDone}
                   onPress={() => setShowEditCategories(false)}
                 >
-                  <Text style={styles.editCategoryToggleText}>Klar</Text>
+                  <Text style={styles.editCategoryToggleText}>
+                    {ui("Klar")}
+                  </Text>
                 </TouchableOpacity>
               </ScrollView>
             )}
@@ -1497,6 +1804,31 @@ export default function DictionaryPage() {
 }
 
 const styles = StyleSheet.create({
+  letterHeading: {
+    color: "#648EB5",
+    fontSize: 17,
+    fontWeight: "700",
+    paddingTop: 14,
+    paddingBottom: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: "#C8D9E6",
+  },
+  columnHeadings: {
+    flexDirection: "row",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#C8D9E6",
+  },
+  columnHeading: {
+    flex: 1,
+    fontSize: 12,
+    color: "#648EB5",
+    fontWeight: "700",
+  },
+  columnActionsSpace: { width: 70 },
+  actionsWithoutPencil: { width: 34 },
+  infoSlot: { width: 24, alignItems: "center", justifyContent: "center" },
+  editModeActive: { backgroundColor: "#E7F2FC", borderColor: "#B9D6EB" },
   watermarkLayer: {
     position: "absolute",
     top: "27%",
@@ -1621,7 +1953,7 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: "#F5F9FD",
+    backgroundColor: "#FAFBFC",
     paddingHorizontal: 22,
     paddingTop: 16,
   },
@@ -1656,17 +1988,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sideColumn: {
-    flex: 1,
-    paddingRight: 0,
+    flex: 1.08,
+    minWidth: 0,
+    paddingRight: 14,
   },
   sideColumnTranslation: {
-    flex: 1,
+    flex: 0.92,
+    minWidth: 0,
     marginTop: 0,
+    paddingLeft: 8,
     paddingRight: 4,
   },
 
   title: {
-    fontSize: 21,
+    fontSize: 26,
     fontWeight: "700",
     color: "#203B59",
     marginBottom: 4,
@@ -1719,9 +2054,18 @@ const styles = StyleSheet.create({
 
   infoButton: {
     width: 24,
+    height: 24,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 22,
+  },
+  // Fast yta för info och redigering: textkolumnerna flyttas aldrig.
+  rowActions: {
+    width: 70,
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
   },
 
   inlineInfoPopup: {
@@ -1751,13 +2095,13 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingBottom: 24,
+    paddingBottom: 76,
   },
 
   row: {
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
+    borderBottomColor: "#E5EBF0",
   },
 
   wordRow: {
@@ -1769,7 +2113,7 @@ const styles = StyleSheet.create({
   word: {
     flex: 1,
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#203B59",
     paddingRight: 8,
   },
@@ -1779,13 +2123,14 @@ const styles = StyleSheet.create({
     height: 20,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 14,
+    marginLeft: 0,
   },
 
   translation: {
     fontSize: 14,
-    color: "#71859B",
-    marginTop: 3,
+    lineHeight: 22,
+    color: "#61758B",
+    marginTop: 5,
   },
 
   empty: {
@@ -1820,13 +2165,53 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   importHint: { color: "#71859B", fontSize: 13, marginBottom: 12 },
-  importScroll: { maxHeight: 320, marginBottom: 12 },
+  importListFrame: {
+    borderWidth: 1,
+    borderColor: "#DFE8F1",
+    borderRadius: 13,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+    marginBottom: 12,
+  },
+  importScroll: { maxHeight: 320 },
+  importScrollContent: { paddingBottom: 8 },
+  importCategoryRow: {
+    minHeight: 51,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  importCategoryDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#EDF2F7",
+  },
+  importCategoryLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  importCategoryName: {
+    flex: 1,
+    fontSize: 14,
+    color: "#334155",
+    lineHeight: 20,
+  },
+  importEmpty: {
+    padding: 16,
+    fontSize: 13,
+    color: "#71859B",
+  },
   importBackButton: {
     alignSelf: "flex-start",
     paddingVertical: 10,
     marginTop: 8,
   },
   addWordPlusButton: {
+    marginLeft: 8,
     width: 44,
     height: 44,
     borderRadius: 22,

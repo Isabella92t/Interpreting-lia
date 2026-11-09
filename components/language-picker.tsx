@@ -1,12 +1,6 @@
 import { FontAwesome } from "@expo/vector-icons";
 import { useState } from "react";
-import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { uiLanguages } from "@/constants/translations";
 import { useUiLanguage } from "@/context/ui-language-context";
@@ -21,7 +15,7 @@ export function LanguagePicker() {
   return (
     <View>
       <TouchableOpacity style={styles.globe} onPress={() => setIsOpen(true)}>
-        <FontAwesome name="globe" size={22} color="#111827" />
+        <Text style={{ fontSize: 25 }}>🌍</Text>
       </TouchableOpacity>
 
       <Modal
@@ -50,7 +44,9 @@ export function LanguagePicker() {
                   }}
                 >
                   <Text
-                    style={isSelected ? styles.optionSelected : styles.optionText}
+                    style={
+                      isSelected ? styles.optionSelected : styles.optionText
+                    }
                   >
                     {item.label}
                   </Text>
