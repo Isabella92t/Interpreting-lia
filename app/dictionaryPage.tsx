@@ -769,7 +769,7 @@ export default function DictionaryPage() {
     return (
       <TouchableOpacity
         style={styles.infoButton}
-        onTouchEnd={(event) => event.stopPropagation()}
+        onPressIn={(event) => event.stopPropagation()}
         onPress={() =>
           setSelectedInformation((current) =>
             current?.wordId === item.word_id && current.location === location

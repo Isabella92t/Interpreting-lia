@@ -223,10 +223,15 @@ export default function FlashcardsPage() {
   }
 
   // Sparade listor kan övas på samma tre sätt som kategorier.
-  async function openDeck(deck: Deck, mode: "all" | "random" | "pick" | "edit", randomCount = 1) {
+  async function openDeck(
+    deck: Deck,
+    mode: "all" | "random" | "pick" | "edit",
+    randomCount = 1,
+  ) {
     const words = await loadAllWords();
     const rows = await db.getAllAsync<{ word_id: number }>(
-      "SELECT word_id FROM deck_words WHERE deck_id = ?", deck.id,
+      "SELECT word_id FROM deck_words WHERE deck_id = ?",
+      deck.id,
     );
     const ids = new Set(rows.map((row) => row.word_id));
     const deckCards = words.filter((word) => ids.has(word.word_id));
@@ -236,14 +241,14 @@ export default function FlashcardsPage() {
     setDeckName(deck.name);
     setChosenCategory(null);
     setCategoryWords(mode === "edit" ? words : deckCards);
-    const roundCards = mode === "random" ? shuffle(deckCards).slice(0, randomCount) : deckCards;
+    const roundCards =
+      mode === "random" ? shuffle(deckCards).slice(0, randomCount) : deckCards;
     setSelectedIds(roundCards.map((word) => word.word_id));
     setSearch("");
     setFilterCategory(null);
 
     if (mode === "all" && deckCards.length > 0) startRound(deckCards);
-    else if (mode === "random" && deckCards.length > 0)
-      startRound(roundCards);
+    else if (mode === "random" && deckCards.length > 0) startRound(roundCards);
     else setStep("words");
   }
 
@@ -254,8 +259,9 @@ export default function FlashcardsPage() {
 
     try {
       // Alla ändringar i listan sparas tillsammans, eller inte alls.
-      const deckId = await db.withExclusiveTransactionAsync(async (tx) => {
-        let id = editingDeckId;
+      const savedDeck = { id: editingDeckId as number | null };
+      await db.withExclusiveTransactionAsync(async (tx) => {
+        let id = savedDeck.id;
         if (id === null) {
           const inserted = await tx.runAsync(
             "INSERT INTO decks (name, created_at) VALUES (?, ?)",
@@ -275,8 +281,13 @@ export default function FlashcardsPage() {
             wordId,
           );
         }
-        return id;
+        savedDeck.id = id;
       });
+
+      if (savedDeck.id === null) {
+        throw new Error("Kunde inte hämta listans ID.");
+      }
+      const deckId = savedDeck.id;
 
       await loadDecks();
       // Visa rätt antal direkt utan att användaren behöver välja listan igen.
@@ -649,6 +660,41 @@ export default function FlashcardsPage() {
     });
   }
 
+  // Tydliga, konsekventa val för kategorier och egna listor.
+  const practiceLabels =
+    String(language).toLowerCase() === "es"
+      ? {
+          all: "Practicar todas las palabras",
+          allHelp: "Practica todas las palabras de esta selección.",
+          random: "Practicar palabras aleatorias",
+          randomHelp: "La app elige palabras al azar.",
+          pick: "Seleccionar palabras para practicar",
+          pickHelp: "Elige palabras solo para esta sesión.",
+          edit: "Editar mi lista",
+          editHelp: "Añade o elimina palabras de tu lista guardada.",
+        }
+      : String(language).toLowerCase() === "en"
+        ? {
+            all: "Practise all words",
+            allHelp: "Practise every word in this selection.",
+            random: "Practise random words",
+            randomHelp: "The app chooses words at random.",
+            pick: "Choose words to practise",
+            pickHelp: "Choose words for this session only.",
+            edit: "Edit my list",
+            editHelp: "Add or remove words from your saved list.",
+          }
+        : {
+            all: "Öva på alla ord",
+            allHelp: "Öva på alla ord i det här urvalet.",
+            random: "Öva på slumpmässiga ord",
+            randomHelp: "Appen väljer ord slumpmässigt.",
+            pick: "Välj ord att öva på",
+            pickHelp: "Välj ord bara för den här övningen.",
+            edit: "Redigera min lista",
+            editHelp: "Lägg till eller ta bort ord i din sparade lista.",
+          };
+
   const fromLanguageName = languageNames[String(from ?? "").toLowerCase()];
   const toLanguageName = languageNames[String(to ?? "").toLowerCase()];
 
@@ -791,7 +837,15 @@ export default function FlashcardsPage() {
                 disabled={deckPage === 0}
                 activeOpacity={0.7}
               >
-                <Text style={deckPage > 0 ? styles.categoryArrowText : styles.categoryArrowDisabled}>‹</Text>
+                <Text
+                  style={
+                    deckPage > 0
+                      ? styles.categoryArrowText
+                      : styles.categoryArrowDisabled
+                  }
+                >
+                  ‹
+                </Text>
               </TouchableOpacity>
 
               <View style={styles.categoryCarousel}>
@@ -803,22 +857,34 @@ export default function FlashcardsPage() {
                   scrollEventThrottle={16}
                   onScroll={(event) => {
                     if (categoryCarouselWidth > 0) {
-                      setDeckPage(Math.round(event.nativeEvent.contentOffset.x / categoryCarouselWidth));
+                      setDeckPage(
+                        Math.round(
+                          event.nativeEvent.contentOffset.x /
+                            categoryCarouselWidth,
+                        ),
+                      );
                     }
                   }}
                 >
-                  {categoryCarouselWidth > 0 && deckPages.map((items, index) => (
-                    <View
-                      key={index}
-                      style={[styles.categoryCarouselPage, { width: categoryCarouselWidth }]}
-                    >
-                      {items.map((deck) => (
-                        <View key={deck.id} style={{ width: categoryBoxWidth }}>
-                          {renderChip({ kind: "deck", deck })}
-                        </View>
-                      ))}
-                    </View>
-                  ))}
+                  {categoryCarouselWidth > 0 &&
+                    deckPages.map((items, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.categoryCarouselPage,
+                          { width: categoryCarouselWidth },
+                        ]}
+                      >
+                        {items.map((deck) => (
+                          <View
+                            key={deck.id}
+                            style={{ width: categoryBoxWidth }}
+                          >
+                            {renderChip({ kind: "deck", deck })}
+                          </View>
+                        ))}
+                      </View>
+                    ))}
                 </ScrollView>
               </View>
 
@@ -828,7 +894,15 @@ export default function FlashcardsPage() {
                 disabled={deckPage >= deckPages.length - 1}
                 activeOpacity={0.7}
               >
-                <Text style={deckPage < deckPages.length - 1 ? styles.categoryArrowText : styles.categoryArrowDisabled}>›</Text>
+                <Text
+                  style={
+                    deckPage < deckPages.length - 1
+                      ? styles.categoryArrowText
+                      : styles.categoryArrowDisabled
+                  }
+                >
+                  ›
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -841,52 +915,85 @@ export default function FlashcardsPage() {
                 {sourceCount} {t("words")}
               </Text>
 
-              <>
-                <TouchableOpacity
-                  style={[styles.fullPrimaryButton, sourceCount === 0 && styles.buttonDisabled]}
-                  disabled={sourceCount === 0}
-                  onPress={() => source.kind === "deck"
+              <TouchableOpacity
+                style={[
+                  styles.fullPrimaryButton,
+                  sourceCount === 0 && styles.buttonDisabled,
+                ]}
+                disabled={sourceCount === 0}
+                onPress={() =>
+                  source.kind === "deck"
                     ? openDeck(source.deck, "all")
-                    : openCategory(chosenCategoryName(), "all")}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    {t("practiseEverything")} ({sourceCount})
+                    : openCategory(chosenCategoryName(), "all")
+                }
+              >
+                <Text style={styles.primaryButtonText}>
+                  {practiceLabels.all} ({sourceCount})
+                </Text>
+                <Text style={styles.primaryActionHelp}>
+                  {practiceLabels.allHelp}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.fullSecondaryButton,
+                  sourceCount === 0 && styles.actionDisabled,
+                ]}
+                disabled={sourceCount === 0}
+                onPress={() => {
+                  setRandomPickerMode("practice");
+                  setRandomAmount("");
+                  setShowRandomPicker(true);
+                }}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {practiceLabels.random}
+                </Text>
+                <Text style={styles.actionHelp}>
+                  {practiceLabels.randomHelp}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.editSourceButton,
+                  sourceCount === 0 && styles.actionDisabled,
+                ]}
+                disabled={sourceCount === 0}
+                onPress={() =>
+                  source.kind === "deck"
+                    ? openDeck(source.deck, "pick")
+                    : openCategory(chosenCategoryName(), "pick")
+                }
+              >
+                <View style={styles.actionTextGroup}>
+                  <Text style={styles.secondaryButtonText}>
+                    {practiceLabels.pick}
                   </Text>
-                </TouchableOpacity>
-                {sourceCount > 0 && (
+                  <Text style={styles.actionHelp}>
+                    {practiceLabels.pickHelp}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {source.kind === "deck" && (
+                <View style={styles.editListSection}>
                   <TouchableOpacity
-                    style={styles.fullSecondaryButton}
-                    onPress={() => {
-                      setRandomPickerMode("practice");
-                      setRandomAmount("");
-                      setShowRandomPicker(true);
-                    }}
+                    style={styles.editListLink}
+                    onPress={() => openDeck(source.deck, "edit")}
+                    accessibilityRole="button"
                   >
-                    <Text style={styles.secondaryButtonText}>
-                      {String(language).toLowerCase() === "es" ? "Aleatorio"
-                        : String(language).toLowerCase() === "en" ? "Random" : "Slumpa"}
+                    <FontAwesome name="pencil" size={13} color="#64748B" />
+                    <Text style={styles.editListLinkText}>
+                      {practiceLabels.edit}
                     </Text>
                   </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={styles.editSourceButton}
-                  onPress={() => source.kind === "deck"
-                    ? openDeck(source.deck, "pick")
-                    : openCategory(chosenCategoryName(), "pick")}
-                >
-                  <FontAwesome name="pencil" size={15} color="#334155" />
-                  <Text style={styles.secondaryButtonText}>{t("chooseWordsYourself")}</Text>
-                </TouchableOpacity>
-                {source.kind === "deck" && (
-                  <TouchableOpacity
-                    style={styles.editSourceButton}
-                    onPress={() => openDeck(source.deck, "edit")}
-                  >
-                    <FontAwesome name="pencil" size={15} color="#334155" />
-                    <Text style={styles.secondaryButtonText}>{t("editList")}</Text>
-                  </TouchableOpacity>
-                )}
-              </>
+                  <Text style={styles.editListHelp}>
+                    {practiceLabels.editHelp}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -1056,7 +1163,7 @@ export default function FlashcardsPage() {
               {cardIndex + 1} / {cards.length}
             </Text>
 
-            {/* Vit framsida, bla baksida, sa man ser vilken sida man ar pa. */}
+            {/* Salviagrön framsida och sandfärgad baksida skiljer fråga från svar. */}
             <TouchableOpacity
               style={showAnswer ? styles.cardBack : styles.cardFront}
               onPress={() => setShowAnswer(!showAnswer)}
@@ -1097,7 +1204,7 @@ export default function FlashcardsPage() {
         {/* STEG 4: resultatet */}
         {step === "result" && (
           <View>
-            <View style={styles.cardFront}>
+            <View style={styles.resultCard}>
               <Text style={styles.resultTitle}>{t("finished")}</Text>
 
               <View style={styles.resultRow}>
@@ -1289,11 +1396,13 @@ export default function FlashcardsPage() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t("deleteListTitle")}</Text>
 
-            <Text style={styles.modalMessage}>{String(language).toLowerCase() === "es"
-              ? "¿Seguro que quieres eliminar esta lista?"
-              : String(language).toLowerCase() === "en"
-                ? "Are you sure you want to delete this list?"
-                : "Vill du verkligen radera den här ordlistan?"}</Text>
+            <Text style={styles.modalMessage}>
+              {String(language).toLowerCase() === "es"
+                ? "¿Seguro que quieres eliminar esta lista?"
+                : String(language).toLowerCase() === "en"
+                  ? "Are you sure you want to delete this list?"
+                  : "Vill du verkligen radera den här ordlistan?"}
+            </Text>
 
             <TouchableOpacity
               style={styles.fullSecondaryButton}
@@ -1533,10 +1642,15 @@ const styles = StyleSheet.create({
   choiceCard: {
     marginTop: 24,
     padding: 18,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 20,
+    backgroundColor: "#EAF4FF",
+    borderWidth: 1.5,
+    borderColor: "#9DC9F5",
+    shadowColor: "#4779A8",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 3,
   },
 
   choiceTitle: {
@@ -1550,16 +1664,63 @@ const styles = StyleSheet.create({
   },
 
   editSourceButton: {
-    height: 50,
+    minHeight: 62,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 16,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: 10,
+  },
+
+  primaryActionHelp: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 3,
+  },
+  actionHelp: {
+    color: "#64748B",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 3,
+  },
+  actionTextGroup: {
+    alignItems: "center",
+  },
+  actionDisabled: {
+    opacity: 0.5,
+  },
+  editListSection: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: 18,
+    paddingTop: 8,
+  },
+  editListHelp: {
+    fontSize: 12,
+    textAlign: "center",
+    color: "#64748B",
+    marginBottom: 4,
+  },
+  // Redigering av en sparad lista ar en separat, diskret atgard.
+  editListLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  editListLinkText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
   },
 
   // Pennknappen inuti kategorikortet.
@@ -1747,6 +1908,40 @@ const styles = StyleSheet.create({
   },
 
   cardFront: {
+    minHeight: 260,
+    borderRadius: 24,
+    backgroundColor: "#DFEAF3",
+    borderWidth: 2,
+    borderColor: "#9BBBD2",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 34,
+    shadowColor: "#315D79",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+
+  cardBack: {
+    minHeight: 260,
+    borderRadius: 24,
+    backgroundColor: "#F7EBD9",
+    borderWidth: 2,
+    borderColor: "#DCC39F",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 34,
+    shadowColor: "#80623F",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+
+  resultCard: {
     minHeight: 230,
     borderRadius: 16,
     backgroundColor: "#FFFFFF",
@@ -1758,23 +1953,10 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
   },
 
-  // Baksidan ar bla, sa man ser direkt att det ar svaret.
-  cardBack: {
-    minHeight: 230,
-    borderRadius: 16,
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1,
-    borderColor: "#BFDBFE",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 22,
-    paddingVertical: 28,
-  },
-
   cardLanguage: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#94A3B8",
+    color: "#475569",
     marginBottom: 12,
     textTransform: "uppercase",
   },
@@ -1788,7 +1970,7 @@ const styles = StyleSheet.create({
 
   cardHint: {
     fontSize: 12,
-    color: "#94A3B8",
+    color: "#64748B",
     textAlign: "center",
     marginTop: 16,
   },
@@ -1805,9 +1987,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FEE2E2",
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: "#FCA5A5",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1822,9 +2004,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#DCFCE7",
     borderWidth: 1,
-    borderColor: "#BBF7D0",
+    borderColor: "#86EFAC",
     alignItems: "center",
     justifyContent: "center",
   },

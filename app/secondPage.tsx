@@ -781,7 +781,7 @@ export default function SecondPage() {
 
                       {!!item.information?.trim() && (
                         <TouchableOpacity
-                          onTouchEnd={(event) => event.stopPropagation()}
+                          onPressIn={(event) => event.stopPropagation()}
                           onPress={() =>
                             setSelectedInformation((current) =>
                               current?.word_id === item.word_id ? null : item,
