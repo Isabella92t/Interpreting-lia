@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LanguagePicker } from "@/components/language-picker";
+import { PRIVACY_POLICY_URL } from "@/constants/links";
 import { useUiLanguage } from "@/context/ui-language-context";
 
 const languages = [
@@ -31,7 +33,6 @@ function SageBranch() {
       style={styles.branch}
       resizeMode="contain"
       accessible={false}
-      pointerEvents="none"
     />
   );
 }
@@ -179,10 +180,7 @@ export default function FirstPage() {
       });
     } catch (error) {
       console.log("Kunde inte spara språk:", error);
-      Alert.alert(
-        "Kunde inte spara",
-        "Det gick inte att spara språkvalet. Försök igen.",
-      );
+      Alert.alert(t("saveFailedTitle"), t("saveLanguagesFailed"));
     }
   }
 
@@ -376,6 +374,16 @@ export default function FirstPage() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Länk till integritetspolicyn. Apple kräver den. */}
+      <TouchableOpacity
+        style={styles.privacyLink}
+        onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+        accessibilityRole="link"
+        hitSlop={8}
+      >
+        <Text style={styles.privacyLinkText}>{t("privacyPolicy")}</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -500,6 +508,21 @@ const styles = StyleSheet.create({
     width: 116,
     height: 190,
     opacity: 0.58,
+    // Bilden ligger ovanpå sidan. Utan den här raden kan den
+    // ta emot tryck som skulle gå till knapparna under.
+    pointerEvents: "none",
+  },
+
+  privacyLink: {
+    alignSelf: "center",
+    paddingVertical: 12,
+    marginBottom: 8,
+    zIndex: 1,
+  },
+  privacyLinkText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textDecorationLine: "underline",
   },
 
   loadingContainer: {

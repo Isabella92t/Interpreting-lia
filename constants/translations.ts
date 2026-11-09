@@ -94,6 +94,13 @@ export const translations = {
     practiseWrong: "Practise the wrong ones",
     practiseAll: "Practise all again",
     noWordsHere: "No words in this category",
+
+    // Felmeddelanden och länkar
+    errorTitle: "Error",
+    saveFailedTitle: "Could not save",
+    saveLanguagesFailed: "Could not save the language choice. Try again.",
+    loadNotesFailed: "Could not load the notes. Try again.",
+    privacyPolicy: "Privacy policy",
   },
 
   sv: {
@@ -182,6 +189,12 @@ export const translations = {
     practiseWrong: "Öva på de du hade fel",
     practiseAll: "Öva alla igen",
     noWordsHere: "Inga ord i den här kategorin",
+
+    errorTitle: "Fel",
+    saveFailedTitle: "Kunde inte spara",
+    saveLanguagesFailed: "Det gick inte att spara språkvalet. Försök igen.",
+    loadNotesFailed: "Det gick inte att hämta anteckningarna. Försök igen.",
+    privacyPolicy: "Integritetspolicy",
   },
 
   es: {
@@ -268,6 +281,13 @@ export const translations = {
     practiseWrong: "Practica las incorrectas",
     practiseAll: "Practicar todas otra vez",
     noWordsHere: "No hay palabras en esta categoría",
+
+    errorTitle: "Error",
+    saveFailedTitle: "No se pudo guardar",
+    saveLanguagesFailed:
+      "No se pudo guardar la elección de idiomas. Inténtalo de nuevo.",
+    loadNotesFailed: "No se pudieron cargar las notas. Inténtalo de nuevo.",
+    privacyPolicy: "Política de privacidad",
   },
 } as const;
 

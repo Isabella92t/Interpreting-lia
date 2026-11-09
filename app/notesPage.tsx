@@ -98,10 +98,7 @@ export default function NotesPage() {
       setNotes(result);
     } catch (error) {
       console.error("Kunde inte hämta anteckningar:", error);
-      Alert.alert(
-        "Fel",
-        "Det gick inte att hämta anteckningarna. Försök igen.",
-      );
+      Alert.alert(t("errorTitle"), t("loadNotesFailed"));
     }
   }
 
