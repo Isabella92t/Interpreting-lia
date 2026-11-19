@@ -1,3 +1,22 @@
+import {
+  getCategoryName as getCategoryNameHelper,
+  shuffle,
+} from "@/components/flashcards/flashcards-helpers";
+import { FlashcardsPractice } from "@/components/flashcards/flashcards-practice";
+import { FlashcardsResult } from "@/components/flashcards/flashcards-result";
+import { styles } from "@/components/flashcards/flashcards-styles";
+import {
+  getDeckErrorTexts,
+  getPracticeLabels,
+} from "@/components/flashcards/flashcards-translations";
+
+import type {
+  Card,
+  Category,
+  Deck,
+  Source,
+  Step,
+} from "@/components/flashcards/flashcards-types";
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
@@ -6,7 +25,6 @@ import {
   Alert,
   Modal,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -27,38 +45,6 @@ const languageNames: Record<string, string> = {
   es: "Español",
 };
 
-type Category = {
-  id: number;
-  name: string;
-  name_sv: string | null;
-  name_en: string | null;
-  name_es: string | null;
-};
-
-type Card = {
-  word_id: number;
-  text_from: string;
-  text_to: string;
-  // Kategorierna ordet ligger i, t.ex. "Juridik|Migration".
-  // Ett ord kan ligga i flera. Tomt om det saknar kategori.
-  tag_names?: string | null;
-};
-
-// En egen ordlista som man skapat sjalv.
-type Deck = {
-  id: number;
-  name: string;
-};
-
-// Det man valt i rullgardinen: alla ord, en kategori eller en egen lista.
-type Source =
-  | { kind: "all" }
-  | { kind: "category"; name: string }
-  | { kind: "deck"; deck: Deck };
-
-// Sidan har fyra steg. Ett steg i taget visas.
-type Step = "categories" | "words" | "practice" | "result";
-
 export default function FlashcardsPage() {
   const router = useRouter();
   const db = useSQLiteContext();
@@ -69,27 +55,8 @@ export default function FlashcardsPage() {
   const { t, language } = useUiLanguage();
 
   // Felmeddelanden följer appens språk, inte tolkspråkparet.
-  const deckErrorTexts = {
-    sv: {
-      title: "Fel",
-      save: "Kunde inte spara ordlistan. Försök igen.",
-      delete: "Kunde inte radera ordlistan. Försök igen.",
-    },
-    en: {
-      title: "Error",
-      save: "Could not save the word list. Please try again.",
-      delete: "Could not delete the word list. Please try again.",
-    },
-    es: {
-      title: "Error",
-      save: "No se pudo guardar la lista de palabras. Inténtalo de nuevo.",
-      delete: "No se pudo eliminar la lista de palabras. Inténtalo de nuevo.",
-    },
-  }[language] ?? {
-    title: "Error",
-    save: "Could not save the word list. Please try again.",
-    delete: "Could not delete the word list. Please try again.",
-  };
+
+  const deckErrorTexts = getDeckErrorTexts(language);
 
   const { from, to } = useLocalSearchParams<{ from?: string; to?: string }>();
 
@@ -417,8 +384,7 @@ export default function FlashcardsPage() {
 
     if (src.kind === "category") {
       const category = categories.find((item) => item.name === src.name);
-
-      return category ? getCategoryName(category) : src.name;
+      return category ? getCategoryNameHelper(category, language) : src.name;
     }
 
     return t("allWords");
@@ -450,23 +416,6 @@ export default function FlashcardsPage() {
   }
 
   // Samma regel som pa andra sidan: visa kategorin pa appens sprak.
-  function getCategoryName(category: Category) {
-    const currentLanguage = String(language).toLowerCase();
-
-    const svenska = category.name_sv?.trim() || "";
-    const engelska = category.name_en?.trim() || "";
-    const spanska = category.name_es?.trim() || "";
-
-    if (currentLanguage === "en") {
-      return engelska || svenska || spanska || category.name;
-    }
-
-    if (currentLanguage === "es") {
-      return spanska || svenska || engelska || category.name;
-    }
-
-    return svenska || engelska || spanska || category.name;
-  }
 
   // Fran kategorilistan. startNow = true betyder att man tryckte pa
   // kategorin och ovar direkt. startNow = false betyder att man tryckte
@@ -568,18 +517,6 @@ export default function FlashcardsPage() {
     }
     const shuffled = shuffle(visibleWords);
     setSelectedIds(shuffled.slice(0, amount).map((word) => word.word_id));
-  }
-
-  // Blandar korten sa att ordningen inte blir likadan varje gang.
-  function shuffle(items: Card[]) {
-    const copy = [...items];
-
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-
-    return copy;
   }
 
   // STEG 2 -> 3: starta en omgang med de kort man skickar in.
@@ -684,39 +621,7 @@ export default function FlashcardsPage() {
   }
 
   // Tydliga, konsekventa val för kategorier och egna listor.
-  const practiceLabels =
-    String(language).toLowerCase() === "es"
-      ? {
-          all: "Practicar todas las palabras",
-          allHelp: "Practica todas las palabras de esta selección.",
-          random: "Practicar palabras aleatorias",
-          randomHelp: "La app elige palabras al azar.",
-          pick: "Seleccionar palabras para practicar",
-          pickHelp: "Elige palabras solo para esta sesión.",
-          edit: "Editar mi lista",
-          editHelp: "Añade o elimina palabras de tu lista guardada.",
-        }
-      : String(language).toLowerCase() === "en"
-        ? {
-            all: "Practise all words",
-            allHelp: "Practise every word in this selection.",
-            random: "Practise random words",
-            randomHelp: "The app chooses words at random.",
-            pick: "Choose words to practise",
-            pickHelp: "Choose words for this session only.",
-            edit: "Edit my list",
-            editHelp: "Add or remove words from your saved list.",
-          }
-        : {
-            all: "Öva på alla ord",
-            allHelp: "Öva på alla ord i det här urvalet.",
-            random: "Öva på slumpmässiga ord",
-            randomHelp: "Appen väljer ord slumpmässigt.",
-            pick: "Välj ord att öva på",
-            pickHelp: "Välj ord bara för den här övningen.",
-            edit: "Redigera min lista",
-            editHelp: "Lägg till eller ta bort ord i din sparade lista.",
-          };
+  const practiceLabels = getPracticeLabels(language);
 
   const fromLanguageName = languageNames[String(from ?? "").toLowerCase()];
   const toLanguageName = languageNames[String(to ?? "").toLowerCase()];
@@ -1082,7 +987,7 @@ export default function FlashcardsPage() {
                           : styles.filterChipText
                       }
                     >
-                      {getCategoryName(category)}
+                      {getCategoryNameHelper(category, language)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -1178,92 +1083,31 @@ export default function FlashcardsPage() {
             {/* Spara-knappen ligger fast längst ner på skärmen. */}
           </View>
         )}
-
         {/* STEG 3: ova */}
         {step === "practice" && currentCard && (
-          <View>
-            <Text style={styles.counter}>
-              {cardIndex + 1} / {cards.length}
-            </Text>
-
-            {/* Salviagrön framsida och sandfärgad baksida skiljer fråga från svar. */}
-            <TouchableOpacity
-              style={showAnswer ? styles.cardBack : styles.cardFront}
-              onPress={() => setShowAnswer(!showAnswer)}
-              activeOpacity={0.9}
-            >
-              <Text style={styles.cardLanguage}>
-                {showAnswer ? toLanguageName : fromLanguageName}
-              </Text>
-
-              <Text style={styles.cardWord}>
-                {showAnswer ? currentCard.text_to : currentCard.text_from}
-              </Text>
-
-              {!showAnswer && (
-                <Text style={styles.cardHint}>{t("tapToFlip")}</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Knapparna syns hela tiden, aven innan man vant kortet. */}
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={styles.wrongButton}
-                onPress={() => answerCard(false)}
-              >
-                <Text style={styles.wrongButtonText}>{t("iDidNotKnow")}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.correctButton}
-                onPress={() => answerCard(true)}
-              >
-                <Text style={styles.correctButtonText}>{t("iKnew")}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          <FlashcardsPractice
+            currentCard={currentCard}
+            cardIndex={cardIndex}
+            totalCards={cards.length}
+            showAnswer={showAnswer}
+            fromLanguageName={fromLanguageName}
+            toLanguageName={toLanguageName}
+            onFlip={() => setShowAnswer(!showAnswer)}
+            onAnswer={answerCard}
+            t={t}
+          />
         )}
 
         {/* STEG 4: resultatet */}
+
         {step === "result" && (
-          <View>
-            <View style={styles.resultCard}>
-              <Text style={styles.resultTitle}>{t("finished")}</Text>
-
-              <View style={styles.resultRow}>
-                <View style={styles.resultBox}>
-                  <Text style={styles.resultNumberCorrect}>{correctCount}</Text>
-                  <Text style={styles.resultLabel}>{t("correct")}</Text>
-                </View>
-
-                <View style={styles.resultBox}>
-                  <Text style={styles.resultNumberWrong}>
-                    {wrongCards.length}
-                  </Text>
-                  <Text style={styles.resultLabel}>{t("wrong")}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Bara om man hade nagot fel */}
-            {wrongCards.length > 0 && (
-              <TouchableOpacity
-                style={styles.fullPrimaryButton}
-                onPress={() => startRound(wrongCards)}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {t("practiseWrong")} ({wrongCards.length})
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.fullSecondaryButton}
-              onPress={startFromSelection}
-            >
-              <Text style={styles.secondaryButtonText}>{t("practiseAll")}</Text>
-            </TouchableOpacity>
-          </View>
+          <FlashcardsResult
+            correctCount={correctCount}
+            wrongCards={wrongCards}
+            onPractiseWrong={() => startRound(wrongCards)}
+            onPractiseAll={startFromSelection}
+            t={t}
+          />
         )}
       </ScrollView>
 
@@ -1446,665 +1290,3 @@ export default function FlashcardsPage() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  scrollContent: {
-    paddingHorizontal: 22,
-    paddingTop: 16,
-    paddingBottom: 50,
-  },
-
-  stickyActions: {
-    paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 10,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 10,
-  },
-
-  scrollNavigation: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 10,
-  },
-
-  scrollNavigationButton: {
-    width: 42,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-
-  stickyEditButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  stickyEditButtonFlex: {
-    flex: 1,
-  },
-  stickyDeleteButton: {
-    flex: 1,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: "#FEE2E2",
-  },
-  stickySaveButton: {
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-  },
-
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 6,
-  },
-
-  helpText: {
-    fontSize: 13,
-    color: "#64748B",
-    marginBottom: 14,
-  },
-
-  /* Kategorilistan, samma kort som pa andra sidan */
-
-  /* Rullgardinen. Samma stil som språkvalet på första sidan. */
-
-  label: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-    color: colors.textSecondary,
-    marginTop: 18,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-
-  sourceCount: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 3,
-  },
-
-  hintText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginLeft: 4,
-    marginBottom: 10,
-  },
-
-  // Kategorierna ligger i en horisontell rad som går att svepa.
-  categoryCarouselRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  categoryCarousel: {
-    flex: 1,
-  },
-  categoryCarouselPage: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  categoryArrowButton: {
-    width: 25,
-    height: 56,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  categoryArrowText: {
-    fontSize: 29,
-    color: "#475569",
-    fontWeight: "300",
-  },
-  categoryArrowDisabled: {
-    fontSize: 29,
-    color: "#CBD5E1",
-    fontWeight: "300",
-  },
-
-  categoryBox: {
-    width: "100%",
-    minHeight: 56,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  categoryBoxActive: {
-    width: "100%",
-    minHeight: 56,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: "#2563EB",
-    borderWidth: 1,
-    borderColor: "#2563EB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  quickActionsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 12,
-  },
-
-  savedListsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 2,
-    justifyContent: "center",
-  },
-
-  // Chipsen radbryts, så att alla val syns utan att man skrollar i sidled.
-  chipGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-
-  newListRow: {
-    flexDirection: "row",
-    marginTop: 12,
-  },
-
-  newListChip: {
-    width: "31.5%",
-    minHeight: 56,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 4,
-  },
-
-  newListChipText: {
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 17,
-    textAlign: "center",
-    color: colors.primary,
-  },
-
-  choiceCard: {
-    marginTop: 24,
-    padding: 18,
-    borderRadius: 20,
-    backgroundColor: "#EAF4FF",
-    borderWidth: 1.5,
-    borderColor: "#9DC9F5",
-    shadowColor: "#4779A8",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-
-  choiceTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.text,
-  },
-
-  buttonDisabled: {
-    backgroundColor: colors.disabled,
-  },
-
-  editSourceButton: {
-    minHeight: 62,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginTop: 10,
-  },
-
-  primaryActionHelp: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: 3,
-  },
-  actionHelp: {
-    color: "#64748B",
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: 3,
-  },
-  actionTextGroup: {
-    alignItems: "center",
-  },
-  actionDisabled: {
-    opacity: 0.5,
-  },
-  editListSection: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: 18,
-    paddingTop: 8,
-  },
-  editListHelp: {
-    fontSize: 12,
-    textAlign: "center",
-    color: "#64748B",
-    marginBottom: 4,
-  },
-  // Redigering av en sparad lista ar en separat, diskret atgard.
-  editListLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    paddingVertical: 12,
-    marginTop: 4,
-  },
-  editListLinkText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-
-  // Pennknappen inuti kategorikortet.
-
-  /* Kategorifiltret */
-
-  filterRow: {
-    gap: 8,
-    paddingBottom: 12,
-  },
-
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 13,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-
-  filterChipActive: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 13,
-    backgroundColor: "#2563EB",
-    borderWidth: 1,
-    borderColor: "#2563EB",
-  },
-
-  filterChipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#334155",
-  },
-
-  filterChipTextActive: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-
-  /* Ordlistan */
-
-  nameInput: {
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    paddingHorizontal: 15,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#0F172A",
-    marginBottom: 12,
-  },
-
-  search: {
-    marginBottom: 12,
-  },
-
-  modalBackground: {
-    flex: 1,
-    backgroundColor: "rgba(15,23,42,0.35)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 30,
-  },
-
-  modalCard: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 22,
-  },
-
-  randomAmountInput: {
-    height: 54,
-    marginTop: 18,
-    borderRadius: 14,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-
-  modalMessage: {
-    fontSize: 14,
-    color: "#64748B",
-    marginTop: 6,
-    marginBottom: 6,
-  },
-
-  deleteButton: {
-    height: 46,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8,
-  },
-
-  deleteButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#DC2626",
-  },
-
-  chipRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 14,
-  },
-
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 13,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-
-  chipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#334155",
-  },
-
-  wordRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 13,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    marginBottom: 8,
-  },
-
-  wordRowSelected: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 13,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#BFDBFE",
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    marginBottom: 8,
-  },
-
-  wordText: {
-    flex: 1,
-    marginLeft: 12,
-  },
-
-  wordFrom: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#0F172A",
-  },
-
-  wordTo: {
-    fontSize: 13,
-    color: "#64748B",
-    marginTop: 2,
-  },
-
-  /* Ova-vyn */
-
-  counter: {
-    fontSize: 13,
-    color: "#64748B",
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 14,
-  },
-
-  cardFront: {
-    minHeight: 260,
-    borderRadius: 24,
-    backgroundColor: "#DFEAF3",
-    borderWidth: 2,
-    borderColor: "#9BBBD2",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 34,
-    shadowColor: "#315D79",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-
-  cardBack: {
-    minHeight: 260,
-    borderRadius: 24,
-    backgroundColor: "#F7EBD9",
-    borderWidth: 2,
-    borderColor: "#DCC39F",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 34,
-    shadowColor: "#80623F",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-
-  resultCard: {
-    minHeight: 230,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 22,
-    paddingVertical: 28,
-  },
-
-  cardLanguage: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#475569",
-    marginBottom: 12,
-    textTransform: "uppercase",
-  },
-
-  cardWord: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#0F172A",
-    textAlign: "center",
-  },
-
-  cardHint: {
-    fontSize: 12,
-    color: "#64748B",
-    textAlign: "center",
-    marginTop: 16,
-  },
-
-  buttonRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 16,
-  },
-
-  /* Svarsknapparna */
-
-  wrongButton: {
-    flex: 1,
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: "#FEE2E2",
-    borderWidth: 1,
-    borderColor: "#FCA5A5",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  wrongButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#DC2626",
-  },
-
-  correctButton: {
-    flex: 1,
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: "#DCFCE7",
-    borderWidth: 1,
-    borderColor: "#86EFAC",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  correctButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#16A34A",
-  },
-
-  /* Resultatet */
-
-  resultTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 22,
-  },
-
-  resultRow: {
-    flexDirection: "row",
-    gap: 40,
-  },
-
-  resultBox: {
-    alignItems: "center",
-  },
-
-  resultNumberCorrect: {
-    fontSize: 34,
-    fontWeight: "700",
-    color: "#16A34A",
-  },
-
-  resultNumberWrong: {
-    fontSize: 34,
-    fontWeight: "700",
-    color: "#DC2626",
-  },
-
-  resultLabel: {
-    fontSize: 13,
-    color: "#64748B",
-    marginTop: 4,
-  },
-
-  fullPrimaryButton: {
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: "#2563EB",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 16,
-  },
-
-  primaryButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-
-  fullSecondaryButton: {
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-  },
-
-  secondaryButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#334155",
-  },
-});

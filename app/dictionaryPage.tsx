@@ -1,181 +1,35 @@
+import { BackButton } from "@/components/back-button";
+import { importCategoryName as getCategoryName } from "@/components/dictionary/dictionary-category-helpers";
+import {
+  MAX_RESULTS,
+  getDictionarySearchResults,
+} from "@/components/dictionary/dictionary-search";
+import { styles } from "@/components/dictionary/dictionary-styles";
+import { pageText } from "@/components/dictionary/dictionary-translations";
+import type {
+  Translation,
+  WordCategory,
+} from "@/components/dictionary/dictionary-types";
+import {
+  WordInfoButton,
+  WordInfoPopup,
+} from "@/components/dictionary/dictionary-word-info";
+import { DictionaryWordRow } from "@/components/dictionary/dictionary-word-row";
+import { EditWordModal } from "@/components/dictionary/edit-word-modal";
+import { ImportCategoryModal } from "@/components/dictionary/import-category-modal";
+import { LanguagePicker } from "@/components/language-picker";
+import { SearchBar } from "@/components/search-bar";
+import { AddWordModal } from "@/components/second-page/add-word-modal";
+import { useUiLanguage } from "@/context/ui-language-context";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-
-import { SafeAreaView } from "react-native-safe-area-context";
-
-import { BackButton } from "@/components/back-button";
-import { LanguagePicker } from "@/components/language-picker";
-import { SearchBar } from "@/components/search-bar";
-import { colors } from "@/constants/colors";
-import { useUiLanguage } from "@/context/ui-language-context";
 import { useCallback, useEffect, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
 
-const PAGE_TRANSLATIONS: Record<string, { en: string; es: string }> = {
-  "Gå vidare och välj vilka ord som ska importeras": {
-    en: "Continue to choose which words to import",
-    es: "Continúa para elegir las palabras que quieres importar",
-  },
-
-  "Välj kategori": { en: "Choose category", es: "Elegir categoría" },
-  "Importera från kategori": {
-    en: "Import from category",
-    es: "Importar desde una categoría",
-  },
-  "Välj vilken kategori du vill hämta ord från.": {
-    en: "Choose a category to import words from.",
-    es: "Elige una categoría de la que importar palabras.",
-  },
-  "Det finns inga andra kategorier att importera från.": {
-    en: "There are no other categories to import from.",
-    es: "No hay otras categorías desde las que importar.",
-  },
-  ord: { en: "words", es: "palabras" },
-  "✓ Välj hela kategorin": {
-    en: "✓ Select entire category",
-    es: "✓ Seleccionar toda la categoría",
-  },
-  "☐ Välj vissa ord": {
-    en: "☐ Select specific words",
-    es: "☐ Seleccionar algunas palabras",
-  },
-  "Den här kategorin har inga ord.": {
-    en: "This category has no words.",
-    es: "Esta categoría no contiene palabras.",
-  },
-  "Markera orden du vill importera": {
-    en: "Select the words you want to import",
-    es: "Selecciona las palabras que quieres importar",
-  },
-  valda: { en: "selected", es: "seleccionadas" },
-  "Importera valda": { en: "Import selected", es: "Importar seleccionadas" },
-  "‹ Tillbaka": { en: "‹ Back", es: "‹ Volver" },
-  "Import klart": { en: "Import complete", es: "Importación completada" },
-  "Kunde inte hämta kategorierna.": {
-    en: "Could not load the categories.",
-    es: "No se pudieron cargar las categorías.",
-  },
-  "Kunde inte hämta importkategorierna.": {
-    en: "Could not load import categories.",
-    es: "No se pudieron cargar las categorías para importar.",
-  },
-  "Kunde inte läsa orden i kategorin.": {
-    en: "Could not load the words in the category.",
-    es: "No se pudieron cargar las palabras de la categoría.",
-  },
-  "Importen misslyckades. Försök igen.": {
-    en: "Import failed. Please try again.",
-    es: "La importación falló. Inténtalo de nuevo.",
-  },
-  "Vill du verkligen radera ordet?": {
-    en: "Do you really want to delete this word?",
-    es: "¿Seguro que quieres eliminar esta palabra?",
-  },
-  valfritt: { en: "optional", es: "opcional" },
-  "Visa information om": {
-    en: "Show information about",
-    es: "Mostrar información sobre",
-  },
-  "Avsluta redigering": { en: "Finish editing", es: "Terminar edición" },
-  "Aktivera redigering": { en: "Enable editing", es: "Activar edición" },
-  "Växlar mellan kolumnvisning och visning under varandra": {
-    en: "Switches between side-by-side and stacked views",
-    es: "Alterna entre vista en columnas y vista vertical",
-  },
-  "Visa ord bredvid varandra": {
-    en: "Show words side by side",
-    es: "Mostrar palabras en columnas",
-  },
-  "Visa ord under varandra": {
-    en: "Show words vertically",
-    es: "Mostrar palabras en vertical",
-  },
-  "fler träffar": { en: "more results", es: "resultados más" },
-  "Importera ord från en annan kategori": {
-    en: "Import words from another category",
-    es: "Importar palabras de otra categoría",
-  },
-  "Redigera ordet": { en: "Edit word", es: "Editar palabra" },
-  Redigera: { en: "Edit", es: "Editar" },
-  Klar: { en: "Done", es: "Listo" },
-  Importera: { en: "Import", es: "Importar" },
-  "Lägg till ord": { en: "Add word", es: "Añadir palabra" },
-  "Redigera ord": { en: "Edit word", es: "Editar palabra" },
-  "Information (valfritt)": {
-    en: "Information (optional)",
-    es: "Información (opcional)",
-  },
-  "Kategori (valfritt)": {
-    en: "Category (optional)",
-    es: "Categoría (opcional)",
-  },
-  Kategorier: { en: "Categories", es: "Categorías" },
-  "Laddar...": { en: "Loading...", es: "Cargando..." },
-  Övrigt: { en: "Other", es: "Otros" },
-  "Radera ord?": { en: "Delete word?", es: "¿Eliminar palabra?" },
-  Avbryt: { en: "Cancel", es: "Cancelar" },
-  Radera: { en: "Delete", es: "Eliminar" },
-  "Kunde inte lägga till ordet. Försök igen.": {
-    en: "Could not add the word. Please try again.",
-    es: "No se pudo añadir la palabra. Inténtalo de nuevo.",
-  },
-  "Kunde inte hämta kategorierna. Försök igen.": {
-    en: "Could not load the categories. Please try again.",
-    es: "No se pudieron cargar las categorías. Inténtalo de nuevo.",
-  },
-  "Fyll i både ord och översättning.": {
-    en: "Enter both the word and its translation.",
-    es: "Introduce la palabra y su traducción.",
-  },
-  "Språken kunde inte hittas.": {
-    en: "The languages could not be found.",
-    es: "No se encontraron los idiomas.",
-  },
-  "Kunde inte spara ändringarna. Försök igen.": {
-    en: "Could not save changes. Please try again.",
-    es: "No se pudieron guardar los cambios. Inténtalo de nuevo.",
-  },
-  "Kunde inte radera ordet. Försök igen.": {
-    en: "Could not delete the word. Please try again.",
-    es: "No se pudo eliminar la palabra. Inténtalo de nuevo.",
-  },
-};
-
-function pageText(key: string, language: string) {
-  const entry = PAGE_TRANSLATIONS[key];
-  return language === "en"
-    ? (entry?.en ?? key)
-    : language === "es"
-      ? (entry?.es ?? key)
-      : key;
-}
-
+import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 const EDIT_PENCILS_KEY = "tolkappen:showEditPencils";
-const MIN_SEARCH_LENGTH = 3;
-const MAX_RESULTS = 3;
-
-function startsWithSearch(text: string, query: string) {
-  const normalizedText = text.toLowerCase().trim().replace(/\s+/g, " ");
-  const normalizedQuery = query.toLowerCase().trim().replace(/\s+/g, " ");
-  if (!normalizedQuery) return false;
-  if (normalizedQuery.includes(" "))
-    return normalizedText.includes(normalizedQuery);
-  return normalizedText
-    .split(/[\s/,()!?;:]+/)
-    .some((word) => word.startsWith(normalizedQuery));
-}
 
 const languageNames: Record<string, string> = {
   sv: "Svenska",
@@ -183,51 +37,7 @@ const languageNames: Record<string, string> = {
   es: "Español",
 };
 
-type WordCategory = {
-  id: number;
-  name: string;
-  name_sv: string | null;
-  name_en: string | null;
-  name_es: string | null;
-};
-
-type Translation = {
-  word_id: number;
-  text_from: string;
-  text_to: string;
-  information: string | null;
-};
-
 /** Liten diskret symbol: två deltagare och en tolk med namnbricka. */
-function InterpreterLogo() {
-  return (
-    <View
-      style={styles.logo}
-      accessibilityLabel="TolkAppen – tre personer och tolk med namnbricka"
-    >
-      <View style={[styles.logoPerson, styles.logoSideLeft]}>
-        <View style={styles.logoSideHead} />
-        <View style={styles.logoSideBody} />
-      </View>
-      <View style={[styles.logoPerson, styles.logoSideRight]}>
-        <View style={styles.logoSideHead} />
-        <View style={styles.logoSideBody} />
-      </View>
-      <View style={styles.logoCenter}>
-        <View style={styles.logoCenterHead} />
-        <View style={styles.logoCenterBody} />
-        <View style={styles.logoStrapLeft} />
-        <View style={styles.logoStrapRight} />
-        <View style={styles.logoBadge}>
-          <Text style={styles.logoBadgeText} numberOfLines={1}>
-            TolkAppen
-          </Text>
-          <View style={styles.logoBadgeTail} />
-        </View>
-      </View>
-    </View>
-  );
-}
 
 export default function DictionaryPage() {
   const router = useRouter();
@@ -474,20 +284,8 @@ export default function DictionaryPage() {
 
     setTranslations(result);
   }
-
   function importCategoryName(item: WordCategory) {
-    const translated =
-      language === "sv"
-        ? item.name_sv
-        : language === "en"
-          ? item.name_en
-          : item.name_es;
-    return (
-      translated?.trim() ||
-      item.name_en?.trim() ||
-      item.name_sv?.trim() ||
-      item.name
-    );
+    return getCategoryName(item, language);
   }
 
   async function openCategoryImport() {
@@ -883,81 +681,32 @@ export default function DictionaryPage() {
       setDeletingWord(false);
     }
   }
-
-  const normalizedSearch = searchText.trim().toLowerCase();
-  const hasEnoughLetters = normalizedSearch.length >= MIN_SEARCH_LENGTH;
-
-  // Samma söklogik som på secondPage, även för sökning på översättningen.
-  const searchResults = hasEnoughLetters
-    ? translations
-        .filter(
-          (item) =>
-            startsWithSearch(item.text_from, normalizedSearch) ||
-            startsWithSearch(item.text_to, normalizedSearch),
-        )
-        .map((item) => {
-          const fromMatches = startsWithSearch(
-            item.text_from,
-            normalizedSearch,
-          );
-          const toMatches = startsWithSearch(item.text_to, normalizedSearch);
-          return toMatches && !fromMatches
-            ? { ...item, text_from: item.text_to, text_to: item.text_from }
-            : item;
-        })
-    : [];
-
-  const filteredTranslations = hasEnoughLetters
-    ? searchResults
-    : translations
-        .filter(() => normalizedSearch.length === 0)
-        .sort((a, b) =>
-          a.text_from.localeCompare(b.text_from, "sv", { sensitivity: "base" }),
-        );
+  const {
+    normalizedSearch,
+    hasEnoughLetters,
+    searchResults,
+    filteredTranslations,
+  } = getDictionarySearchResults(translations, searchText);
 
   function renderInfoPopup(item: Translation, location: "results" | "list") {
-    if (
-      selectedInformation?.wordId !== item.word_id ||
-      selectedInformation.location !== location
-    ) {
-      return null;
-    }
-
     return (
-      <View
-        style={styles.inlineInfoPopup}
-        onTouchEnd={(event) => event.stopPropagation()}
-      >
-        <ScrollView
-          style={styles.inlineInfoScroll}
-          contentContainerStyle={styles.inlineInfoScrollContent}
-          nestedScrollEnabled
-        >
-          <Text style={styles.informationBody}>{item.information}</Text>
-        </ScrollView>
-      </View>
+      <WordInfoPopup
+        item={item}
+        location={location}
+        selectedInformation={selectedInformation}
+      />
     );
   }
 
   function renderInfoButton(item: Translation, location: "results" | "list") {
-    if (!item.information?.trim()) return null;
     return (
-      <TouchableOpacity
-        style={styles.infoButton}
-        onPressIn={(event) => event.stopPropagation()}
-        onPress={() =>
-          setSelectedInformation((current) =>
-            current?.wordId === item.word_id && current.location === location
-              ? null
-              : { wordId: item.word_id, location },
-          )
-        }
-        accessibilityRole="button"
-        accessibilityLabel={`${ui("Visa information om")} ${item.text_from}`}
-        hitSlop={6}
-      >
-        <FontAwesome name="info-circle" size={15} color="#285F9D" />
-      </TouchableOpacity>
+      <WordInfoButton
+        item={item}
+        location={location}
+        selectedInformation={selectedInformation}
+        onSelectInformation={setSelectedInformation}
+        ui={ui}
+      />
     );
   }
 
@@ -1068,7 +817,9 @@ export default function DictionaryPage() {
                       <Text
                         style={[
                           styles.word,
-                          displayMode === "side" && styles.sideColumn,
+                          displayMode === "side"
+                            ? styles.sideColumn
+                            : { flex: 0 },
                         ]}
                       >
                         {item.text_from}
@@ -1162,74 +913,16 @@ export default function DictionaryPage() {
                   {item.text_from.charAt(0).toLocaleUpperCase()}
                 </Text>
               )}
-            <View style={styles.row}>
-              {displayMode === "side" ? (
-                <View style={styles.wordRow}>
-                  <Text style={[styles.word, styles.sideColumn]}>
-                    {item.text_from}
-                  </Text>
-                  <Text
-                    style={[styles.translation, styles.sideColumnTranslation]}
-                  >
-                    {item.text_to}
-                  </Text>
-                  <View
-                    style={[
-                      styles.rowActions,
-                      !showEditPencils && styles.actionsWithoutPencil,
-                    ]}
-                  >
-                    <View style={styles.infoSlot}>
-                      {renderInfoButton(item, "list")}
-                    </View>
-                    {showEditPencils && (
-                      <TouchableOpacity
-                        onPress={() => openEditWord(item)}
-                        style={styles.editButton}
-                        hitSlop={6}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${ui("Redigera ordet")} ${item.text_from}`}
-                      >
-                        <FontAwesome name="pencil" size={12} color="#9ca3af" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.wordRow}>
-                    <Text style={styles.word}>{item.text_from}</Text>
-                    <View
-                      style={[
-                        styles.rowActions,
-                        !showEditPencils && styles.actionsWithoutPencil,
-                      ]}
-                    >
-                      <View style={styles.infoSlot}>
-                        {renderInfoButton(item, "list")}
-                      </View>
-                      {showEditPencils && (
-                        <TouchableOpacity
-                          onPress={() => openEditWord(item)}
-                          style={styles.editButton}
-                          hitSlop={6}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${ui("Redigera ordet")} ${item.text_from}`}
-                        >
-                          <FontAwesome
-                            name="pencil"
-                            size={12}
-                            color="#9ca3af"
-                          />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                  <Text style={styles.translation}>{item.text_to}</Text>
-                </>
-              )}
-              {renderInfoPopup(item, "list")}
-            </View>
+
+            <DictionaryWordRow
+              item={item}
+              displayMode={displayMode}
+              showEditPencils={showEditPencils}
+              ui={ui}
+              onEditWord={openEditWord}
+              renderInfoButton={renderInfoButton}
+              renderInfoPopup={renderInfoPopup}
+            />
           </View>
         )}
         contentContainerStyle={styles.listContent}
@@ -1251,7 +944,6 @@ export default function DictionaryPage() {
             accessibilityRole="button"
             accessibilityLabel={ui("Importera ord från en annan kategori")}
           >
-            <FontAwesome name="download" size={14} color="#285F9D" />
             <Text style={styles.importCategoryButtonText}>
               {ui("Importera")}
             </Text>
@@ -1270,1103 +962,125 @@ export default function DictionaryPage() {
         </TouchableOpacity>
       </View>
 
-      <Modal
+      <ImportCategoryModal
         visible={showCategoryImport}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (!importBusy) setShowCategoryImport(false);
+        importBusy={importBusy}
+        importStep={importStep}
+        importSources={importSources}
+        importSource={importSource}
+        importWords={importWords}
+        importSelectedIds={importSelectedIds}
+        importError={importError}
+        ui={ui}
+        importCategoryName={importCategoryName}
+        onClose={() => setShowCategoryImport(false)}
+        onSelectSource={(item) => {
+          void selectImportSource(item);
         }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.editModal}>
-            <TouchableOpacity
-              onPress={() => {
-                if (!importBusy) setShowCategoryImport(false);
-              }}
-              style={styles.closeModalButton}
-              disabled={importBusy}
-            >
-              <Text style={styles.closeModalText}>×</Text>
-            </TouchableOpacity>
-            <Text style={styles.editTitle}>
-              {ui("Importera från kategori")}
-            </Text>
-            {importStep === "categories" && (
-              <>
-                <Text style={styles.importHint}>
-                  {ui("Välj vilken kategori du vill hämta ord från.")}
-                </Text>
-                <View style={styles.importListFrame}>
-                  <ScrollView
-                    style={styles.importScroll}
-                    contentContainerStyle={styles.importScrollContent}
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator
-                    persistentScrollbar
-                  >
-                    {importSources.map((item, index) => (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[
-                          styles.importCategoryRow,
-                          index < importSources.length - 1 &&
-                            styles.importCategoryDivider,
-                        ]}
-                        onPress={() => {
-                          void selectImportSource(item);
-                        }}
-                        disabled={importBusy}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${ui("Välj kategori")}: ${importCategoryName(item)}`}
-                        accessibilityHint={ui(
-                          "Gå vidare och välj vilka ord som ska importeras",
-                        )}
-                      >
-                        <View style={styles.importCategoryLeft}>
-                          <FontAwesome
-                            name="folder-o"
-                            size={16}
-                            color="#7593B0"
-                          />
-                          <Text
-                            style={styles.importCategoryName}
-                            numberOfLines={2}
-                          >
-                            {importCategoryName(item)}
-                          </Text>
-                        </View>
-                        <FontAwesome
-                          name="chevron-right"
-                          size={12}
-                          color="#A0B0C1"
-                        />
-                      </TouchableOpacity>
-                    ))}
-                    {importSources.length === 0 && (
-                      <Text style={styles.importEmpty}>
-                        {ui(
-                          "Det finns inga andra kategorier att importera från.",
-                        )}
-                      </Text>
-                    )}
-                  </ScrollView>
-                </View>
-              </>
-            )}
-            {importStep === "mode" && importSource && (
-              <>
-                <Text style={styles.importHint}>
-                  {importCategoryName(importSource)} · {importWords.length}{" "}
-                  {ui("ord")}
-                </Text>
-                <TouchableOpacity
-                  style={styles.addCategoryChoice}
-                  disabled={importBusy || importWords.length === 0}
-                  onPress={() => {
-                    void importCategoryWords(
-                      importWords.map((item) => item.word_id),
-                    );
-                  }}
-                >
-                  <Text style={styles.addCategoryChoiceText}>
-                    {ui("✓ Välj hela kategorin")}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.addCategoryChoice}
-                  disabled={importBusy || importWords.length === 0}
-                  onPress={() => setImportStep("words")}
-                >
-                  <Text style={styles.addCategoryChoiceText}>
-                    {ui("☐ Välj vissa ord")}
-                  </Text>
-                </TouchableOpacity>
-                {importWords.length === 0 && (
-                  <Text style={styles.importHint}>
-                    {ui("Den här kategorin har inga ord.")}
-                  </Text>
-                )}
-              </>
-            )}
-            {importStep === "words" && (
-              <>
-                <Text style={styles.importHint}>
-                  {ui("Markera orden du vill importera")} (
-                  {importSelectedIds.length} {ui("valda")}).
-                </Text>
-                <ScrollView style={styles.importScroll} nestedScrollEnabled>
-                  {importWords.map((item) => {
-                    const checked = importSelectedIds.includes(item.word_id);
-                    return (
-                      <TouchableOpacity
-                        key={item.word_id}
-                        style={[
-                          styles.addCategoryChoice,
-                          checked && styles.addCategoryChoiceSelected,
-                        ]}
-                        onPress={() =>
-                          setImportSelectedIds((current) =>
-                            checked
-                              ? current.filter((id) => id !== item.word_id)
-                              : [...current, item.word_id],
-                          )
-                        }
-                      >
-                        <Text style={styles.addCategoryChoiceText}>
-                          {checked ? "☑" : "☐"} {item.text_from}
-                          {item.text_to ? ` – ${item.text_to}` : ""}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-                <TouchableOpacity
-                  style={styles.addSaveButton}
-                  disabled={importBusy || importSelectedIds.length === 0}
-                  onPress={() => {
-                    void importCategoryWords(importSelectedIds);
-                  }}
-                >
-                  <Text style={styles.addSaveButtonText}>
-                    {ui("Importera valda")} ({importSelectedIds.length})
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
-            {!!importError && (
-              <Text style={styles.editError}>{importError}</Text>
-            )}
-            {importStep !== "categories" && (
-              <TouchableOpacity
-                style={styles.importBackButton}
-                disabled={importBusy}
-                onPress={() =>
-                  setImportStep(importStep === "words" ? "mode" : "categories")
-                }
-              >
-                <Text style={styles.editCategoryToggleText}>
-                  {ui("‹ Tillbaka")}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onImportWords={(wordIds) => {
+          void importCategoryWords(wordIds);
+        }}
+        onChooseWords={() => setImportStep("words")}
+        onToggleWord={(wordId) =>
+          setImportSelectedIds((current) =>
+            current.includes(wordId)
+              ? current.filter((id) => id !== wordId)
+              : [...current, wordId],
+          )
+        }
+        onBack={() =>
+          setImportStep(importStep === "words" ? "mode" : "categories")
+        }
+      />
 
-      <Modal
+      <AddWordModal
         visible={showAddWord}
-        transparent
-        animationType="fade"
-        onRequestClose={closeAddWord}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.editModal, styles.addWordModal]}>
-            <TouchableOpacity
-              onPress={closeAddWord}
-              style={styles.closeModalButton}
-            >
-              <Text style={styles.closeModalText}>×</Text>
-            </TouchableOpacity>
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.addWordModalContent}
-            >
-              <Text style={styles.editTitle}>{ui("Lägg till ord")}</Text>
-              <Text style={styles.editLabel}>
-                {languageNames[String(from ?? "").toLowerCase()]}
-              </Text>
-              <TextInput
-                style={styles.editInput}
-                value={newWord}
-                onChangeText={(value) => {
-                  setNewWord(value);
-                  setAddError("");
-                }}
-                autoCapitalize="none"
-              />
-              <Text style={styles.editLabel}>
-                {languageNames[String(to ?? "").toLowerCase()]}
-              </Text>
-              <TextInput
-                style={styles.editInput}
-                value={newTranslation}
-                onChangeText={(value) => {
-                  setNewTranslation(value);
-                  setAddError("");
-                }}
-                autoCapitalize="none"
-              />
-              <Text style={styles.editLabel}>
-                {
-                  languageNames[
-                    Object.keys(languageNames).find(
-                      (code) =>
-                        code !== String(from ?? "").toLowerCase() &&
-                        code !== String(to ?? "").toLowerCase(),
-                    ) ?? "en"
-                  ]
-                }{" "}
-                ({ui("valfritt")})
-              </Text>
-              <TextInput
-                style={styles.editInput}
-                value={newThirdTranslation}
-                onChangeText={(value) => {
-                  setNewThirdTranslation(value);
-                  setAddError("");
-                }}
-                autoCapitalize="none"
-              />
-              <Text style={styles.editLabel}>
-                {ui("Information (valfritt)")}
-              </Text>
-              <TextInput
-                style={[styles.editInput, styles.editInformationInput]}
-                value={newInformation}
-                onChangeText={(value) => {
-                  setNewInformation(value);
-                  setAddError("");
-                }}
-                multiline
-                textAlignVertical="top"
-              />
-              <Text style={styles.editLabel}>{ui("Kategori (valfritt)")}</Text>
-              <ScrollView
-                style={styles.addCategoriesScroll}
-                nestedScrollEnabled
-                keyboardShouldPersistTaps="handled"
-              >
-                {wordCategories
-                  .filter((item) => item.name !== "Övrigt")
-                  .map((item) => {
-                    const selected = selectedCategoryIds.includes(item.id);
-                    const code = language;
-                    const name =
-                      (code === "sv"
-                        ? item.name_sv
-                        : code === "en"
-                          ? item.name_en
-                          : item.name_es) || item.name;
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[
-                          styles.addCategoryChoice,
-                          selected && styles.addCategoryChoiceSelected,
-                        ]}
-                        onPress={() => {
-                          setSelectedCategoryIds((current) =>
-                            selected
-                              ? current.filter((id) => id !== item.id)
-                              : [...current, item.id],
-                          );
-                          setAddError("");
-                        }}
-                      >
-                        <Text style={styles.addCategoryChoiceText}>
-                          {selected ? "✓  " : ""}
-                          {name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-              </ScrollView>
-              {!!addError && <Text style={styles.editError}>{addError}</Text>}
-              <TouchableOpacity
-                style={styles.addSaveButton}
-                onPress={() => {
-                  void addWord();
-                }}
-                disabled={addingWord}
-              >
-                <Text style={styles.addSaveButtonText}>{t("add")}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        from={String(from ?? "")}
+        to={String(to ?? "")}
+        word={newWord}
+        translation={newTranslation}
+        thirdTranslation={newThirdTranslation}
+        information={newInformation}
+        categories={wordCategories
+          .filter((item) => item.name !== "Övrigt")
+          .map((item) => ({
+            key: String(item.id),
+            name: importCategoryName(item),
+          }))}
+        selectedCategories={selectedCategoryIds.map(String)}
+        error={addError}
+        saving={addingWord}
+        onWordChange={(value) => {
+          setNewWord(value);
+          setAddError("");
+        }}
+        onTranslationChange={(value) => {
+          setNewTranslation(value);
+          setAddError("");
+        }}
+        onThirdTranslationChange={(value) => {
+          setNewThirdTranslation(value);
+          setAddError("");
+        }}
+        onInformationChange={(value) => {
+          setNewInformation(value);
+          setAddError("");
+        }}
+        onToggleCategory={(key) => {
+          const id = Number(key);
+          setSelectedCategoryIds((current) =>
+            current.includes(id)
+              ? current.filter((item) => item !== id)
+              : [...current, id],
+          );
+          setAddError("");
+        }}
+        onSave={addWord}
+        onClose={closeAddWord}
+      />
 
-      {/* REDIGERA-MODAL */}
-      <Modal
+      <EditWordModal
         visible={editingWord !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeEditWord}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.editModal}>
-            {/* ENDA STÄNG-KNAPPEN */}
-            <TouchableOpacity
-              onPress={closeEditWord}
-              style={styles.closeModalButton}
-            >
-              <Text style={styles.closeModalText}>×</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.editTitle}>{ui("Redigera ord")}</Text>
-
-            <Text style={styles.editLabel}>
-              {languageNames[String(from ?? "").toLowerCase()]}
-            </Text>
-
-            <TextInput
-              value={editTextFrom}
-              onChangeText={(value) => {
-                setEditTextFrom(value);
-                setEditError("");
-              }}
-              style={styles.editInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <Text style={styles.editLabel}>
-              {languageNames[String(to ?? "").toLowerCase()]}
-            </Text>
-
-            <TextInput
-              value={editTextTo}
-              onChangeText={(value) => {
-                setEditTextTo(value);
-                setEditError("");
-              }}
-              style={styles.editInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <Text style={styles.editLabel}>{ui("Information (valfritt)")}</Text>
-
-            <TextInput
-              value={editInformation}
-              onChangeText={(value) => {
-                setEditInformation(value);
-                setEditError("");
-              }}
-              style={[styles.editInput, styles.editInformationInput]}
-              multiline
-              textAlignVertical="top"
-              autoCapitalize="sentences"
-              autoCorrect={false}
-            />
-
-            <TouchableOpacity
-              style={styles.editCategoryToggle}
-              onPress={() => setShowEditCategories((current) => !current)}
-              disabled={loadingEditCategories}
-              accessibilityRole="button"
-              accessibilityLabel={t("categories")}
-            >
-              <Text style={styles.editCategoryHeading}>{ui("Kategorier")}</Text>
-              <View style={styles.editCategorySummary}>
-                <Text style={styles.editCategoryToggleText}>
-                  {loadingEditCategories
-                    ? ui("Laddar...")
-                    : (() => {
-                        const otherId = editCategories.find(
-                          (item) => item.name === "Övrigt",
-                        )?.id;
-                        const count = editCategoryIds.filter(
-                          (id) => id !== otherId,
-                        ).length;
-                        return count === 0
-                          ? ui("Övrigt")
-                          : `${count} ${ui("valda")}`;
-                      })()}
-                </Text>
-                <FontAwesome
-                  name={showEditCategories ? "chevron-up" : "chevron-down"}
-                  size={12}
-                  color="#285F9D"
-                />
-              </View>
-            </TouchableOpacity>
-            {showEditCategories && (
-              <ScrollView
-                style={styles.editCategoriesScroll}
-                nestedScrollEnabled
-                keyboardShouldPersistTaps="handled"
-              >
-                {editCategories
-                  .filter((item) => item.name !== "Övrigt")
-                  .map((item) => {
-                    const selected = editCategoryIds.includes(item.id);
-                    const name =
-                      (language === "sv"
-                        ? item.name_sv
-                        : language === "en"
-                          ? item.name_en
-                          : item.name_es
-                      )?.trim() ||
-                      item.name_en?.trim() ||
-                      item.name_sv?.trim() ||
-                      item.name;
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[
-                          styles.addCategoryChoice,
-                          selected && styles.addCategoryChoiceSelected,
-                        ]}
-                        onPress={() =>
-                          setEditCategoryIds((current) =>
-                            current.includes(item.id)
-                              ? current.filter((id) => id !== item.id)
-                              : [...current, item.id],
-                          )
-                        }
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: selected }}
-                      >
-                        <Text style={styles.addCategoryChoiceText}>
-                          {selected ? "☑  " : "☐  "}
-                          {name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                <TouchableOpacity
-                  style={styles.editCategoriesDone}
-                  onPress={() => setShowEditCategories(false)}
-                >
-                  <Text style={styles.editCategoryToggleText}>
-                    {ui("Klar")}
-                  </Text>
-                </TouchableOpacity>
-              </ScrollView>
-            )}
-
-            {!!editError && <Text style={styles.editError}>{editError}</Text>}
-
-            {/* RADERA + SPARA */}
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                width: "100%",
-                marginTop: 10,
-              }}
-            >
-              <TouchableOpacity
-                onPress={confirmDeleteWord}
-                disabled={savingEdit || deletingWord}
-                style={{
-                  backgroundColor: "#fee2e2",
-                  borderRadius: 10,
-                  paddingHorizontal: 18,
-                  paddingVertical: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#dc2626",
-                    fontSize: 14,
-                    fontWeight: "600",
-                  }}
-                >
-                  {t("delete")}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={saveEditedWord}
-                disabled={
-                  savingEdit ||
-                  deletingWord ||
-                  loadingEditCategories ||
-                  !!editError
-                }
-                style={{
-                  backgroundColor: "#e0e7ff",
-                  borderRadius: 10,
-                  paddingHorizontal: 18,
-                  paddingVertical: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#285F9D",
-                    fontSize: 14,
-                    fontWeight: "600",
-                  }}
-                >
-                  {t("save")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        fromLanguage={languageNames[String(from ?? "").toLowerCase()]}
+        toLanguage={languageNames[String(to ?? "").toLowerCase()]}
+        language={language}
+        editTextFrom={editTextFrom}
+        editTextTo={editTextTo}
+        editInformation={editInformation}
+        editError={editError}
+        editCategories={editCategories}
+        editCategoryIds={editCategoryIds}
+        showEditCategories={showEditCategories}
+        loadingEditCategories={loadingEditCategories}
+        savingEdit={savingEdit}
+        deletingWord={deletingWord}
+        ui={ui}
+        t={t}
+        onClose={closeEditWord}
+        onEditTextFromChange={(value) => {
+          setEditTextFrom(value);
+          setEditError("");
+        }}
+        onEditTextToChange={(value) => {
+          setEditTextTo(value);
+          setEditError("");
+        }}
+        onEditInformationChange={(value) => {
+          setEditInformation(value);
+          setEditError("");
+        }}
+        onToggleCategories={() => setShowEditCategories((current) => !current)}
+        onToggleCategory={(id) =>
+          setEditCategoryIds((current) =>
+            current.includes(id)
+              ? current.filter((item) => item !== id)
+              : [...current, id],
+          )
+        }
+        onCategoriesDone={() => setShowEditCategories(false)}
+        onDelete={confirmDeleteWord}
+        onSave={saveEditedWord}
+      />
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  letterHeading: {
-    color: "#648EB5",
-    fontSize: 17,
-    fontWeight: "700",
-    paddingTop: 14,
-    paddingBottom: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: "#C8D9E6",
-  },
-  columnHeadings: {
-    flexDirection: "row",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#C8D9E6",
-  },
-  columnHeading: {
-    flex: 1,
-    fontSize: 12,
-    color: "#648EB5",
-    fontWeight: "700",
-  },
-  columnActionsSpace: { width: 70 },
-  actionsWithoutPencil: { width: 34 },
-  infoSlot: { width: 24, alignItems: "center", justifyContent: "center" },
-  editModeActive: { backgroundColor: "#E7F2FC", borderColor: "#B9D6EB" },
-  watermarkLayer: {
-    position: "absolute",
-    top: "27%",
-    left: 0,
-    right: 0,
-    height: 240,
-    alignItems: "center",
-    justifyContent: "center",
-    opacity: 0.055,
-  },
-  watermarkScale: {
-    width: 106,
-    height: 83,
-    transform: [{ scale: 2.8 }],
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  logo: {
-    width: 106,
-    height: 90,
-    alignSelf: "center",
-    marginBottom: 34,
-    position: "relative",
-    transform: [{ scale: 1.6 }],
-  },
-  logoPerson: {
-    position: "absolute",
-    top: 12,
-    width: 38,
-    height: 55,
-    alignItems: "center",
-  },
-  logoSideLeft: { left: 2 },
-  logoSideRight: { right: 2 },
-  logoSideHead: {
-    width: 21,
-    height: 21,
-    borderRadius: 11,
-    backgroundColor: "#91B7DA",
-  },
-  logoSideBody: {
-    width: 35,
-    height: 29,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    backgroundColor: "#91B7DA",
-    marginTop: 3,
-  },
-  logoCenter: {
-    position: "absolute",
-    top: 0,
-    left: 29,
-    width: 48,
-    height: 70,
-    alignItems: "center",
-  },
-  logoCenterHead: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#234C7A",
-    zIndex: 2,
-  },
-  logoCenterBody: {
-    position: "absolute",
-    top: 27,
-    width: 48,
-    height: 41,
-    borderTopLeftRadius: 23,
-    borderTopRightRadius: 23,
-    borderBottomLeftRadius: 5,
-    borderBottomRightRadius: 5,
-    backgroundColor: "#234C7A",
-  },
-  logoStrapLeft: {
-    position: "absolute",
-    top: 28,
-    left: 16,
-    width: 3,
-    height: 24,
-    backgroundColor: "#FFFFFF",
-    transform: [{ rotate: "-28deg" }],
-    zIndex: 3,
-  },
-  logoStrapRight: {
-    position: "absolute",
-    top: 28,
-    right: 16,
-    width: 3,
-    height: 24,
-    backgroundColor: "#FFFFFF",
-    transform: [{ rotate: "28deg" }],
-    zIndex: 3,
-  },
-  logoBadge: {
-    position: "absolute",
-    top: 43,
-    width: 53,
-    height: 19,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 4,
-  },
-  logoBadgeText: { fontSize: 8, fontWeight: "700", color: "#234C7A" },
-  logoBadgeTail: {
-    position: "absolute",
-    bottom: -3,
-    left: 10,
-    width: 7,
-    height: 7,
-    backgroundColor: "#FFFFFF",
-    transform: [{ rotate: "45deg" }],
-  },
-
-  container: {
-    flex: 1,
-    backgroundColor: "#FAFBFC",
-    paddingHorizontal: 22,
-    paddingTop: 16,
-  },
-
-  search: {
-    marginBottom: 16,
-  },
-
-  displayModeBar: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginBottom: 8,
-  },
-  displayModeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: "#DFE8F1",
-    backgroundColor: "#F7FAFD",
-  },
-  displayModeLabel: {
-    fontSize: 11,
-    color: "#71859B",
-  },
-  sideTextRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  sideColumn: {
-    flex: 1.08,
-    minWidth: 0,
-    paddingRight: 14,
-  },
-  sideColumnTranslation: {
-    flex: 0.92,
-    minWidth: 0,
-    marginTop: 0,
-    paddingLeft: 8,
-    paddingRight: 4,
-  },
-
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#203B59",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-
-  subtitle: {
-    fontSize: 12,
-    color: "#71859B",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-
-  searchHint: {
-    fontSize: 13,
-    color: "#94A3B8",
-    marginBottom: 10,
-    marginLeft: 4,
-  },
-
-  searchResults: {
-    borderWidth: 1,
-    borderColor: "#DFE8F1",
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    overflow: "hidden",
-    marginBottom: 12,
-  },
-
-  searchResultRow: {
-    minHeight: 62,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  searchResultText: {
-    flex: 1,
-  },
-
-  moreResults: {
-    fontSize: 12,
-    color: "#94A3B8",
-    padding: 12,
-    textAlign: "center",
-  },
-
-  infoButton: {
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // Fast yta för info och redigering: textkolumnerna flyttas aldrig.
-  rowActions: {
-    width: 70,
-    flexShrink: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 8,
-  },
-
-  inlineInfoPopup: {
-    marginHorizontal: 12,
-    marginTop: 4,
-    marginBottom: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: "#F7FAFD",
-    borderColor: "#C5DBEF",
-    borderWidth: 1,
-    borderRadius: 10,
-  },
-
-  inlineInfoScroll: {
-    maxHeight: 130,
-  },
-
-  inlineInfoScrollContent: {
-    paddingRight: 24,
-  },
-
-  informationBody: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: "#71859B",
-  },
-
-  listContent: {
-    paddingBottom: 76,
-  },
-
-  row: {
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5EBF0",
-  },
-
-  wordRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  word: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#203B59",
-    paddingRight: 8,
-  },
-
-  editButton: {
-    width: 20,
-    height: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 0,
-  },
-
-  translation: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: "#61758B",
-    marginTop: 5,
-  },
-
-  empty: {
-    fontSize: 14,
-    color: "#71859B",
-    textAlign: "center",
-    paddingVertical: 24,
-  },
-
-  categoryBottomActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    marginBottom: 16,
-    marginRight: 2,
-  },
-  importCategoryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: "#E9F3FB",
-    borderWidth: 1,
-    borderColor: "#DCEBF7",
-  },
-  importCategoryButtonText: {
-    color: "#285F9D",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  importHint: { color: "#71859B", fontSize: 13, marginBottom: 12 },
-  importListFrame: {
-    borderWidth: 1,
-    borderColor: "#DFE8F1",
-    borderRadius: 13,
-    backgroundColor: "#FFFFFF",
-    overflow: "hidden",
-    marginBottom: 12,
-  },
-  importScroll: { maxHeight: 320 },
-  importScrollContent: { paddingBottom: 8 },
-  importCategoryRow: {
-    minHeight: 51,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  importCategoryDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#EDF2F7",
-  },
-  importCategoryLeft: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  importCategoryName: {
-    flex: 1,
-    fontSize: 14,
-    color: "#334155",
-    lineHeight: 20,
-  },
-  importEmpty: {
-    padding: 16,
-    fontSize: 13,
-    color: "#71859B",
-  },
-  importBackButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 10,
-    marginTop: 8,
-  },
-  addWordPlusButton: {
-    marginLeft: 8,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#E9F3FB",
-    borderWidth: 1,
-    borderColor: "#DCEBF7",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addWordPlusText: {
-    fontSize: 26,
-    lineHeight: 29,
-    color: "#285F9D",
-    fontWeight: "500",
-  },
-  addCategoriesScroll: { maxHeight: 135, marginBottom: 12 },
-  editCategoryToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    height: 44,
-    borderWidth: 1,
-    borderColor: "#DFE8F1",
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-  editCategoryHeading: { color: "#203B59", fontSize: 13, fontWeight: "600" },
-  editCategorySummary: { flexDirection: "row", alignItems: "center", gap: 10 },
-  editCategoryToggleText: { color: "#285F9D", fontSize: 13, fontWeight: "600" },
-  editCategoriesScroll: { maxHeight: 155, marginBottom: 12 },
-  editCategoriesDone: { alignItems: "center", paddingVertical: 10 },
-  addCategoryChoice: {
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: "#DFE8F1",
-    marginBottom: 6,
-  },
-  addCategoryChoiceSelected: {
-    backgroundColor: "#E9F3FB",
-    borderColor: "#C5DBEF",
-  },
-  addCategoryChoiceText: { color: "#334155", fontSize: 13 },
-  addSaveButton: {
-    backgroundColor: "#DCEBF7",
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  addSaveButtonText: { color: "#285F9D", fontWeight: "600", fontSize: 14 },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-
-  addWordModal: { maxHeight: "85%" },
-  addWordModalContent: { paddingTop: 8, paddingBottom: 8 },
-  editModal: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
-    position: "relative",
-  },
-
-  closeModalButton: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
-  },
-
-  closeModalText: {
-    fontSize: 28,
-    fontWeight: "400",
-    color: "#71859B",
-    lineHeight: 30,
-  },
-
-  editTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#203B59",
-    marginBottom: 18,
-    paddingRight: 35,
-  },
-
-  editLabel: {
-    fontSize: 12,
-    color: "#71859B",
-    marginBottom: 5,
-  },
-
-  editInput: {
-    height: 44,
-    borderWidth: 1,
-    borderColor: "#DFE8F1",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: "#203B59",
-    marginBottom: 14,
-  },
-
-  editInformationInput: {
-    height: 90,
-    paddingTop: 10,
-    paddingBottom: 10,
-  },
-
-  editError: {
-    color: "#9A5B22",
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 10,
-  },
-
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 4,
-  },
-
-  deleteButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-
-  deleteButtonText: {
-    color: "#dc2626",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-});
