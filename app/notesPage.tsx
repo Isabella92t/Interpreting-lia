@@ -32,7 +32,13 @@ type Note = {
 };
 
 function normalizeSearchText(value: string) {
-  return value.toLowerCase().trim().replace(/\s+/g, " ");
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['’‘`´]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 function PaperLines() {
@@ -83,24 +89,23 @@ export default function NotesPage() {
   const [search, setSearch] = useState("");
   const insets = useSafeAreaInsets();
 
-  useFocusEffect(
-    useCallback(() => {
-      void loadNotes();
-    }, [db]),
-  );
-
-  async function loadNotes() {
+  const loadNotes = useCallback(async () => {
     try {
       const result = await db.getAllAsync<Note>(
         `SELECT id, title, text, created_at, selected_date
-         FROM notes ORDER BY created_at DESC`,
+       FROM notes ORDER BY created_at DESC`,
       );
       setNotes(result);
     } catch (error) {
       console.error("Kunde inte hämta anteckningar:", error);
       Alert.alert(t("errorTitle"), t("loadNotesFailed"));
     }
-  }
+  }, [db, t]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadNotes();
+    }, [loadNotes]),
+  );
 
   const searchText = normalizeSearchText(search);
   const visibleNotes = notes.filter((note) => {

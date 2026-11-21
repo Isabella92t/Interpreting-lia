@@ -1,7 +1,7 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -110,11 +110,7 @@ export default function NotePage() {
   const savingRef = useRef(false);
   const deletingRef = useRef(false);
 
-  useEffect(() => {
-    if (id) void loadNote();
-  }, [id]);
-
-  async function loadNote() {
+  const loadNote = useCallback(async () => {
     const note = await db.getFirstAsync<Note>(
       `SELECT title, text, created_at, selected_date FROM notes WHERE id = ?`,
       Number(id),
@@ -127,7 +123,11 @@ export default function NotePage() {
         setSelectedDate(new Date(year, month - 1, day));
       }
     }
-  }
+  }, [db, id]);
+
+  useEffect(() => {
+    if (id) void loadNote();
+  }, [id, loadNote]);
 
   function openDatePicker() {
     setShowDatePicker(true);

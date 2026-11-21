@@ -1,4 +1,5 @@
 import { styles } from "@/components/dictionary/dictionary-styles";
+import { useUiLanguage } from "@/context/ui-language-context";
 import { FontAwesome } from "@expo/vector-icons";
 import {
   Modal,
@@ -38,7 +39,7 @@ type EditWordModalProps = {
   deletingWord: boolean;
 
   ui: (key: string) => string;
-  t: (key: string) => string;
+  t: ReturnType<typeof useUiLanguage>["t"];
 
   onClose: () => void;
   onEditTextFromChange: (value: string) => void;

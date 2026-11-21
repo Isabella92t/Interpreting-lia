@@ -170,10 +170,6 @@ export default function DictionaryPage() {
   const [importError, setImportError] = useState("");
 
   useEffect(() => {
-    loadTranslations();
-  }, [from, to, category]);
-
-  useEffect(() => {
     let active = true;
     setDisplayReady(false);
     setDisplayMode("stacked");
@@ -214,8 +210,7 @@ export default function DictionaryPage() {
       console.error("Kunde inte spara visningsinställningen:", error);
     }
   }
-
-  async function loadTranslations() {
+  const loadTranslations = useCallback(async () => {
     const selectedFrom = String(from ?? "").toLowerCase();
     const selectedTo = String(to ?? "").toLowerCase();
 
@@ -281,9 +276,13 @@ export default function DictionaryPage() {
         toLanguage,
       );
     }
-
     setTranslations(result);
-  }
+  }, [db, from, to, category]);
+
+  useEffect(() => {
+    void loadTranslations();
+  }, [loadTranslations]);
+
   function importCategoryName(item: WordCategory) {
     return getCategoryName(item, language);
   }

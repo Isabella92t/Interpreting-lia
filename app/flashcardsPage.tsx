@@ -20,7 +20,7 @@ import type {
 import { FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -116,32 +116,13 @@ export default function FlashcardsPage() {
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCards, setWrongCards] = useState<Card[]>([]);
 
-  useEffect(() => {
-    loadCategories();
-    loadDecks();
-  }, []);
+
+
 
   // Raknar orden i det man valt, sa att man ser hur stort det ar
   // innan man borjar.
-  useEffect(() => {
-    // Efter Spara är antalet redan känt. Låt inte en ny asynkron
-    // databasfråga ersätta det med 0 innan användaren klickar igen.
-    if (source.kind === "deck" && justSavedDeckId.current === source.deck.id) {
-      justSavedDeckId.current = null;
-      return;
-    }
-    let active = true;
-    countWords(source)
-      .then((count) => {
-        if (active) setSourceCount(count);
-      })
-      .catch((error) => console.error("Kunde inte räkna ord:", error));
-    return () => {
-      active = false;
-    };
-  }, [source, from, to]);
-
-  async function loadCategories() {
+    
+const loadCategories = useCallback(async () => {
     const result = await db.getAllAsync<Category>(
       `
       SELECT id, name, name_sv, name_en, name_es
@@ -150,17 +131,21 @@ export default function FlashcardsPage() {
       `,
     );
 
-    setCategories(result);
-  }
+       setCategories(result);
+  }, [db]);
+  
+const loadDecks = useCallback(async () => {
+  const result = await db.getAllAsync<Deck>(
+    "SELECT id, name FROM decks ORDER BY created_at DESC",
+  );
 
-  async function loadDecks() {
-    const result = await db.getAllAsync<Deck>(
-      "SELECT id, name FROM decks ORDER BY created_at DESC",
-    );
+  setDecks(result);
+}, [db]);
 
-    setDecks(result);
-  }
-
+useEffect(() => {
+  void loadCategories();
+  void loadDecks();
+}, [loadCategories, loadDecks]);
   // Hamtar alla ord i de valda spraken. Anvands nar man bygger
   // en egen lista, for da far man valja ur alla kategorier.
   async function loadAllWords() {
@@ -315,7 +300,7 @@ export default function FlashcardsPage() {
   }
 
   // Raknar orden i en kategori, i en egen lista, eller alla ord.
-  async function countWords(src: Source) {
+const countWords = useCallback(async (src: Source) => {
     const fromLanguage = languageNames[String(from ?? "").toLowerCase()];
     const toLanguage = languageNames[String(to ?? "").toLowerCase()];
 
@@ -361,8 +346,25 @@ export default function FlashcardsPage() {
       ...params,
     );
 
-    return row?.count ?? 0;
+       return row?.count ?? 0;
+  }, [db, from, to]);
+  useEffect(() => {
+  // Efter Spara är antalet redan känt. Låt inte en ny asynkron
+  // databasfråga ersätta det med 0 innan användaren klickar igen.
+  if (source.kind === "deck" && justSavedDeckId.current === source.deck.id) {
+    justSavedDeckId.current = null;
+    return;
   }
+  let active = true;
+  countWords(source)
+    .then((count) => {
+      if (active) setSourceCount(count);
+    })
+    .catch((error) => console.error("Kunde inte räkna ord:", error));
+  return () => {
+    active = false;
+  };
+}, [source, countWords]);
 
   // En unik nyckel for varje val, sa att vi kan se vilket som ar markerat.
   function sourceKey(src: Source) {

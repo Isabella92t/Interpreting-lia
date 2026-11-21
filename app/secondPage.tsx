@@ -64,7 +64,7 @@ export default function SecondPage() {
   const carouselRef = useRef<ScrollView>(null);
 
   const [showAddWord, setShowAddWord] = useState(false);
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [, setShowCategoryPicker] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   const [word, setWord] = useState("");
@@ -99,34 +99,26 @@ export default function SecondPage() {
     loadCategoriesExpanded();
   }, []);
 
-  // Uppdatera kategorier och sökresultat när användaren återvänder hit.
-  useFocusEffect(
-    useCallback(() => {
-      loadCategories();
-      loadAllTranslations();
-    }, [from, to]),
-  );
-
-  async function loadCategories() {
+  const loadCategories = useCallback(async () => {
     try {
       const result = await db.getAllAsync<Category>(
         `
-        SELECT
-          id,
-          name,
-          name_sv,
-          name_en,
-          name_es
-        FROM tags
-        ORDER BY name ASC
-        `,
+      SELECT
+        id,
+        name,
+        name_sv,
+        name_en,
+        name_es
+      FROM tags
+      ORDER BY name ASC
+      `,
       );
 
       setCategories(result);
     } catch (error) {
       console.error("Kunde inte läsa kategorier:", error);
     }
-  }
+  }, [db]);
 
   async function loadRecentCategories() {
     try {
@@ -183,7 +175,7 @@ export default function SecondPage() {
     });
   }
 
-  async function loadAllTranslations() {
+  const loadAllTranslations = useCallback(async () => {
     const fromLanguage = languageNames[String(from).toLowerCase()];
 
     const toLanguage = languageNames[String(to).toLowerCase()];
@@ -233,7 +225,15 @@ export default function SecondPage() {
       console.error("Kunde inte läsa översättningar:", error);
       setAllTranslations([]);
     }
-  }
+  }, [db, from, to]);
+
+  // Uppdatera kategorier och sökresultat när användaren återvänder hit.
+  useFocusEffect(
+    useCallback(() => {
+      void loadCategories();
+      void loadAllTranslations();
+    }, [loadCategories, loadAllTranslations]),
+  );
 
   function changeLanguages() {
     router.dismissTo("/firstPage");
