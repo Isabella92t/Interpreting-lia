@@ -352,59 +352,82 @@ export async function seedDatabase(db: SQLiteDatabase) {
   // =========================
   // Idiomer
   // =========================
-
   const idioms = [
-    ["Break the ice", "Bryta isen", "Romper el hielo"],
-    ["Piece of cake", "Enkelt som en plätt", "Pan comido"],
+    ["Add fuel to the fire", "Hälla bensin på elden", "Echar leña al fuego"],
+    [
+      "Kill two birds with one stone",
+      "Slå två flugor i en smäll",
+      "Matar dos pájaros de un tiro",
+    ],
+    [
+      "The last straw",
+      "Droppen som fick bägaren att rinna över",
+      "La gota que rebalsó el vaso",
+    ],
+    [
+      "Easier said than done",
+      "Lättare sagt än gjort",
+      "Más fácil decirlo que hacerlo",
+    ],
     ["Hit the nail on the head", "Slå huvudet på spiken", "Dar en el clavo"],
     [
-      "It's raining cats and dogs",
-      "Det regnar väldigt mycket",
-      "Llueve a cántaros",
+      "Tar everyone with the same brush",
+      "Dra alla över en kam",
+      "Meter a todos en el mismo saco",
     ],
-    ["Under the weather", "Känna sig hängig", "Sentirse indispuesto"],
+    ["Throw in the towel", "Kasta in handduken", "Tirar la toalla"],
   ];
 
-  for (const [en, sv, es] of idioms) {
-    await db.runAsync("INSERT OR IGNORE INTO idioms (name) VALUES (?)", en);
+  // Registrera att den nya idiomlistan bara ska införas en gång.
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS seed_migrations (
+      key TEXT PRIMARY KEY
+    )
+  `);
 
-    const idiom = await db.getFirstAsync<{ id: number }>(
-      "SELECT id FROM idioms WHERE name = ?",
-      en,
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const migrationKey = "idioms_seven_v1";
+
+    const alreadyUpdated = await tx.getFirstAsync<{ key: string }>(
+      "SELECT key FROM seed_migrations WHERE key = ?",
+      migrationKey,
     );
 
-    if (!idiom) continue;
+    if (alreadyUpdated) return;
 
-    if (engelska) {
-      await db.runAsync(
-        `INSERT OR IGNORE INTO idiom_translations
-         (idiom_id, language_id, text)
-         VALUES (?, ?, ?)`,
-        idiom.id,
-        engelska.id,
+    // Ta bort enbart gamla idiom och deras översättningar.
+    await tx.runAsync("DELETE FROM idiom_translations");
+    await tx.runAsync("DELETE FROM idioms");
+
+    for (const [en, sv, es] of idioms) {
+      const inserted = await tx.runAsync(
+        "INSERT INTO idioms (name) VALUES (?)",
         en,
       );
+
+      const idiomId = inserted.lastInsertRowId;
+
+      for (const [languageId, translation] of [
+        [engelska.id, en],
+        [svenska.id, sv],
+        [spanska.id, es],
+      ] as [number, string][]) {
+        await tx.runAsync(
+          `INSERT INTO idiom_translations
+           (idiom_id, language_id, text)
+           VALUES (?, ?, ?)`,
+          idiomId,
+          languageId,
+          translation,
+        );
+      }
     }
 
-    await db.runAsync(
-      `INSERT OR IGNORE INTO idiom_translations
-       (idiom_id, language_id, text)
-       VALUES (?, ?, ?)`,
-      idiom.id,
-      svenska.id,
-      sv,
+    await tx.runAsync(
+      "INSERT INTO seed_migrations (key) VALUES (?)",
+      migrationKey,
     );
-
-    await db.runAsync(
-      `INSERT OR IGNORE INTO idiom_translations
-       (idiom_id, language_id, text)
-       VALUES (?, ?, ?)`,
-      idiom.id,
-      spanska.id,
-      es,
-    );
-  }
-
+  });
   // =========================
   // Kontroll
   // =========================
