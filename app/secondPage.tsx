@@ -1,4 +1,5 @@
 import { BackButton } from "@/components/back-button";
+import { AppTextInput } from "@/components/app-text-input";
 import { LanguagePicker } from "@/components/language-picker";
 import { SearchBar } from "@/components/search-bar";
 import { AddWordModal } from "@/components/second-page/add-word-modal";
@@ -14,7 +15,6 @@ import {
   Modal,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -617,6 +617,7 @@ export default function SecondPage() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         onTouchEnd={() => {
           if (selectedInformation) {
             setSelectedInformation(null);
@@ -984,61 +985,70 @@ export default function SecondPage() {
         onRequestClose={closeAddCategory}
       >
         <View style={styles.modalBackground}>
-          <View style={styles.categoryModal}>
-            <Text style={styles.modalTitle}>{t("addCategory")}</Text>
+          {/* ScrollView gör att man kan skrolla förbi tangentbordet
+              ner till knapparna. */}
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+          >
+            <View style={styles.categoryModal}>
+              <Text style={styles.modalTitle}>{t("addCategory")}</Text>
 
-            {orderedLanguageCodes.map((code, index) => (
-              <Fragment key={code}>
-                <Text style={styles.languageLabel}>{languageNames[code]}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={
-                    code === "sv"
-                      ? newCategorySv
-                      : code === "en"
-                        ? newCategoryEn
-                        : newCategoryEs
-                  }
-                  onChangeText={(value) => {
-                    if (code === "sv") setNewCategorySv(value);
-                    else if (code === "en") setNewCategoryEn(value);
-                    else setNewCategoryEs(value);
-                    setCategoryError("");
-                  }}
-                  autoFocus={index === 0}
-                />
-              </Fragment>
-            ))}
+              {orderedLanguageCodes.map((code, index) => (
+                <Fragment key={code}>
+                  <Text style={styles.languageLabel}>{languageNames[code]}</Text>
+                  <AppTextInput
+                    style={styles.input}
+                    value={
+                      code === "sv"
+                        ? newCategorySv
+                        : code === "en"
+                          ? newCategoryEn
+                          : newCategoryEs
+                    }
+                    onChangeText={(value) => {
+                      if (code === "sv") setNewCategorySv(value);
+                      else if (code === "en") setNewCategoryEn(value);
+                      else setNewCategoryEs(value);
+                      setCategoryError("");
+                    }}
+                    autoFocus={index === 0}
+                  />
+                </Fragment>
+              ))}
 
-            <Text style={styles.categoryHint}>{t("fillTwoLanguages")}</Text>
+              <Text style={styles.categoryHint}>{t("fillTwoLanguages")}</Text>
 
-            {!!categoryError && (
-              <Text style={styles.formError}>{categoryError}</Text>
-            )}
+              {!!categoryError && (
+                <Text style={styles.formError}>{categoryError}</Text>
+              )}
 
-            <TouchableOpacity
-              style={[
-                styles.modalPrimaryButton,
-                savingCategory && styles.disabledButton,
-              ]}
-              onPress={addCategory}
-              disabled={savingCategory}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalPrimaryButtonText}>
-                {savingCategory ? pageText.saving : t("add")}
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalPrimaryButton,
+                  savingCategory && styles.disabledButton,
+                ]}
+                onPress={addCategory}
+                disabled={savingCategory}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalPrimaryButtonText}>
+                  {savingCategory ? pageText.saving : t("add")}
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.modalCancelButton}
-              onPress={closeAddCategory}
-              disabled={savingCategory}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalCancelText}>{t("cancel")}</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={closeAddCategory}
+                disabled={savingCategory}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalCancelText}>{t("cancel")}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
 

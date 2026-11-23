@@ -7,12 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppTextInput } from "@/components/app-text-input";
 import { BackButton } from "@/components/back-button";
 import { LanguagePicker } from "@/components/language-picker";
 import { useUiLanguage } from "@/context/ui-language-context";
@@ -219,6 +219,7 @@ export default function NotePage() {
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       >
         <View style={styles.header}>
           <BackButton onPress={goToNotes} />
@@ -228,7 +229,7 @@ export default function NotePage() {
         {/* Behåll skrivpapprets linjer, marginal och växande textfält. */}
         <View style={styles.paper}>
           <View style={styles.marginLine} pointerEvents="none" />
-          <TextInput
+          <AppTextInput
             style={styles.titleInput}
             placeholder={t("noteTitle")}
             placeholderTextColor="#91A5B9"
@@ -237,7 +238,7 @@ export default function NotePage() {
           />
           <View style={styles.writingArea}>
             <PaperLines />
-            <TextInput
+            <AppTextInput
               style={styles.textInput}
               placeholder={t("noteText")}
               placeholderTextColor="#91A5B9"

@@ -472,6 +472,19 @@ export const styles = StyleSheet.create({
     padding: 24,
   },
 
+  // Rutan för att redigera ett ord kan skrollas,
+  // så att Spara inte göms bakom tangentbordet.
+  editModalScroll: {
+    width: "100%",
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+
+  editModalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+
   addWordModal: { maxHeight: "85%" },
   addWordModalContent: { paddingTop: 8, paddingBottom: 8 },
   editModal: {

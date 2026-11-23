@@ -419,70 +419,65 @@ export default function DictionaryPage() {
 
   async function addWord() {
     if (addingWord) return;
-    if (!newWord.trim() || !newTranslation.trim()) {
-      setAddError(ui("Fyll i både ord och översättning."));
+
+    const fromCode = String(from ?? "").toLowerCase();
+    const toCode = String(to ?? "").toLowerCase();
+    const thirdCode = Object.keys(languageNames).find(
+      (code) => code !== fromCode && code !== toCode,
+    );
+    if (
+      !languageNames[fromCode] ||
+      !languageNames[toCode] ||
+      !thirdCode ||
+      fromCode === toCode
+    ) {
+      setAddError(ui("Språken kunde inte hittas."));
       return;
     }
+
+    // Man fyller i minst två av språken, vilka som helst.
+    // Till exempel svenska och spanska, fast man står i läget
+    // engelska till svenska. Tomma fält sparas inte.
+    const entries = [
+      { code: fromCode, text: newWord.trim() },
+      { code: toCode, text: newTranslation.trim() },
+      { code: thirdCode, text: newThirdTranslation.trim() },
+    ].filter((entry) => entry.text.length > 0);
+
+    if (entries.length < 2) {
+      setAddError(t("fillTwoLanguages"));
+      return;
+    }
+
     setAddingWord(true);
     setAddError("");
     try {
-      const fromCode = String(from ?? "").toLowerCase();
-      const toCode = String(to ?? "").toLowerCase();
-      const thirdCode = Object.keys(languageNames).find(
-        (code) => code !== fromCode && code !== toCode,
-      );
-      const fromName = languageNames[fromCode];
-      const toName = languageNames[toCode];
-      if (!fromName || !toName || !thirdCode || fromCode === toCode) {
-        setAddError(ui("Språken kunde inte hittas."));
-        return;
-      }
-      const fromRow = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM languages WHERE name = ?",
-        fromName,
-      );
-      const toRow = await db.getFirstAsync<{ id: number }>(
-        "SELECT id FROM languages WHERE name = ?",
-        toName,
-      );
-      const thirdRow = newThirdTranslation.trim()
-        ? await db.getFirstAsync<{ id: number }>(
-            "SELECT id FROM languages WHERE name = ?",
-            languageNames[thirdCode],
-          )
-        : null;
-      if (!fromRow || !toRow || (newThirdTranslation.trim() && !thirdRow)) {
-        setAddError(ui("Språken kunde inte hittas."));
-        return;
-      }
+      // Ordets namn är texten i det första ifyllda fältet.
+      const wordName = entries[0].text;
+
       await db.withTransactionAsync(async () => {
         await db.runAsync(
           "INSERT OR IGNORE INTO words (name) VALUES (?)",
-          newWord.trim(),
+          wordName,
         );
         const wordRow = await db.getFirstAsync<{ id: number }>(
           "SELECT id FROM words WHERE name = ?",
-          newWord.trim(),
+          wordName,
         );
         if (!wordRow) throw new Error("Word could not be found after insert");
-        await db.runAsync(
-          "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-          wordRow.id,
-          fromRow.id,
-          newWord.trim(),
-        );
-        await db.runAsync(
-          "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
-          wordRow.id,
-          toRow.id,
-          newTranslation.trim(),
-        );
-        if (thirdRow && newThirdTranslation.trim()) {
+
+        for (const entry of entries) {
+          const languageRow = await db.getFirstAsync<{ id: number }>(
+            "SELECT id FROM languages WHERE name = ?",
+            languageNames[entry.code],
+          );
+          if (!languageRow) throw new Error(`Language ${entry.code} is missing`);
+
           await db.runAsync(
             "INSERT OR IGNORE INTO translations (word_id, language_id, text) VALUES (?, ?, ?)",
             wordRow.id,
-            thirdRow.id,
-            newThirdTranslation.trim(),
+            languageRow.id,
+            entry.text,
           );
         }
         if (newInformation.trim()) {
@@ -879,6 +874,7 @@ export default function DictionaryPage() {
             : filteredTranslations
         }
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         keyExtractor={(item) => String(item.word_id)}
         ListHeaderComponent={
           displayMode === "side" && filteredTranslations.length > 0 ? (

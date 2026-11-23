@@ -1,4 +1,5 @@
 import { styles as idiomsStyles } from "@/components/idioms/idioms-styles";
+import { AppTextInput } from "@/components/app-text-input";
 import { IDIOM_UI as idiomUiTranslations } from "@/components/idioms/idioms-translations";
 import type { Idiom } from "@/components/idioms/idioms-types";
 import { FontAwesome } from "@expo/vector-icons";
@@ -19,7 +20,6 @@ import {
   Platform,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -257,8 +257,13 @@ export default function IdiomsPage() {
     const thirdText = newThirdTranslation.trim();
     const infoText = newInfo.trim();
 
-    if (!idiomText || !translationText) {
-      setFormError(ui.required);
+    // Man fyller i minst två av språken, vilka som helst.
+    const filledCount = [idiomText, translationText, thirdText].filter(
+      (text) => text.length > 0,
+    ).length;
+
+    if (filledCount < 2) {
+      setFormError(t("fillTwoLanguages"));
       return;
     }
 
@@ -274,9 +279,19 @@ export default function IdiomsPage() {
         return;
       }
 
+      // Tomma fält sparas inte.
+      const entries = [
+        { languageId: languages.fromId, text: idiomText },
+        { languageId: languages.toId, text: translationText },
+        { languageId: languages.thirdId, text: thirdText },
+      ].filter((entry) => entry.text.length > 0);
+
+      // Idiomets namn är texten i det första ifyllda fältet.
+      const idiomName = entries[0].text;
+
       const existing = await db.getFirstAsync<{ id: number }>(
         "SELECT id FROM idioms WHERE LOWER(name) = LOWER(?)",
-        idiomText,
+        idiomName,
       );
 
       if (existing) {
@@ -287,35 +302,18 @@ export default function IdiomsPage() {
       await db.withExclusiveTransactionAsync(async (txn) => {
         const inserted = await txn.runAsync(
           "INSERT INTO idioms (name, info) VALUES (?, ?)",
-          idiomText,
+          idiomName,
           infoText || null,
         );
 
         const idiomId = inserted.lastInsertRowId;
 
-        await txn.runAsync(
-          `INSERT INTO idiom_translations
-           (idiom_id, language_id, text)
-           VALUES (?, ?, ?)`,
-          idiomId,
-          languages.fromId,
-          idiomText,
-        );
-
-        await txn.runAsync(
-          `INSERT INTO idiom_translations
-           (idiom_id, language_id, text)
-           VALUES (?, ?, ?)`,
-          idiomId,
-          languages.toId,
-          translationText,
-        );
-        if (thirdText) {
+        for (const entry of entries) {
           await txn.runAsync(
             "INSERT INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
             idiomId,
-            languages.thirdId,
-            thirdText,
+            entry.languageId,
+            entry.text,
           );
         }
       });
@@ -647,6 +645,7 @@ const visibleIdioms = idioms.filter(
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       />
 
       {/* SAMMA RUNDA PLUSKNAPP */}
@@ -708,7 +707,7 @@ const visibleIdioms = idioms.filter(
               <Text style={styles.modalTitle}>{ui.addIdiom}</Text>
 
               <Text style={styles.addFieldLabel}>{fromLanguage ?? from}</Text>
-              <TextInput
+              <AppTextInput
                 style={[styles.input, styles.idiomInput]}
                 value={newIdiom}
                 onChangeText={(value) => {
@@ -722,7 +721,7 @@ const visibleIdioms = idioms.filter(
 
               <Text style={styles.addFieldLabel}>{toLanguage ?? to}</Text>
 
-              <TextInput
+              <AppTextInput
                 style={[styles.input, styles.idiomInput]}
                 value={newTranslation}
                 onChangeText={(value) => {
@@ -735,9 +734,9 @@ const visibleIdioms = idioms.filter(
               />
 
               <Text style={styles.addFieldLabel}>
-                {thirdLanguage} ({ui.optional})
+                {thirdLanguage}
               </Text>
-              <TextInput
+              <AppTextInput
                 style={[styles.input, styles.idiomInput]}
                 value={newThirdTranslation}
                 onChangeText={setNewThirdTranslation}
@@ -748,7 +747,7 @@ const visibleIdioms = idioms.filter(
 
               <Text style={styles.addFieldLabel}>{ui.optionalInfo}</Text>
 
-              <TextInput
+              <AppTextInput
                 style={[styles.input, styles.idiomInput]}
                 value={newInfo}
                 onChangeText={setNewInfo}
@@ -824,7 +823,7 @@ const visibleIdioms = idioms.filter(
                 <Text style={styles.modalLanguageText}>{toLanguage ?? to}</Text>
               </View>
 
-              <TextInput
+              <AppTextInput
                 style={[styles.input, styles.idiomInput]}
                 value={editIdiomText}
                 onChangeText={(value) => {
@@ -838,7 +837,7 @@ const visibleIdioms = idioms.filter(
                 autoCapitalize="sentences"
               />
 
-              <TextInput
+              <AppTextInput
                 style={[styles.input, styles.idiomInput]}
                 value={editTranslationText}
                 onChangeText={(value) => {
@@ -855,7 +854,7 @@ const visibleIdioms = idioms.filter(
               <Text style={styles.addFieldLabel}>
                 {thirdLanguage} ({ui.optional})
               </Text>
-              <TextInput
+              <AppTextInput
                 style={[styles.input, styles.idiomInput]}
                 value={editThirdTranslation}
                 onChangeText={setEditThirdTranslation}
@@ -864,7 +863,7 @@ const visibleIdioms = idioms.filter(
                 autoCapitalize="sentences"
               />
 
-              <TextInput
+              <AppTextInput
                 style={[styles.input, styles.idiomInput]}
                 placeholder={ui.infoOptional}
                 placeholderTextColor="#94A3B8"

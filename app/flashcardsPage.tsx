@@ -2,6 +2,7 @@ import {
   getCategoryName as getCategoryNameHelper,
   shuffle,
 } from "@/components/flashcards/flashcards-helpers";
+import { AppTextInput } from "@/components/app-text-input";
 import { FlashcardsPractice } from "@/components/flashcards/flashcards-practice";
 import { FlashcardsResult } from "@/components/flashcards/flashcards-result";
 import { styles } from "@/components/flashcards/flashcards-styles";
@@ -26,7 +27,6 @@ import {
   Modal,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -634,6 +634,7 @@ const countWords = useCallback(async (src: Source) => {
         ref={mainScrollRef}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         showsVerticalScrollIndicator
         persistentScrollbar
         onContentSizeChange={(_, height) => setScrollHeight(height)}
@@ -933,7 +934,7 @@ const countWords = useCallback(async (src: Source) => {
           <View>
             {/* Namnet visas bara nar man bygger en egen lista. */}
             {editingDeck && (
-              <TextInput
+              <AppTextInput
                 style={styles.nameInput}
                 placeholder={t("listName")}
                 value={deckName}
@@ -1198,7 +1199,7 @@ const countWords = useCallback(async (src: Source) => {
                   ? `Choose between 1 and ${randomPickerMode === "practice" ? sourceCount : visibleWords.length} words.`
                   : `Välj mellan 1 och ${randomPickerMode === "practice" ? sourceCount : visibleWords.length} ord.`}
             </Text>
-            <TextInput
+            <AppTextInput
               style={styles.randomAmountInput}
               value={randomAmount}
               onChangeText={(value) =>

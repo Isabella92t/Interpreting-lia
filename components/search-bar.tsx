@@ -1,12 +1,12 @@
 import { FontAwesome } from "@expo/vector-icons";
 import {
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
   type ViewStyle,
 } from "react-native";
 
+import { AppTextInput } from "@/components/app-text-input";
 import { colors } from "@/constants/colors";
 
 type Props = {
@@ -21,7 +21,7 @@ export function SearchBar({ value, onChangeText, style }: Props) {
     <View style={[styles.container, style]}>
       <FontAwesome name="search" size={16} color="#94A3B8" />
 
-      <TextInput
+      <AppTextInput
         style={styles.input}
         value={value}
         onChangeText={onChangeText}

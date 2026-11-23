@@ -4,11 +4,11 @@ import {
   Modal,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 
+import { AppTextInput } from "@/components/app-text-input";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { languageNames, pageTexts } from "./second-page-helpers";
 import { styles } from "./second-page-styles";
@@ -91,6 +91,7 @@ export function AddWordModal({
           style={styles.modalScroll}
           contentContainerStyle={styles.modalScrollContent}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
         >
           <View style={styles.categoryModal}>
             <Text style={styles.modalTitle}>{t("addWord")}</Text>
@@ -98,7 +99,7 @@ export function AddWordModal({
             <Text style={styles.languageLabel}>
               {languageNames[fromCode] ?? from}
             </Text>
-            <TextInput
+            <AppTextInput
               style={styles.input}
               value={word}
               onChangeText={onWordChange}
@@ -107,14 +108,14 @@ export function AddWordModal({
             <Text style={styles.languageLabel}>
               {languageNames[toCode] ?? to}
             </Text>
-            <TextInput
+            <AppTextInput
               style={styles.input}
               value={translation}
               onChangeText={onTranslationChange}
             />
 
             <Text style={styles.languageLabel}>{languageNames[thirdCode]}</Text>
-            <TextInput
+            <AppTextInput
               style={styles.input}
               value={thirdTranslation}
               onChangeText={onThirdTranslationChange}
@@ -123,7 +124,7 @@ export function AddWordModal({
             <Text style={styles.informationLabel}>
               {texts.optionalInformation}
             </Text>
-            <TextInput
+            <AppTextInput
               style={[styles.input, styles.informationInput]}
               value={information}
               onChangeText={onInformationChange}

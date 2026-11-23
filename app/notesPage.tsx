@@ -138,6 +138,7 @@ export default function NotesPage() {
         style={styles.list}
         data={visibleNotes}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         keyExtractor={(item) => String(item.id)}
         numColumns={2}
         columnWrapperStyle={styles.row}
