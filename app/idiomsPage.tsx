@@ -3,13 +3,16 @@ import { AppTextInput } from "@/components/app-text-input";
 import { IDIOM_UI as idiomUiTranslations } from "@/components/idioms/idioms-translations";
 import type { Idiom } from "@/components/idioms/idioms-types";
 import { FontAwesome } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "@/components/back-button";
+import { LanguageFields } from "@/components/language-fields";
 import { LanguagePicker } from "@/components/language-picker";
 import { SearchBar } from "@/components/search-bar";
+import { getFilledLanguages, languageNames } from "@/constants/languages";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -24,11 +27,10 @@ import {
   View,
 } from "react-native";
 
-const languageNames: Record<string, string> = {
-  sv: "Svenska",
-  en: "English",
-  es: "Español",
-};
+// Samma nyckel som i ordboken. Då är redigeringsläget
+// på eller av på båda sidorna samtidigt.
+const EDIT_PENCILS_KEY = "tolkappen:showEditPencils";
+
 function normalizeSearchText(value: string) {
   return value
     .normalize("NFD")
@@ -90,9 +92,10 @@ export default function IdiomsPage() {
 
   // Lägg till idiom
   const [showAddIdiom, setShowAddIdiom] = useState(false);
-  const [newIdiom, setNewIdiom] = useState("");
-  const [newTranslation, setNewTranslation] = useState("");
-  const [newThirdTranslation, setNewThirdTranslation] = useState("");
+  // Texten för varje språk i "Lägg till idiom", med språkkoden som nyckel.
+  const [newIdiomTexts, setNewIdiomTexts] = useState<Record<string, string>>(
+    {},
+  );
   const [newInfo, setNewInfo] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
@@ -206,6 +209,36 @@ export default function IdiomsPage() {
       void loadIdioms();
     }, [loadIdioms]),
   );
+
+  // Pennorna visas bara i redigeringsläget.
+  // Läs inställningen varje gång sidan visas.
+  const [showEditPencils, setShowEditPencils] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      AsyncStorage.getItem(EDIT_PENCILS_KEY)
+        .then((value) => {
+          if (active) setShowEditPencils(value === "true");
+        })
+        .catch((error) =>
+          console.error("Kunde inte läsa redigeringsläge:", error),
+        );
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  async function toggleEditPencils() {
+    const next = !showEditPencils;
+    setShowEditPencils(next);
+    try {
+      await AsyncStorage.setItem(EDIT_PENCILS_KEY, String(next));
+    } catch (error) {
+      console.error("Kunde inte spara redigeringsläge:", error);
+    }
+  }
   async function getLanguageIds() {
     if (!fromLanguage || !toLanguage || fromLanguage === toLanguage) {
       return null;
@@ -241,9 +274,7 @@ export default function IdiomsPage() {
   function closeAddIdiom() {
     if (saving) return;
 
-    setNewIdiom("");
-    setNewTranslation("");
-    setNewThirdTranslation("");
+    setNewIdiomTexts({});
     setNewInfo("");
     setFormError("");
     setShowAddIdiom(false);
@@ -252,17 +283,19 @@ export default function IdiomsPage() {
   async function addIdiom() {
     if (saving) return;
 
-    const idiomText = newIdiom.trim();
-    const translationText = newTranslation.trim();
-    const thirdText = newThirdTranslation.trim();
+    const fromCode = String(from ?? "").toLowerCase();
+    const toCode = String(to ?? "").toLowerCase();
     const infoText = newInfo.trim();
 
-    // Man fyller i minst två av språken, vilka som helst.
-    const filledCount = [idiomText, translationText, thirdText].filter(
-      (text) => text.length > 0,
-    ).length;
+    if (!fromLanguage || !toLanguage || fromCode === toCode) {
+      setFormError(ui.languagesMissing);
+      return;
+    }
 
-    if (filledCount < 2) {
+    // Man fyller i minst två språk, vilka som helst. Tomma fält sparas inte.
+    const entries = getFilledLanguages(newIdiomTexts, fromCode, toCode);
+
+    if (entries.length < 2) {
       setFormError(t("fillTwoLanguages"));
       return;
     }
@@ -272,19 +305,6 @@ export default function IdiomsPage() {
 
     try {
       await ensureIdiomInfoColumn();
-      const languages = await getLanguageIds();
-
-      if (!languages) {
-        setFormError(ui.languagesMissing);
-        return;
-      }
-
-      // Tomma fält sparas inte.
-      const entries = [
-        { languageId: languages.fromId, text: idiomText },
-        { languageId: languages.toId, text: translationText },
-        { languageId: languages.thirdId, text: thirdText },
-      ].filter((entry) => entry.text.length > 0);
 
       // Idiomets namn är texten i det första ifyllda fältet.
       const idiomName = entries[0].text;
@@ -309,18 +329,22 @@ export default function IdiomsPage() {
         const idiomId = inserted.lastInsertRowId;
 
         for (const entry of entries) {
+          const languageRow = await txn.getFirstAsync<{ id: number }>(
+            "SELECT id FROM languages WHERE name = ?",
+            languageNames[entry.code],
+          );
+          if (!languageRow) throw new Error(`Språket ${entry.code} saknas`);
+
           await txn.runAsync(
             "INSERT INTO idiom_translations (idiom_id, language_id, text) VALUES (?, ?, ?)",
             idiomId,
-            entry.languageId,
+            languageRow.id,
             entry.text,
           );
         }
       });
 
-      setNewIdiom("");
-      setNewTranslation("");
-      setNewThirdTranslation("");
+      setNewIdiomTexts({});
       setNewInfo("");
       setShowAddIdiom(false);
 
@@ -559,6 +583,24 @@ const visibleIdioms = idioms.filter(
       <Text style={styles.title}>{t("idioms")}</Text>
 
       <View style={styles.displayModeBar}>
+        {/* Knappen visar och döljer pennorna på raderna. */}
+        <TouchableOpacity
+          style={[
+            styles.displayModeButton,
+            showEditPencils && styles.editModeActive,
+          ]}
+          onPress={() => {
+            void toggleEditPencils();
+          }}
+          accessibilityRole="button"
+          accessibilityState={{ selected: showEditPencils }}
+        >
+          <FontAwesome name="pencil" size={13} color="#71859B" />
+          <Text style={styles.displayModeLabel}>
+            {showEditPencils ? t("done") : ui.editItem}
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.displayModeButton}
           onPress={() => {
@@ -631,15 +673,17 @@ const visibleIdioms = idioms.filter(
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              onPress={() => openEditIdiom(item)}
-              style={styles.editButton}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={`${ui.editItem} ${item.text_from}`}
-            >
-              <FontAwesome name="pencil" size={13} color="#8194A9" />
-            </TouchableOpacity>
+            {showEditPencils && (
+              <TouchableOpacity
+                onPress={() => openEditIdiom(item)}
+                style={styles.editButton}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`${ui.editItem} ${item.text_from}`}
+              >
+                <FontAwesome name="pencil" size={13} color="#8194A9" />
+              </TouchableOpacity>
+            )}
           </View>
         )}
         contentContainerStyle={styles.listContent}
@@ -706,43 +750,17 @@ const visibleIdioms = idioms.filter(
             <View style={styles.categoryModal}>
               <Text style={styles.modalTitle}>{ui.addIdiom}</Text>
 
-              <Text style={styles.addFieldLabel}>{fromLanguage ?? from}</Text>
-              <AppTextInput
-                style={[styles.input, styles.idiomInput]}
-                value={newIdiom}
-                onChangeText={(value) => {
-                  setNewIdiom(value);
+              <LanguageFields
+                fromCode={String(from ?? "").toLowerCase()}
+                toCode={String(to ?? "").toLowerCase()}
+                texts={newIdiomTexts}
+                onChangeText={(code, value) => {
+                  setNewIdiomTexts((current) => ({ ...current, [code]: value }));
                   setFormError("");
                 }}
+                labelStyle={styles.addFieldLabel}
+                inputStyle={[styles.input, styles.idiomInput]}
                 multiline
-                textAlignVertical="top"
-                autoCapitalize="sentences"
-              />
-
-              <Text style={styles.addFieldLabel}>{toLanguage ?? to}</Text>
-
-              <AppTextInput
-                style={[styles.input, styles.idiomInput]}
-                value={newTranslation}
-                onChangeText={(value) => {
-                  setNewTranslation(value);
-                  setFormError("");
-                }}
-                multiline
-                textAlignVertical="top"
-                autoCapitalize="sentences"
-              />
-
-              <Text style={styles.addFieldLabel}>
-                {thirdLanguage}
-              </Text>
-              <AppTextInput
-                style={[styles.input, styles.idiomInput]}
-                value={newThirdTranslation}
-                onChangeText={setNewThirdTranslation}
-                multiline
-                textAlignVertical="top"
-                autoCapitalize="sentences"
               />
 
               <Text style={styles.addFieldLabel}>{ui.optionalInfo}</Text>

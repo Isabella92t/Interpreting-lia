@@ -3,6 +3,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import type { SQLiteDatabase } from "expo-sqlite";
 import { Platform } from "react-native";
 
+import { WORD_LANGUAGES } from "../constants/languages";
+
 // =========================
 // Enkel CSV-parser
 // Klarar även text inom "citattecken"
@@ -67,20 +69,14 @@ export async function seedDatabase(db: SQLiteDatabase) {
   // Språk
   // =========================
 
-  await db.runAsync(
-    "INSERT OR IGNORE INTO languages (name) VALUES (?)",
-    "Svenska",
-  );
-
-  await db.runAsync(
-    "INSERT OR IGNORE INTO languages (name) VALUES (?)",
-    "English",
-  );
-
-  await db.runAsync(
-    "INSERT OR IGNORE INTO languages (name) VALUES (?)",
-    "Español",
-  );
+  // Alla språk i constants/languages.ts läggs in.
+  // Ett nytt språk i listan kommer alltså in i databasen automatiskt.
+  for (const language of WORD_LANGUAGES) {
+    await db.runAsync(
+      "INSERT OR IGNORE INTO languages (name) VALUES (?)",
+      language.name,
+    );
+  }
 
   // =========================
   // Hämta språk-ID

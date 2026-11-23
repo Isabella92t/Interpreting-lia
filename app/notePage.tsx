@@ -1,3 +1,4 @@
+import { FontAwesome } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
@@ -106,6 +107,9 @@ export default function NotePage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  // En sparad anteckning öppnas i läsläge. Man trycker på pennan
+  // för att ändra den. En ny anteckning öppnas direkt i redigeringsläge.
+  const [editing, setEditing] = useState(!id);
   const [deleting, setDeleting] = useState(false);
   const savingRef = useRef(false);
   const deletingRef = useRef(false);
@@ -146,7 +150,9 @@ export default function NotePage() {
     return `${year}-${month}-${day}`;
   }
 
-  async function saveNote() {
+  // stayOnPage = true används av Klar-knappen: anteckningen sparas
+  // och visas i läsläge igen. Spara-knappen går tillbaka till listan.
+  async function saveNote(stayOnPage = false) {
     if (savingRef.current || deletingRef.current) return;
     if (!title.trim() && !text.trim()) {
       Alert.alert(t("writeSomethingFirst"));
@@ -177,7 +183,11 @@ export default function NotePage() {
           selectedDateValue,
         );
       }
-      goToNotes();
+      if (stayOnPage) {
+        setEditing(false);
+      } else {
+        goToNotes();
+      }
     } catch (error) {
       console.error("Kunde inte spara anteckningen:", error);
       Alert.alert(messages.error, messages.saveFailed);
@@ -223,7 +233,32 @@ export default function NotePage() {
       >
         <View style={styles.header}>
           <BackButton onPress={goToNotes} />
-          <LanguagePicker />
+          <View style={styles.headerRight}>
+            {/* Redigera och Klar på samma knapp. Bara för sparade
+                anteckningar, en ny anteckning är alltid i redigeringsläge. */}
+            {!!id && (
+              <TouchableOpacity
+                style={[styles.editButton, editing && styles.editButtonActive]}
+                onPress={() => {
+                  if (editing) {
+                    void saveNote(true);
+                  } else {
+                    setEditing(true);
+                  }
+                }}
+                disabled={saving || deleting}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: editing }}
+              >
+                <FontAwesome name="pencil" size={14} color="#285F9D" />
+                <Text style={styles.editButtonText}>
+                  {editing ? t("done") : t("edit")}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <LanguagePicker />
+          </View>
         </View>
 
         {/* Behåll skrivpapprets linjer, marginal och växande textfält. */}
@@ -235,6 +270,7 @@ export default function NotePage() {
             placeholderTextColor="#91A5B9"
             value={title}
             onChangeText={setTitle}
+            editable={editing}
           />
           <View style={styles.writingArea}>
             <PaperLines />
@@ -244,6 +280,7 @@ export default function NotePage() {
               placeholderTextColor="#91A5B9"
               value={text}
               onChangeText={setText}
+              editable={editing}
               multiline
               scrollEnabled={false}
               textAlignVertical="top"
@@ -251,47 +288,62 @@ export default function NotePage() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.dateButton} onPress={openDatePicker}>
-          <Text style={styles.calendarSymbol}>📅</Text>
-          <Text style={styles.dateButtonText}>
-            {selectedDate ? formatDateOnly(selectedDate) : t("chooseDate")}
-          </Text>
-        </TouchableOpacity>
-
-        {selectedDate && (
-          <TouchableOpacity
-            style={styles.removeDateButton}
-            onPress={() => setSelectedDate(null)}
-          >
-            <Text style={styles.removeDateText}>{t("removeDate")}</Text>
-          </TouchableOpacity>
+        {/* I läsläget visas bara datumet, om det finns ett. */}
+        {!editing && selectedDate && (
+          <View style={styles.dateButton}>
+            <Text style={styles.calendarSymbol}>📅</Text>
+            <Text style={styles.dateButtonText}>
+              {formatDateOnly(selectedDate)}
+            </Text>
+          </View>
         )}
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate || new Date()}
-            mode="date"
-            display="spinner"
-            onChange={handleDateChange}
-          />
-        )}
+        {/* Datum, Spara och Ta bort visas bara i redigeringsläget. */}
+        {editing && (
+          <>
+            <TouchableOpacity style={styles.dateButton} onPress={openDatePicker}>
+              <Text style={styles.calendarSymbol}>📅</Text>
+              <Text style={styles.dateButtonText}>
+                {selectedDate ? formatDateOnly(selectedDate) : t("chooseDate")}
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={saveNote}
-          disabled={saving || deleting}
-        >
-          <Text style={styles.saveButtonText}>{t("save")}</Text>
-        </TouchableOpacity>
+            {selectedDate && (
+              <TouchableOpacity
+                style={styles.removeDateButton}
+                onPress={() => setSelectedDate(null)}
+              >
+                <Text style={styles.removeDateText}>{t("removeDate")}</Text>
+              </TouchableOpacity>
+            )}
 
-        {id && (
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={deleteNote}
-            disabled={saving || deleting}
-          >
-            <Text style={styles.deleteButtonText}>{t("delete")}</Text>
-          </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate || new Date()}
+                mode="date"
+                display="spinner"
+                onChange={handleDateChange}
+              />
+            )}
+
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={() => void saveNote()}
+              disabled={saving || deleting}
+            >
+              <Text style={styles.saveButtonText}>{t("save")}</Text>
+            </TouchableOpacity>
+
+            {id && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={deleteNote}
+                disabled={saving || deleting}
+              >
+                <Text style={styles.deleteButtonText}>{t("delete")}</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -307,6 +359,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 42,
   },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 12 },
+  editButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DFE8F1",
+    backgroundColor: "#FFFFFF",
+  },
+  editButtonActive: { backgroundColor: "#E7F2FC", borderColor: "#B9D6EB" },
+  editButtonText: { fontSize: 13, fontWeight: "600", color: "#285F9D" },
   paper: {
     marginTop: 16,
     backgroundColor: "#FFFFFF",

@@ -5,34 +5,30 @@ import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 type InfoLocation = "results" | "list";
 
-type SelectedInformation = {
-  wordId: number;
-  location: InfoLocation;
-} | null;
+// Varje öppen informationsruta har en egen nyckel, till exempel "list:12".
+// Samma ord kan visas både bland sökresultaten och i listan,
+// därför ingår platsen i nyckeln.
+export function informationKey(item: Translation, location: InfoLocation) {
+  return `${location}:${item.word_id}`;
+}
 
 type WordInfoPopupProps = {
   item: Translation;
   location: InfoLocation;
-  selectedInformation: SelectedInformation;
+  openInformation: string[];
 };
 
 export function WordInfoPopup({
   item,
   location,
-  selectedInformation,
+  openInformation,
 }: WordInfoPopupProps) {
-  if (
-    selectedInformation?.wordId !== item.word_id ||
-    selectedInformation.location !== location
-  ) {
+  if (!openInformation.includes(informationKey(item, location))) {
     return null;
   }
 
   return (
-    <View
-      style={styles.inlineInfoPopup}
-      onTouchEnd={(event) => event.stopPropagation()}
-    >
+    <View style={styles.inlineInfoPopup}>
       <ScrollView
         style={styles.inlineInfoScroll}
         contentContainerStyle={styles.inlineInfoScrollContent}
@@ -47,35 +43,31 @@ export function WordInfoPopup({
 type WordInfoButtonProps = {
   item: Translation;
   location: InfoLocation;
-  selectedInformation: SelectedInformation;
-  onSelectInformation: (
-    updater: (current: SelectedInformation) => SelectedInformation,
-  ) => void;
+  openInformation: string[];
+  onToggleInformation: (key: string) => void;
   ui: (key: string) => string;
 };
 
+// Knappen visar eller döljer informationen för just det här ordet.
+// Flera ord kan ha informationen öppen samtidigt.
 export function WordInfoButton({
   item,
   location,
-  selectedInformation,
-  onSelectInformation,
+  openInformation,
+  onToggleInformation,
   ui,
 }: WordInfoButtonProps) {
   if (!item.information?.trim()) return null;
 
+  const key = informationKey(item, location);
+
   return (
     <TouchableOpacity
       style={styles.infoButton}
-      onPressIn={(event) => event.stopPropagation()}
-      onPress={() =>
-        onSelectInformation((current) =>
-          current?.wordId === item.word_id && current.location === location
-            ? null
-            : { wordId: item.word_id, location },
-        )
-      }
+      onPress={() => onToggleInformation(key)}
       accessibilityRole="button"
       accessibilityLabel={`${ui("Visa information om")} ${item.text_from}`}
+      accessibilityState={{ expanded: openInformation.includes(key) }}
       hitSlop={6}
     >
       <FontAwesome name="info-circle" size={15} color="#285F9D" />

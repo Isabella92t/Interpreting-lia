@@ -9,8 +9,9 @@ import {
 } from "react-native";
 
 import { AppTextInput } from "@/components/app-text-input";
+import { LanguageFields } from "@/components/language-fields";
 import { useUiLanguage } from "@/context/ui-language-context";
-import { languageNames, pageTexts } from "./second-page-helpers";
+import { pageTexts } from "./second-page-helpers";
 import { styles } from "./second-page-styles";
 
 type CategoryOption = {
@@ -22,17 +23,14 @@ type AddWordModalProps = {
   visible: boolean;
   from?: string;
   to?: string;
-  word: string;
-  translation: string;
-  thirdTranslation: string;
+  // Texten för varje språk, med språkkoden som nyckel.
+  wordTexts: Record<string, string>;
   information: string;
   categories: CategoryOption[];
   selectedCategories: string[];
   error: string;
   saving: boolean;
-  onWordChange: (value: string) => void;
-  onTranslationChange: (value: string) => void;
-  onThirdTranslationChange: (value: string) => void;
+  onWordTextChange: (code: string, value: string) => void;
   onInformationChange: (value: string) => void;
   onToggleCategory: (key: string) => void;
   onSave: () => void;
@@ -43,17 +41,13 @@ export function AddWordModal({
   visible,
   from,
   to,
-  word,
-  translation,
-  thirdTranslation,
+  wordTexts,
   information,
   categories,
   selectedCategories,
   error,
   saving,
-  onWordChange,
-  onTranslationChange,
-  onThirdTranslationChange,
+  onWordTextChange,
   onInformationChange,
   onToggleCategory,
   onSave,
@@ -68,10 +62,6 @@ export function AddWordModal({
 
   const fromCode = String(from ?? "").toLowerCase();
   const toCode = String(to ?? "").toLowerCase();
-
-  const thirdCode =
-    ["sv", "en", "es"].find((code) => code !== fromCode && code !== toCode) ??
-    "en";
 
   function close() {
     if (saving) return;
@@ -96,29 +86,13 @@ export function AddWordModal({
           <View style={styles.categoryModal}>
             <Text style={styles.modalTitle}>{t("addWord")}</Text>
 
-            <Text style={styles.languageLabel}>
-              {languageNames[fromCode] ?? from}
-            </Text>
-            <AppTextInput
-              style={styles.input}
-              value={word}
-              onChangeText={onWordChange}
-            />
-
-            <Text style={styles.languageLabel}>
-              {languageNames[toCode] ?? to}
-            </Text>
-            <AppTextInput
-              style={styles.input}
-              value={translation}
-              onChangeText={onTranslationChange}
-            />
-
-            <Text style={styles.languageLabel}>{languageNames[thirdCode]}</Text>
-            <AppTextInput
-              style={styles.input}
-              value={thirdTranslation}
-              onChangeText={onThirdTranslationChange}
+            <LanguageFields
+              fromCode={fromCode}
+              toCode={toCode}
+              texts={wordTexts}
+              onChangeText={onWordTextChange}
+              labelStyle={styles.languageLabel}
+              inputStyle={styles.input}
             />
 
             <Text style={styles.informationLabel}>

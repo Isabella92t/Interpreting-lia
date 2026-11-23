@@ -20,6 +20,7 @@ import { ImportCategoryModal } from "@/components/dictionary/import-category-mod
 import { LanguagePicker } from "@/components/language-picker";
 import { SearchBar } from "@/components/search-bar";
 import { AddWordModal } from "@/components/second-page/add-word-modal";
+import { getFilledLanguages, languageNames } from "@/constants/languages";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -31,11 +32,6 @@ import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 const EDIT_PENCILS_KEY = "tolkappen:showEditPencils";
 
-const languageNames: Record<string, string> = {
-  sv: "Svenska",
-  en: "English",
-  es: "Español",
-};
 
 /** Liten diskret symbol: två deltagare och en tolk med namnbricka. */
 
@@ -130,10 +126,17 @@ export default function DictionaryPage() {
 
   const displayKey = `dictionary:${String(from ?? "").toLowerCase()}:${String(to ?? "").toLowerCase()}:${category ?? "__all__"}`;
   const [searchText, setSearchText] = useState("");
-  const [selectedInformation, setSelectedInformation] = useState<{
-    wordId: number;
-    location: "results" | "list";
-  } | null>(null);
+  // Nycklarna för de ord som har sin information öppen.
+  const [openInformation, setOpenInformation] = useState<string[]>([]);
+
+  // Öppnar informationen om den är stängd, och stänger den om den är öppen.
+  function toggleInformation(key: string) {
+    setOpenInformation((current) =>
+      current.includes(key)
+        ? current.filter((openKey) => openKey !== key)
+        : [...current, key],
+    );
+  }
 
   const [editingWord, setEditingWord] = useState<Translation | null>(null);
   const [editTextFrom, setEditTextFrom] = useState("");
@@ -148,9 +151,8 @@ export default function DictionaryPage() {
   const [deletingWord, setDeletingWord] = useState(false);
 
   const [showAddWord, setShowAddWord] = useState(false);
-  const [newWord, setNewWord] = useState("");
-  const [newTranslation, setNewTranslation] = useState("");
-  const [newThirdTranslation, setNewThirdTranslation] = useState("");
+  // Texten för varje språk i "Lägg till ord", med språkkoden som nyckel.
+  const [newWordTexts, setNewWordTexts] = useState<Record<string, string>>({});
   const [newInformation, setNewInformation] = useState("");
   const [wordCategories, setWordCategories] = useState<WordCategory[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
@@ -389,9 +391,7 @@ export default function DictionaryPage() {
   }
 
   async function openAddWord() {
-    setNewWord("");
-    setNewTranslation("");
-    setNewThirdTranslation("");
+    setNewWordTexts({});
     setNewInformation("");
     setAddError("");
     setSelectedCategoryIds([]);
@@ -422,13 +422,9 @@ export default function DictionaryPage() {
 
     const fromCode = String(from ?? "").toLowerCase();
     const toCode = String(to ?? "").toLowerCase();
-    const thirdCode = Object.keys(languageNames).find(
-      (code) => code !== fromCode && code !== toCode,
-    );
     if (
       !languageNames[fromCode] ||
       !languageNames[toCode] ||
-      !thirdCode ||
       fromCode === toCode
     ) {
       setAddError(ui("Språken kunde inte hittas."));
@@ -438,11 +434,7 @@ export default function DictionaryPage() {
     // Man fyller i minst två av språken, vilka som helst.
     // Till exempel svenska och spanska, fast man står i läget
     // engelska till svenska. Tomma fält sparas inte.
-    const entries = [
-      { code: fromCode, text: newWord.trim() },
-      { code: toCode, text: newTranslation.trim() },
-      { code: thirdCode, text: newThirdTranslation.trim() },
-    ].filter((entry) => entry.text.length > 0);
+    const entries = getFilledLanguages(newWordTexts, fromCode, toCode);
 
     if (entries.length < 2) {
       setAddError(t("fillTwoLanguages"));
@@ -454,6 +446,17 @@ export default function DictionaryPage() {
     try {
       // Ordets namn är texten i det första ifyllda fältet.
       const wordName = entries[0].text;
+
+      // Namnet måste vara unikt. Finns det redan, sparas ingenting,
+      // annars skulle de nya översättningarna försvinna utan fel.
+      const existingWord = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM words WHERE LOWER(name) = LOWER(?)",
+        wordName,
+      );
+      if (existingWord) {
+        setAddError(t("wordExists"));
+        return;
+      }
 
       await db.withTransactionAsync(async () => {
         await db.runAsync(
@@ -687,7 +690,7 @@ export default function DictionaryPage() {
       <WordInfoPopup
         item={item}
         location={location}
-        selectedInformation={selectedInformation}
+        openInformation={openInformation}
       />
     );
   }
@@ -697,8 +700,8 @@ export default function DictionaryPage() {
       <WordInfoButton
         item={item}
         location={location}
-        selectedInformation={selectedInformation}
-        onSelectInformation={setSelectedInformation}
+        openInformation={openInformation}
+        onToggleInformation={toggleInformation}
         ui={ui}
       />
     );
@@ -708,9 +711,6 @@ export default function DictionaryPage() {
     <SafeAreaView
       style={styles.container}
       edges={["top", "bottom"]}
-      onTouchEnd={() => {
-        if (selectedInformation) setSelectedInformation(null);
-      }}
     >
       <View style={styles.topRow}>
         <BackButton
@@ -784,7 +784,7 @@ export default function DictionaryPage() {
         value={searchText}
         onChangeText={(value) => {
           setSearchText(value);
-          setSelectedInformation(null);
+          setOpenInformation([]);
         }}
         style={styles.search}
       />
@@ -992,9 +992,7 @@ export default function DictionaryPage() {
         visible={showAddWord}
         from={String(from ?? "")}
         to={String(to ?? "")}
-        word={newWord}
-        translation={newTranslation}
-        thirdTranslation={newThirdTranslation}
+        wordTexts={newWordTexts}
         information={newInformation}
         categories={wordCategories
           .filter((item) => item.name !== "Övrigt")
@@ -1005,16 +1003,8 @@ export default function DictionaryPage() {
         selectedCategories={selectedCategoryIds.map(String)}
         error={addError}
         saving={addingWord}
-        onWordChange={(value) => {
-          setNewWord(value);
-          setAddError("");
-        }}
-        onTranslationChange={(value) => {
-          setNewTranslation(value);
-          setAddError("");
-        }}
-        onThirdTranslationChange={(value) => {
-          setNewThirdTranslation(value);
+        onWordTextChange={(code, value) => {
+          setNewWordTexts((current) => ({ ...current, [code]: value }));
           setAddError("");
         }}
         onInformationChange={(value) => {

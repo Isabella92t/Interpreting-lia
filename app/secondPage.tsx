@@ -5,6 +5,7 @@ import { SearchBar } from "@/components/search-bar";
 import { AddWordModal } from "@/components/second-page/add-word-modal";
 import { InterpreterLogo } from "@/components/second-page/interpreter-logo";
 import { styles } from "@/components/second-page/second-page-styles";
+import { getFilledLanguages } from "@/constants/languages";
 import { useUiLanguage } from "@/context/ui-language-context";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -67,9 +68,9 @@ export default function SecondPage() {
   const [, setShowCategoryPicker] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
 
-  const [word, setWord] = useState("");
-  const [translation, setTranslation] = useState("");
-  const [englishWord, setEnglishWord] = useState("");
+  // Texten för varje språk i "Lägg till ord", till exempel
+  // { sv: "domstol", es: "tribunal" }.
+  const [wordTexts, setWordTexts] = useState<Record<string, string>>({});
 
   const [wordInformation, setWordInformation] = useState("");
 
@@ -287,9 +288,7 @@ export default function SecondPage() {
   function closeAddWord() {
     if (savingWord) return;
 
-    setWord("");
-    setTranslation("");
-    setEnglishWord("");
+    setWordTexts({});
     setWordInformation("");
     setSelectedCategories([]);
     setShowCategoryPicker(false);
@@ -343,17 +342,24 @@ export default function SecondPage() {
 
       const internalName = categorySv || categoryEn || categoryEs;
 
+      // Kategorierna visas för alla språkpar, så namnet får inte
+      // finnas i någon kategori alls, på något av språken.
       const existingCategory = await db.getFirstAsync<{ id: number }>(
         `
           SELECT id
           FROM tags
           WHERE LOWER(name) = LOWER(?)
-            AND from_language_id = ?
-            AND to_language_id = ?
+            OR (? <> '' AND LOWER(name_sv) = LOWER(?))
+            OR (? <> '' AND LOWER(name_en) = LOWER(?))
+            OR (? <> '' AND LOWER(name_es) = LOWER(?))
           `,
         internalName,
-        fromLanguageResult.id,
-        toLanguageResult.id,
+        categorySv,
+        categorySv,
+        categoryEn,
+        categoryEn,
+        categoryEs,
+        categoryEs,
       );
 
       if (existingCategory) {
@@ -403,30 +409,21 @@ export default function SecondPage() {
   async function addWord() {
     if (savingWord) return;
 
-    // Alla tre språken visas. De två valda språken behåller sina
-    // befintliga inmatningsfält, och det tredje språket har ett eget fält.
     const fromCode = String(from ?? "").toLowerCase();
     const toCode = String(to ?? "").toLowerCase();
-    const thirdCode = ["sv", "en", "es"].find(
-      (code) => code !== fromCode && code !== toCode,
-    );
     if (
       !languageNames[fromCode] ||
       !languageNames[toCode] ||
-      !thirdCode ||
       fromCode === toCode
     ) {
       setWordError(t("languagesNotFound"));
       return;
     }
 
-    const entries = [
-      { code: fromCode, text: word.trim() },
-      { code: toCode, text: translation.trim() },
-      { code: thirdCode, text: englishWord.trim() },
-    ];
-    if (entries.filter((entry) => entry.text.length > 0).length < 2) {
-      setWordError(t("fillTwoLanguagesHelp"));
+    // Man fyller i minst två språk, vilka som helst. Tomma fält sparas inte.
+    const entries = getFilledLanguages(wordTexts, fromCode, toCode);
+    if (entries.length < 2) {
+      setWordError(t("fillTwoLanguages"));
       return;
     }
 
@@ -434,11 +431,23 @@ export default function SecondPage() {
     setWordError("");
 
     try {
+      // Ordets namn är texten i det första ifyllda fältet.
+      const wordName = entries[0].text;
+
+      // Namnet måste vara unikt. Finns det redan, sparas ingenting,
+      // annars skulle de nya översättningarna försvinna utan fel.
+      const existingWord = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM words WHERE LOWER(name) = LOWER(?)",
+        wordName,
+      );
+      if (existingWord) {
+        setWordError(t("wordExists"));
+        return;
+      }
+
       // Alla databasändringar för ett ord sparas tillsammans.
       // Om något steg misslyckas ångras hela sparningen automatiskt.
       await db.withExclusiveTransactionAsync(async (transaction) => {
-        const wordName =
-          word.trim() || translation.trim() || englishWord.trim();
         await transaction.runAsync(
           "INSERT OR IGNORE INTO words (name) VALUES (?)",
           wordName,
@@ -454,7 +463,6 @@ export default function SecondPage() {
         }
 
         for (const entry of entries) {
-          if (!entry.text) continue;
           const languageResult = await transaction.getFirstAsync<{
             id: number;
           }>(
@@ -520,9 +528,7 @@ export default function SecondPage() {
 
       await loadAllTranslations();
 
-      setWord("");
-      setTranslation("");
-      setEnglishWord("");
+      setWordTexts({});
       setWordInformation("");
       setSelectedCategories([]);
       setWordError("");
@@ -1057,9 +1063,7 @@ export default function SecondPage() {
         visible={showAddWord}
         from={String(from ?? "")}
         to={String(to ?? "")}
-        word={word}
-        translation={translation}
-        thirdTranslation={englishWord}
+        wordTexts={wordTexts}
         information={wordInformation}
         categories={categories
           .filter((item) => item.name !== "Övrigt")
@@ -1070,16 +1074,8 @@ export default function SecondPage() {
         selectedCategories={selectedCategories}
         error={wordError}
         saving={savingWord}
-        onWordChange={(value) => {
-          setWord(value);
-          setWordError("");
-        }}
-        onTranslationChange={(value) => {
-          setTranslation(value);
-          setWordError("");
-        }}
-        onThirdTranslationChange={(value) => {
-          setEnglishWord(value);
+        onWordTextChange={(code, value) => {
+          setWordTexts((current) => ({ ...current, [code]: value }));
           setWordError("");
         }}
         onInformationChange={(value) => {

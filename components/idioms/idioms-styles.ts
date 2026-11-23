@@ -70,8 +70,11 @@ export const styles = StyleSheet.create({
   displayModeBar: {
     flexDirection: "row",
     justifyContent: "flex-end",
+    gap: 8,
     marginBottom: 8,
   },
+  // Redigera-knappen när redigeringsläget är på.
+  editModeActive: { backgroundColor: "#E7F2FC", borderColor: "#B9D6EB" },
   displayModeButton: {
     flexDirection: "row",
     alignItems: "center",

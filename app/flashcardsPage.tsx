@@ -568,7 +568,13 @@ const countWords = useCallback(async (src: Source) => {
 
   const currentCard = cards[cardIndex];
 
-  const categoryLabel = chosenCategory ?? t("allWords");
+  // Rubriken visar kategorinamnet på appens språk, inte det interna namnet.
+  const chosenCategoryRow = categories.find(
+    (item) => item.name === chosenCategory,
+  );
+  const categoryLabel = chosenCategoryRow
+    ? getCategoryNameHelper(chosenCategoryRow, language)
+    : (chosenCategory ?? t("allWords"));
 
   // Soktexten filtrerar ordlistan. Tom sokruta visar alla ord.
   const searchText = search.trim().toLowerCase();

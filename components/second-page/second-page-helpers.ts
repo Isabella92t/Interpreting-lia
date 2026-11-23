@@ -51,11 +51,8 @@ export const pageTexts = {
   },
 };
 
-export const languageNames: Record<string, string> = {
-  sv: "Svenska",
-  en: "English",
-  es: "Español",
-};
+// Språklistan finns på ett ställe: constants/languages.ts.
+export { languageNames } from "@/constants/languages";
 
 export function sortByRecentlyUsed(
   categories: Category[],

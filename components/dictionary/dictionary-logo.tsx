@@ -1,13 +1,14 @@
 import { styles } from "@/components/dictionary/dictionary-styles";
 import { Text, View } from "react-native";
 
+import { useUiLanguage } from "@/context/ui-language-context";
+
 /** Liten diskret symbol: två deltagare och en tolk med namnbricka. */
 export function InterpreterLogo() {
+  const { t } = useUiLanguage();
+
   return (
-    <View
-      style={styles.logo}
-      accessibilityLabel="TolkAppen – tre personer och tolk med namnbricka"
-    >
+    <View style={styles.logo} accessibilityLabel={t("logoLabel")}>
       <View style={[styles.logoPerson, styles.logoSideLeft]}>
         <View style={styles.logoSideHead} />
         <View style={styles.logoSideBody} />
